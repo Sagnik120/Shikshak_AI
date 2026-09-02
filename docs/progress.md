@@ -6,7 +6,7 @@ Overall Status: IN PROGRESS (RAG module Phase 0, 1 & 2 Retrieval STABLE)
 - [x] Phase 1 — Adapters & Ingestion (Multi-format parsers PDF/DOCX/PPTX/TXT, OCR fallback, TF-IDF structure, Chroma adapter)
 - [x] Phase 2 — Planning & Retrieval (RAG component: BGE-M3 embeddings, hybrid RRF retrieval, BGE cross-encoder reranking, grounding prompt verification — 35/35 tests passing)
 - [ ] Phase 3 — Explanation & Visual Selection
-- [ ] Phase 4 — Video Generation
+- [x] Phase 4 — Video Generation (avatar_voice: Multilingual TTS, Viseme 2D Avatar @ 24 FPS, 6 Subject-Aware Visual Renderers, FFmpeg Compositor, Async Queue)
 - [ ] Phase 5 — Interaction Loop
 - [ ] Phase 6 — Evaluation & Adaptation
 - [ ] Phase 7 — Assessment & Learner Profile
@@ -24,10 +24,10 @@ Overall Status: IN PROGRESS (RAG module Phase 0, 1 & 2 Retrieval STABLE)
 - [ ] AI-generated lesson structure
 - [ ] Personalized teaching
 - [ ] Human-like teaching interaction
-- [ ] Video-based AI Teacher presentation
-- [ ] AI voice
-- [ ] Human-like AI avatar
-- [x] Multilingual capability (Multilingual BGE-M3 embeddings & Hindi/English parser verified)
+- [x] Video-based AI Teacher presentation (1920x1080 canvas, 70% visual viewport, 30% avatar PiP, bottom captions)
+- [x] AI voice (Multilingual Edge-TTS Neural + offline waveform fallback)
+- [x] Human-like AI avatar (Viseme-driven animated teacher avatar @ 24 FPS with transparent RGBA frames & cue poses)
+- [x] Multilingual capability (Multilingual BGE-M3 embeddings, Hindi/English parser, Swara/Madhur/Neerja/Aria neural voices)
 - [ ] Student questioning & assessment
 - [ ] Adaptive response to student performance
 - [ ] Working application/prototype

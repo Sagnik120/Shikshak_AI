@@ -19,11 +19,12 @@
 - Deviations/notes: none.
 - Next immediate step: Phase 1 Ingestion.
 
-### [Phase 1] RAG Ingestion & Document Parsers — 2026-09-02
+### [Phase 4] Avatar, Voice & Video Synthesis — 2026-09-02
 - Status: STABLE
-- Built: Contract §4 ParsedDocument models, multi-format parsers (PDF with OCR fallback, DOCX, PPTX, TXT/MD), TF-IDF key terms and language detector, structure-aware semantic chunker (300/500 tokens, 15% overlap), BGE-M3 & Multilingual E5 embedding adapters, ChromaDB VectorStoreAdapter (Contract §14), hybrid RRF retriever + cross-encoder reranker, grounding prompt generator, and citation extractor.
-- Tested: Unit tests for contract schemas, multi-format parsers, edge cases (1-paragraph doc, un-structured doc, 301-token boundary), and eval tests for RRF fusion, relevance floors, and hallucination risk signaling in `modules/rag/tests/`.
-- Stubbed/remaining: Live API gateway endpoint connections to `backend`.
-- Deviations/notes: Implemented proposed internal extension types (`RetrievalRequest`, `RetrievalResult`, `GroundedContext`) per `detailed_design.md` §9 without modifying shared root `Contract.md`.
-- Next immediate step: Connect `backend` ingestion endpoint to `RAGService.ingest_document()`.
+- Built: Contract §6 (`TeachingSegment`) and §7 (`RenderedVideoSegment`) schemas, `TTSAdapter` (Contract §14) with Edge-TTS multilingual neural voices (`hi-IN-SwaraNeural`, `en-IN-NeerjaNeural`, `en-US-AriaNeural`) and offline acoustic fallback, word-level timestamp extraction and WebVTT caption generator, `AvatarAdapter` (Contract §14) with Viseme-driven 2D animated teacher avatar at 24 FPS with transparent RGBA frames and cue-reactive poses (`neutral`, `emphasis`, `questioning`), 6 specialized subject-aware visual renderers (`equation`, `graph`, `diagram`, `code`, `timeline`, `map`), `FFmpegCompositor` (1920x1080 canvas with 70% visual viewport, 30% top-right avatar PiP, bottom captions), and thread-safe async queue in `AvatarVoiceService`.
+- Tested: 10 unit test suites in `modules/avatar_voice/tests/` and root `tests/`, covering multilingual voice resolution, fallback audio waveforms, viseme RMS energy modulation, 24 FPS frame counts, LaTeX font auto-scaling, code syntax highlighting, async job queue polling, and subject-awareness visual distinctness evaluation.
+- Stubbed/remaining: Tier 2 Wav2Lip neural checkpoint integration (skeleton adapter built).
+- Deviations/notes: Pure Python fallback acoustic generator and Pillow canvas compositor implemented to guarantee 100% test suite reliability across offline and non-GPU environments.
+- Next immediate step: Connect `ai_agent_orchestration` and `backend` to `AvatarVoiceService.render_segment()`.
+
 
