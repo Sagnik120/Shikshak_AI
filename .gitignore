@@ -1,0 +1,48 @@
+# Environments & Secrets
+.env
+.env.*
+!.env.example
+venv/
+.venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Node / Frontend
+node_modules/
+dist/
+.next/
+out/
+build/
+.npm
+*.log
+
+# Model Weights & Embeddings Cache
+models/
+checkpoints/
+.cache/
+huggingface/
+nltk_data/
+
+# Vector Stores & Databases
+chroma_db/
+*.chroma
+*.sqlite3
+*.db
+
+# Generated Media Outputs
+output/
+rendered_videos/
+temp_audio/
+*.mp4
+*.webm
+*.wav
+*.mp3
+
+# IDE & OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
