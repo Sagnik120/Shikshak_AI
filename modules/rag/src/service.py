@@ -115,10 +115,16 @@ class RAGService:
         self,
         document_id: Optional[str] = None,
         query_text: str = "",
-        top_k: int = 5
+        top_k: int = 5,
+        relevance_threshold: float = 0.2
     ) -> GroundedContext:
         """Convenience method returning ready-to-inject grounding prompt block with chunk IDs."""
-        result = self.retrieve_context(document_id, query_text, top_k=top_k)
+        result = self.retrieve_context(
+            document_id=document_id,
+            query_text=query_text,
+            top_k=top_k,
+            relevance_threshold=relevance_threshold
+        )
         return format_grounding_context_block(
             retrieved_chunks=result.chunks,
             has_sufficient_context=result.has_sufficient_context,

@@ -329,6 +329,8 @@ Created `scripts/preflight_check.py`:
 |---|---|---|:---:|:---:|
 | **RAG** | `RAG-01` | No topic-only teaching path when `document_id=None` | **Critical (P0)** | **RESOLVED & TESTED** (17/17 tests passing) |
 | **RAG** | `RAG-02` | Latin-biased chapter detection and Indic token budget overflow | **High (P1)** | **RESOLVED & TESTED** (23/23 tests passing) |
+| **RAG** | `RAG-03` | Absence of faithfulness & anti-hallucination eval suite | **High (P1)** | **RESOLVED & TESTED** (8/8 eval tests passing) |
+| **RAG** | `RAG-04` | Silent failure / missing warnings on scanned image PDFs | **Medium (P2)** | **RESOLVED & TESTED** (warnings populated) |
 | **Avatar/Voice** | `AV-01` | Single static visual slides failing progressive demonstration requirements | **Critical (P0)** | **RESOLVED & TESTED** (11/11 tests passing) |
 | **Avatar/Voice** | `AV-02` | Flat 140 WPM heuristic in offline TTS causing Hindi speech truncation | **High (P1)** | **RESOLVED & TESTED** (7/7 tests passing) |
 | **Avatar/Voice** | `AV-03` | Silent FFmpeg fallback on systems without PATH binary | **High (P1)** | **RESOLVED & TESTED** (auto-discovery active) |

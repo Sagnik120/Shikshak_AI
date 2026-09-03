@@ -85,7 +85,7 @@ def parse_document(
         if warn and warn not in warnings:
             warnings.append(warn)
 
-    if not any(len(c.text.strip()) > 30 for c in chunks) and len(file_bytes) > 200:
+    if (not full_text.strip() or len(full_text.strip()) < 30) and len(file_bytes) > 200:
         empty_warn = "Document appears to contain scanned images or minimal extractable text; content may be incomplete."
         if empty_warn not in warnings:
             warnings.append(empty_warn)
