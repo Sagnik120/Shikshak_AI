@@ -177,45 +177,97 @@ def check_progressive_visuals() -> Tuple[str, str, str]:
 
 
 def check_multilingual_parser() -> Tuple[str, str, str]:
-    """Verify Devanagari chapter detection and Indic token budgeting."""
+    """Verify script-agnostic chapter detection (Bengali & Devanagari) and subword budgeting."""
     try:
-        from modules.rag.src.parsing.structure import is_chapter_or_section_heading, detect_language
+        from modules.rag.src.parsing.structure import is_chapter_or_section_heading, detect_language, normalize_indic_numerals
         from modules.rag.src.chunking.chunker import count_tokens
 
-        is_h, title = is_chapter_or_section_heading("अध्याय 1: गति के नियम")
-        lang = detect_language("यह एक हिंदी वाक्य है।")
-        toks = count_tokens("न्यूटन के गति के नियम")
+        is_bn, _ = is_chapter_or_section_heading("অধ্যায় ১: তড়িৎপ্রবাহ")
+        is_hi, _ = is_chapter_or_section_heading("अध्याय १: गति के नियम")
+        norm_bn = normalize_indic_numerals("অধ্যায় ১") == "অধ্যায় 1"
+        norm_hi = normalize_indic_numerals("अध्याय १") == "अध्याय 1"
+        lang_bn = detect_language("কোনো পরিবাহীর মধ্য দিয়ে প্রবাহিত তড়িৎপ্রবাহ তার দুই প্রান্তের বিভবপ্রভেদের সমানুপাতিক।")
+        lang_hi = detect_language("किसी बंद परिपथ में प्रेरित विद्युत वाहक बल चुंबकीय फ्लक्स के परिवर्तन की दर के समानुपाती होता है।")
+        toks = count_tokens("নিউটন ও ওহমের গতি ও তড়িৎ সূত্রাবলী")
 
-        if is_h and lang == "hi" and toks > 0:
-            return "Multilingual (Indic)", "PASS", "Devanagari chapter recognition & Indic subword budgeting verified"
+        if is_bn and is_hi and norm_bn and norm_hi and lang_bn == "bn" and lang_hi == "hi" and toks > 0:
+            return "Multilingual (Indic)", "PASS", "Bengali & Devanagari heading recognition, Indic numerals & subword budgeting verified"
         else:
-            return "Multilingual (Indic)", "WARN", "Partial Devanagari support"
+            return "Multilingual (Indic)", "WARN", f"Partial script support: bn={is_bn}, hi={is_hi}, lang_bn={lang_bn}"
     except Exception as e:
         return "Multilingual (Indic)", "FAIL", f"Multilingual parser check failed: {e}"
 
 
-def main():
-    print_banner()
+def check_tier2_musetalk() -> Tuple[str, str, str]:
+    """Inspect MuseTalk Tier 2 neural avatar hardware and checkpoint readiness."""
+    try:
+        from modules.avatar_voice.src.avatar.musetalk_avatar import MuseTalkAvatarAdapter
+        adapter = MuseTalkAvatarAdapter()
+        diag = adapter.diagnose_environment()
+        if diag["ready"]:
+            return "Tier 2 MuseTalk Neural", "PASS", "CUDA GPU acceleration and MuseTalk weights verified"
+        else:
+            return "Tier 2 MuseTalk Neural", "INFO", f"Tier 1 viseme active; Tier 2 idle: {diag['reason']}"
+    except Exception as e:
+        return "Tier 2 MuseTalk Neural", "WARN", f"MuseTalk diagnostic inspection failed: {e}"
 
-    all_checks = []
+
+def check_vocal_prosody() -> Tuple[str, str, str]:
+    """Verify cue-driven vocal prosody and neural voice assignments."""
+    try:
+        from modules.avatar_voice.src.tts.edge_tts_adapter import CUE_PROSODY
+        from modules.avatar_voice.src.tts.base import resolve_voice_id
+
+        has_emphasis = CUE_PROSODY.get("emphasis", {}).get("rate") == "-8%"
+        has_question = CUE_PROSODY.get("questioning", {}).get("pitch") == "+25Hz"
+        voice_bn = resolve_voice_id("bn") == "bn-IN-TanishaaNeural"
+        voice_hi = resolve_voice_id("hi") == "hi-IN-SwaraNeural"
+
+        if has_emphasis and has_question and voice_bn and voice_hi:
+            return "Vocal Delivery Prosody", "PASS", "SSML pitch/rate modulation & Bengali/Hindi neural voices operational"
+        else:
+            return "Vocal Delivery Prosody", "WARN", "Partial prosody configuration"
+    except Exception as e:
+        return "Vocal Delivery Prosody", "FAIL", f"Prosody check failed: {e}"
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    import argparse
+    import json
+
+    parser = argparse.ArgumentParser(description="Shikshak AI Preflight Diagnostic Utility")
+    parser.add_argument("--require-ffmpeg", action="store_true", help="Fail with exit code 1 if no FFmpeg binary is found")
+    parser.add_argument("--check-tier2", action="store_true", help="Fail if Tier 2 MuseTalk prerequisites are absent")
+    parser.add_argument("--json", action="store_true", help="Emit structured machine-readable JSON output")
+    args = parser.parse_args(argv)
+
+    if not args.json:
+        print_banner()
+
     has_critical_failure = False
 
     # 1. Dependency Checks
-    print(f"{BOLD}1. Core Python Packages & Libraries:{RESET}")
     dep_results = check_dependencies()
     for name, status, detail in dep_results:
-        color = GREEN if status == "PASS" else RED
-        tag = f"[{color}{status}{RESET}]"
-        print(f"   {tag} {BOLD}{name:<16}{RESET} : {detail}")
         if status == "FAIL":
             has_critical_failure = True
-    print()
 
     # 2. Subsystem Checks
-    print(f"{BOLD}2. Subsystem Health & Pipeline Diagnostics:{RESET}")
+    ffmpeg_check = check_ffmpeg()
+    if args.require_ffmpeg and ffmpeg_check[1] != "PASS":
+        ffmpeg_check = ("FFmpeg Binary", "FAIL", f"Strict check failed: {ffmpeg_check[2]}")
+        has_critical_failure = True
+
+    tier2_check = check_tier2_musetalk()
+    if args.check_tier2 and tier2_check[1] != "PASS":
+        tier2_check = ("Tier 2 MuseTalk Neural", "FAIL", f"Strict check failed: {tier2_check[2]}")
+        has_critical_failure = True
+
     subsystems = [
-        check_ffmpeg(),
+        ffmpeg_check,
         check_tts_engine(),
+        check_vocal_prosody(),
+        check_tier2_check if False else tier2_check,
         check_rag_chroma(),
         check_topic_only_mode(),
         check_progressive_visuals(),
@@ -223,29 +275,55 @@ def main():
     ]
 
     for name, status, detail in subsystems:
+        if status == "FAIL":
+            has_critical_failure = True
+
+    if args.json:
+        payload = {
+            "platform": f"{platform.system()} {platform.release()} ({platform.machine()})",
+            "python_version": sys.version.split()[0],
+            "dependencies": [{"name": n, "status": s, "detail": d} for n, s, d in dep_results],
+            "subsystems": [{"name": n, "status": s, "detail": d} for n, s, d in subsystems],
+            "overall_status": "FAIL" if has_critical_failure else "PASS",
+            "exit_code": 1 if has_critical_failure else 0
+        }
+        print(json.dumps(payload, indent=2))
+        return payload["exit_code"]
+
+    # CLI Colored Output
+    print(f"{BOLD}1. Core Python Packages & Libraries:{RESET}")
+    for name, status, detail in dep_results:
+        color = GREEN if status == "PASS" else RED
+        tag = f"[{color}{status}{RESET}]"
+        print(f"   {tag} {BOLD}{name:<16}{RESET} : {detail}")
+    print()
+
+    print(f"{BOLD}2. Subsystem Health & Pipeline Diagnostics:{RESET}")
+    for name, status, detail in subsystems:
         if status == "PASS":
             color = GREEN
+        elif status == "INFO":
+            color = CYAN
         elif status == "WARN":
             color = YELLOW
         else:
             color = RED
-            has_critical_failure = True
 
         tag = f"[{color}{status}{RESET}]"
-        print(f"   {tag} {BOLD}{name:<22}{RESET} : {detail}")
+        print(f"   {tag} {BOLD}{name:<24}{RESET} : {detail}")
 
     print(f"\n{BLUE}{BOLD}{'=' * 75}{RESET}")
     if has_critical_failure:
         print(f"{RED}{BOLD}   PREFLIGHT STATUS: SYSTEM UNHEALTHY — CRITICAL ISSUES DETECTED{RESET}")
-        print(f"   Review the [FAIL] items above and install missing packages or dependencies.")
+        print(f"   Review the [FAIL] items above and resolve dependencies before deployment.")
         print(f"{BLUE}{BOLD}{'=' * 75}{RESET}\n")
-        sys.exit(1)
+        return 1
     else:
         print(f"{GREEN}{BOLD}   PREFLIGHT STATUS: ALL SUBSYSTEMS GREEN AND READY FOR DEMO!{RESET}")
         print(f"   Shikshak AI is fully initialized across RAG, Avatar/Voice, and Multilingual pipelines.")
         print(f"{BLUE}{BOLD}{'=' * 75}{RESET}\n")
-        sys.exit(0)
+        return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
