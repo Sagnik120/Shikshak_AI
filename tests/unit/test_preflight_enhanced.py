@@ -16,6 +16,8 @@ from scripts.preflight_check import (
     check_tier2_musetalk,
     check_vocal_prosody,
     check_multilingual_parser,
+    check_rag_chroma,
+    check_dependencies,
 )
 
 
@@ -90,3 +92,44 @@ class TestPreflightEnhanced:
         name, status, detail = check_vocal_prosody()
         assert status == "PASS"
         assert "ssml" in detail.lower() or "prosody" in detail.lower()
+
+    def test_subsystem_chroma_diagnostics_operational(self):
+        """Verifies ChromaDB diagnostic returns PASS on functional environment."""
+        name, status, detail = check_rag_chroma()
+        assert name == "ChromaDB Storage"
+        assert status == "PASS"
+        assert "operational" in detail.lower()
+
+    def test_subsystem_chroma_diagnostics_fails_loud_on_missing_import(self):
+        """Verifies ChromaDB diagnostic returns FAIL when chromadb cannot be imported."""
+        import builtins
+        real_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "chromadb":
+                raise ImportError("No module named 'chromadb'")
+            return real_import(name, *args, **kwargs)
+
+        with patch("builtins.__import__", side_effect=mock_import):
+            name, status, detail = check_rag_chroma()
+            assert name == "ChromaDB Storage"
+            assert status == "FAIL"
+            assert "pip install chromadb" in detail
+
+    def test_subsystem_chroma_diagnostics_fails_loud_on_mock_client(self):
+        """Verifies ChromaDB diagnostic returns FAIL when ChromaVectorStoreAdapter client drops to mock."""
+        from modules.rag.src.indexing.chroma_adapter import ChromaVectorStoreAdapter
+        with patch.object(ChromaVectorStoreAdapter, "_get_client", return_value="mock"):
+            name, status, detail = check_rag_chroma()
+            assert name == "ChromaDB Storage"
+            assert status == "FAIL"
+            assert "mock" in detail.lower()
+
+    def test_check_dependencies_includes_edge_tts_and_matplotlib(self):
+        """Verifies check_dependencies checks edge_tts, imageio_ffmpeg, and matplotlib."""
+        results = check_dependencies()
+        pkg_names = [pkg for pkg, status, desc in results]
+        assert "edge_tts" in pkg_names
+        assert "imageio_ffmpeg" in pkg_names
+        assert "matplotlib" in pkg_names
+        assert "chromadb" in pkg_names

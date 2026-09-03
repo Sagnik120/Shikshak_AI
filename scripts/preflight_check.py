@@ -57,6 +57,9 @@ def check_dependencies() -> List[Tuple[str, str, str]]:
         ("pptx", "PowerPoint slide parser"),
         ("PIL", "Pillow visual slide rendering and fallback compositor"),
         ("chromadb", "Vector database and embedding index store"),
+        ("edge_tts", "Edge-TTS cloud neural speech synthesis"),
+        ("imageio_ffmpeg", "Static FFmpeg binary fallback"),
+        ("matplotlib", "Mathematical equation and plot rendering"),
         ("sklearn", "TF-IDF key-term and structure extraction"),
         ("transformers", "BGE-M3 tokenizer and neural models"),
         ("pytest", "Automated test execution framework"),
@@ -115,16 +118,30 @@ def check_tts_engine() -> Tuple[str, str, str]:
 def check_rag_chroma() -> Tuple[str, str, str]:
     """Test ChromaDB in-memory initialization and index operations."""
     try:
+        import chromadb
+    except ImportError as e:
+        return (
+            "ChromaDB Storage",
+            "FAIL",
+            f"ChromaDB is not installed ({e}). Vector search will crash on ingest/query. Run: pip install chromadb",
+        )
+    try:
         from modules.rag.src.indexing.chroma_adapter import ChromaVectorStoreAdapter
         adapter = ChromaVectorStoreAdapter(persist_dir=":memory:")
         client = adapter._get_client()
+        if client == "mock":
+            return (
+                "ChromaDB Storage",
+                "FAIL",
+                "ChromaDB client failed to initialize and fell back to mock. Ensure chromadb>=0.4.22 is installed.",
+            )
         col = adapter._get_collection("healthcheck_doc")
         if col is not None:
             return "ChromaDB Storage", "PASS", f"Vector store operational (EphemeralClient ready, collection='{col.name}')"
         else:
-            return "ChromaDB Storage", "PASS", "Vector store operational in mock/in-memory mode"
+            return "ChromaDB Storage", "FAIL", "ChromaDB failed to create or fetch collection 'healthcheck_doc'"
     except Exception as e:
-        return "ChromaDB Storage", "FAIL", f"ChromaDB initialization failed: {e}"
+        return "ChromaDB Storage", "FAIL", f"ChromaDB initialization failed: {e}. Run: pip install chromadb"
 
 
 def check_topic_only_mode() -> Tuple[str, str, str]:
