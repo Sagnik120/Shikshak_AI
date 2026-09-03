@@ -161,11 +161,35 @@ class TestTTSCueProsody:
             avatar_cue="questioning"
         )
 
+    @pytest.mark.parametrize("cue", ["neutral", "emphasis", "questioning", "encouraging", "celebratory"])
+    def test_teaching_segment_accepts_all_five_contract_cues(self, cue):
+        """Validates Contract §6: TeachingSegment model accepts all five avatar_cue literals without ValidationError."""
+        segment = TeachingSegment(
+            node_id=f"node_{cue}",
+            script_text=f"Testing cue: {cue}",
+            language="en",
+            visual_spec=VisualSpec(type="equation", content="E = mc^2"),
+            avatar_cue=cue
+        )
+        assert segment.avatar_cue == cue
+
+    def test_teaching_segment_rejects_invalid_cue(self):
+        """Validates that unknown avatar_cue raises Pydantic ValidationError."""
+        from pydantic import ValidationError
+        with pytest.raises(ValidationError):
+            TeachingSegment(
+                node_id="node_invalid",
+                script_text="Testing invalid cue",
+                language="en",
+                visual_spec=VisualSpec(type="equation", content="E = mc^2"),
+                avatar_cue="dancing"  # not in Literal
+            )
+
     # =========================================================================
     # 6. REAL AUDIO SYNTHESIS WITH LIVE EDGE-TTS
     # =========================================================================
 
-    @pytest.mark.parametrize("cue", ["neutral", "emphasis", "questioning"])
+    @pytest.mark.parametrize("cue", ["neutral", "emphasis", "questioning", "encouraging", "celebratory"])
     def test_live_edge_tts_synthesis_with_prosody(self, tmp_path, cue):
         """Validates live synthesis producing valid WAV audio under real Edge-TTS pitch/rate cues."""
         adapter = EdgeTTSAdapter(output_dir=str(tmp_path))

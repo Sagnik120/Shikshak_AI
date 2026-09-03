@@ -32,7 +32,7 @@ class TeachingSegment(BaseModel):
     script_text: str = Field(..., description="The spoken narration script")
     language: str = Field(default="en", description="Language code e.g. en, hi, Hinglish")
     visual_spec: VisualSpec = Field(..., description="Specification of the on-screen visual aid")
-    avatar_cue: Literal["neutral", "emphasis", "questioning"] = Field(
+    avatar_cue: Literal["neutral", "emphasis", "questioning", "encouraging", "celebratory"] = Field(
         default="neutral", description="Facial and pose cue for the avatar"
     )
 
