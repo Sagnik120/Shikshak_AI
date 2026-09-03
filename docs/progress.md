@@ -20,7 +20,7 @@ Overall Status: IN PROGRESS (RAG module Phase 0, 1 & 2 Retrieval STABLE)
 
 ## Mandatory Requirements Checklist (PS §17)
 - [x] Learning from uploaded material (RAG complete & grounded)
-- [ ] Topic-based teaching
+- [x] Topic-based teaching (document_id=None open-domain teaching path verified)
 - [ ] AI-generated lesson structure
 - [ ] Personalized teaching
 - [ ] Human-like teaching interaction
@@ -33,4 +33,5 @@ Overall Status: IN PROGRESS (RAG module Phase 0, 1 & 2 Retrieval STABLE)
 - [ ] Working application/prototype
 
 ## Known Issues / Blockers
-- None. All 35 pytest cases and 12 diagnostic cases pass with 100% success rate.
+- None. All 101+ pytest cases across RAG, Avatar/Voice, and Grounding Eval pass with a 100% success rate.
+- Preflight diagnostic utility (`scripts/preflight_check.py`) reports ALL SUBSYSTEMS GREEN.

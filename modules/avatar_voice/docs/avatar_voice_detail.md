@@ -57,16 +57,17 @@ The module is engineered as an asynchronous, multi-stage multimedia synthesis pi
 
 | Subsystem | Implementation Details | Status |
 |---|---|---|
-| **Contract Schemas** | Pydantic v2 schemas for `TeachingSegment`, `RenderedVideoSegment`, `VisualSpec`, `WordTimestamp`, `TTSResult`, `AvatarRenderResult`, `VisualRenderResult`. | **100% Complete & Tested** |
+| **Contract Schemas** | Pydantic v2 schemas for `TeachingSegment`, `RenderedVideoSegment`, `VisualSpec`, `WordTimestamp`, `TTSResult`, `AvatarRenderResult`, `VisualRenderResult`. Added `VisualSpec.steps`, `VisualSpec.execution_output`, and `VisualRenderResult.step_image_paths`. | **100% Complete & Tested** |
+| **Progressive Step-by-Step Visuals** | `EquationRenderer` generates cumulative multi-step math derivation slide sequences with active cyan `#06b6d4` highlights and amber `#f59e0b` step badges. `CodeRenderer` generates a 3-stage execution flow (Code $\rightarrow$ Active Line $\rightarrow$ Output Terminal pane). | **100% Complete & Tested (11 tests)** |
 | **Multilingual TTS** | `EdgeTTSAdapter` supporting Microsoft Neural Voices (`hi-IN-SwaraNeural`, `hi-IN-MadhurNeural`, `en-IN-NeerjaNeural`, `en-US-AriaNeural`) with word boundary timestamp parsing and WebVTT creation. | **100% Complete & Tested** |
-| **Acoustic Fallback TTS** | `FallbackTTSAdapter` pure-Python mathematical sine/harmonic audio generator for offline environments. | **100% Complete & Tested** |
+| **Language-Aware Fallback TTS** | `FallbackTTSAdapter` pure-Python acoustic waveform generator with language-aware pacing (`en: 1.0`, `hinglish: 1.12`, `hi: 1.20`) and correct conditional order avoiding prefix collision bugs. | **100% Complete & Tested (7 tests)** |
 | **Resilient TTS Factory** | `TTSFactory.get_adapter("resilient")` automatic online-to-offline fallback wrapper. | **100% Complete & Tested** |
 | **Viseme 2D Avatar** | `VisemeAvatarAdapter` Tier 1 engine: calculates audio RMS energy, generates 24 FPS transparent RGBA frames, dynamically switches 4 mouth visemes (`closed`, `slightly_open`, `wide_open`, `o_shape`), natural 3-4s blink cycle, and cue-reactive poses (`neutral`, `emphasis`, `questioning`). | **100% Complete & Tested** |
 | **Wav2Lip Neural Avatar** | `Wav2LipAvatarAdapter` Tier 2 neural model skeleton adapter with graceful fallback to Tier 1 visemes. | **Scaffolded / Fallback Active** |
 | **Visual Renderers** | 6 specialized renderers: `EquationRenderer` (LaTeX / Math), `GraphRenderer` (Matplotlib), `CodeRenderer` (Syntax-highlighted code slides), `DiagramRenderer` (Structured nodes/arrows), `TimelineRenderer` (Chronological milestones), `MapRenderer` (Geographical landmarks), plus `ImageRenderer`. | **100% Complete & Tested** |
-| **Compositor Engine** | `FFmpegCompositor`: Assembles visual slide (1344x1080), avatar PiP (576x540), audio track, and bottom subtitle box into MP4 H.264. Includes pure-Pillow software compositor fallback. | **100% Complete & Tested** |
+| **Compositor Engine** | `FFmpegCompositor`: Dual-path discovery (System PATH + `imageio-ffmpeg` static binary). Assembles progressive visual sequence across duration via `concat` filter, overlays avatar PiP (576x540), audio track, and bottom subtitle box into MP4 H.264. Includes pure-Pillow software compositor fallback. | **100% Complete & Tested** |
 | **Unified Service Facade** | `AvatarVoiceService`: Synchronous `render_segment_sync()` and thread-safe async queue `render_segment()` with job polling `get_status()`. | **100% Complete & Tested** |
-| **Automated Verification** | 10 test suites covering models, TTS, visemes, visual distinctness, compositor layouts, and async queues across `modules/avatar_voice/tests/` and root `tests/`. | **35+ Unit/Integration Tests Passing** |
+| **Automated Verification** | 12 test suites covering models, progressive visuals, TTS pacing, visemes, visual distinctness, compositor layouts, and async queues. | **50+ Unit/Integration Tests Passing** |
 
 ---
 
@@ -278,3 +279,70 @@ The **`avatar_voice`** module is the execution engine for the **Explain** and **
 > 3. **Video Canvas Dimensions**: The visual viewport is locked at `1344 x 1080` (70% width) and the avatar PiP is locked at `576 x 540` (30% width). All new visual renderers must inherit from `BaseVisualRenderer` and respect `CANVAS_WIDTH = 1344` and `CANVAS_HEIGHT = 1080`.
 > 4. **Multilingual Pacing**: When generating Hindi (`hi`) or Hinglish scripts, Edge-TTS neural voices take approximately 15–20% longer than English for equivalent semantic content. Never hardcode static duration assumptions; always read `duration_sec` from the synthesized `TTSResult`.
 > 5. **Thread Safety**: `AvatarVoiceService` uses a Python `ThreadPoolExecutor` and `threading.Lock()` to manage `_jobs`. Any new state added to the service must be thread-safe.
+
+---
+
+## 10. Recent Upgrades, Issues Encountered & Technical Resolutions
+
+### Issue A1: Single Static Visual Slides Failing "Step-by-Step Solutions" Requirement
+- **Problem**: Previously, `EquationRenderer` and `CodeRenderer` generated only a single static slide per teaching segment. During a 45-second narration, the screen remained completely frozen while the avatar spoke, failing Hackathon PS §10 demands for *"step-by-step solutions"* in math and *"execution flow"* in programming.
+- **Root Cause**: `VisualSpec` had no schema fields to receive sequential derivation steps or execution console outputs, and `FFmpegCompositor` statically looped a single image path (`-loop 1`).
+- **Solution & Technical Fix**:
+  1. Extended `VisualSpec` in `modules/avatar_voice/src/models.py`:
+     ```python
+     class VisualSpec(BaseModel):
+         type: str
+         content: Union[str, Dict[str, Any], List[Any]]
+         steps: Optional[List[str]] = None
+         execution_output: Optional[str] = None
+     ```
+  2. In `EquationRenderer`, implemented `_render_progressive_steps()`: generates a sequence of cumulative frames (Step 1 $\rightarrow$ Step 1+2 $\rightarrow$ Step 1+2+3) where the active step is highlighted in bright cyan (`#06b6d4`) with an amber badge (`#f59e0b`), while previous steps are muted in slate (`#94a3b8`).
+  3. In `CodeRenderer`, implemented `_render_progressive_execution_flow()`: generates a 3-stage visual sequence (Stage 1: static code; Stage 2: active execution line highlight; Stage 3: glowing terminal console output).
+  4. In `FFmpegCompositor`, implemented multi-input sequencing: distributes frames across narration duration ($d_{\text{step}} = \text{duration} / N$) using FFmpeg's `concat` filter (`concat=n={N}:v=1:a=0[vis_seq]`).
+- **Verification**: Created `tests/unit/test_progressive_visuals.py` (11 tests covering boundary cases, quadratic derivations, binary search execution, Hindi Pythagoras lesson, and async worker pool). All 11 passed.
+
+---
+
+### Issue A2: Flat 140 WPM Fallback TTS Speech Truncation & The "Hinglish" Prefix Bug
+- **Problem**: In offline environments, `FallbackTTSAdapter` synthesized audio using a flat 140 words-per-minute heuristic regardless of language. In Hindi, words contain complex syllables requiring more phonetic duration. Using 140 WPM truncated Hindi sentences before the narration finished and desynchronized WebVTT subtitles.
+- **Root Cause**:
+  1. Duration calculations had no language awareness.
+  2. During implementation of language factors, a bug occurred:
+     ```python
+     # BUGGY IMPLEMENTATION
+     if lang_key.startswith("hi"):
+         pacing_factor = 1.20
+     elif "hinglish" in lang_key:
+         pacing_factor = 1.12
+     ```
+     Because the string `"hinglish"` starts with the letters `"hi"`, Python's `startswith("hi")` matched `"hinglish"` first, mistakenly applying pure Hindi pacing ($1.20$) instead of Hinglish pacing ($1.12$).
+- **Solution & Technical Fix**:
+  Reordered conditional evaluation so `"hinglish"` is matched *first*:
+  ```python
+  lang_key = language.lower().strip()
+  if "hinglish" in lang_key:
+      pacing_factor = 1.12
+  elif lang_key == "hi" or lang_key.startswith("hi-") or lang_key.startswith("hi_") or lang_key == "hindi":
+      pacing_factor = 1.20
+  else:
+      pacing_factor = 1.00
+  ```
+- **Verification**: Created `tests/unit/test_tts_pacing.py` (7 tests verifying English, Hinglish, Hindi duration scaling and WebVTT caption sync). All 7 passed.
+
+---
+
+### Issue A3: Silent FFmpeg Video Degradation on Systems Without PATH Binary
+- **Problem**: Evaluators or judges running the repository without system `ffmpeg` on their PATH experienced silent degradation: the compositor dropped into the pure-Pillow software preview mode, generating a static frame instead of an actual MP4 video.
+- **Solution & Technical Fix**:
+  1. Implemented dual-path binary resolution in `modules/avatar_voice/src/compositor/ffmpeg_compositor.py`:
+     ```python
+     self.ffmpeg_bin = shutil.which("ffmpeg")
+     if not self.ffmpeg_bin:
+         try:
+             import imageio_ffmpeg
+             self.ffmpeg_bin = imageio_ffmpeg.get_ffmpeg_exe()
+         except Exception:
+             self.ffmpeg_bin = None
+     ```
+  2. Installed the standalone `imageio-ffmpeg` static wheel (contains self-contained static Apple Silicon FFmpeg binary).
+  3. Verified in `scripts/preflight_check.py` and `tests/eval/test_rag_groundedness.py`: full progressive video rendering directly produces valid `.mp4` video files with AAC audio.
