@@ -78,6 +78,18 @@ def parse_document(
     # Chunk sections using structure-aware semantic chunker
     chunks = chunk_sections(raw_sections, document_id=doc_id)
 
+    # Collect diagnostic warnings from raw sections and empty/scanned document checks
+    warnings: List[str] = []
+    for sec in raw_sections:
+        warn = sec.metadata.get("warning")
+        if warn and warn not in warnings:
+            warnings.append(warn)
+
+    if not any(len(c.text.strip()) > 30 for c in chunks) and len(file_bytes) > 200:
+        empty_warn = "Document appears to contain scanned images or minimal extractable text; content may be incomplete."
+        if empty_warn not in warnings:
+            warnings.append(empty_warn)
+
     detected_structure = DetectedStructure(
         chapters=chapters,
         key_terms=key_terms
@@ -87,5 +99,6 @@ def parse_document(
         document_id=doc_id,
         source_lang=source_lang,
         chunks=chunks,
-        detected_structure=detected_structure
+        detected_structure=detected_structure,
+        warnings=warnings
     )

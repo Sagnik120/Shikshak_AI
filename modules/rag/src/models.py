@@ -39,6 +39,10 @@ class ParsedDocument(BaseModel):
         default_factory=DetectedStructure,
         description="Structural hierarchy and extracted key terms"
     )
+    warnings: List[str] = Field(
+        default_factory=list,
+        description="Diagnostic warnings (e.g. scanned pages with near-zero text, OCR incomplete)"
+    )
 
 
 # ============================================================================

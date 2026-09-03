@@ -50,12 +50,24 @@ def parse_pdf(file_bytes: bytes) -> Tuple[List[RawSection], List[str]]:
             page_text = page.extract_text() or ""
             
             # Edge Case §5.1: Scanned / Image-only PDF with near-zero extractable text
+            page_warning = None
             if len(page_text.strip()) < 30:
                 ocr_text, conf = extract_text_from_pdf_page_ocr(file_bytes, page_num)
                 if len(ocr_text.strip()) > len(page_text.strip()):
                     page_text = ocr_text
+                else:
+                    page_warning = f"Page {page_num} appears to be a scanned image with minimal text; OCR unavailable or incomplete."
 
             if not page_text.strip():
+                if page_warning:
+                    sections.append(
+                        RawSection(
+                            section_title=None,
+                            page_or_slide=page_num,
+                            raw_text="",
+                            metadata={"page": page_num, "warning": page_warning}
+                        )
+                    )
                 continue
 
             # Heuristic for chapter / heading detection on page text
@@ -76,12 +88,16 @@ def parse_pdf(file_bytes: bytes) -> Tuple[List[RawSection], List[str]]:
                     if current_heading not in chapters:
                         chapters.append(current_heading)
 
+            sec_meta = {"page": page_num}
+            if page_warning:
+                sec_meta["warning"] = page_warning
+
             sections.append(
                 RawSection(
                     section_title=current_heading,
                     page_or_slide=page_num,
                     raw_text=page_text.strip(),
-                    metadata={"page": page_num}
+                    metadata=sec_meta
                 )
             )
 

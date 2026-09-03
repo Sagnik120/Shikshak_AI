@@ -118,6 +118,43 @@ Created `tests/unit/test_structure_multilingual.py` testing:
 - Mixed-script documents detecting both English and Hindi chapters.
 - Multilingual TF-IDF key term extraction extracting Hindi scientific terms.
 - Indic subword expansion testing: verified 10-paragraph Hindi textbook chunking strictly stays $\le 500$ tokens.
+- **Result**: **23/23 tests passing**.
+
+---
+
+### Issue 1.3: Absence of Faithfulness & Anti-Hallucination Evaluation Metrics
+
+#### 1. In Simple Language
+Passing unit tests proves the code runs without crashing, but it does not prove the AI teacher tells the truth. In a hackathon, judges want hard evidence that if a student asks a question *not covered* in their textbook (e.g. asking about photosynthesis when a physics book is uploaded), the teacher won't hallucinate fake answers or pretend it's from the document.
+
+#### 2. The Core Technical Problem
+- Unit tests only checked parser outputs and database inserts.
+- No automated eval test verified that out-of-scope questions trigger `risk_level="high_hallucination_risk"` and inject explicit general-knowledge warning disclaimers into the prompt.
+- **Rubric Exposure**: **RAG and Knowledge Grounding (15%)** explicitly rewards provable anti-hallucination defense.
+
+#### 3. The Solution & Technical Implementation
+Created `tests/eval/test_rag_groundedness.py`:
+- Ingested a verified physics textbook chapter (Ohm's Law and Mechanics).
+- Evaluated **in-scope questions**: Verified `has_sufficient_context=True`, `risk_level="low"`, and candidate chunk citations.
+- Evaluated **out-of-scope questions** (photosynthesis, transformer attention heads, GDP of France): Verified that relevance thresholds drop candidate chunks to zero, `risk_level="high_hallucination_risk"`, and prompt blocks instruct the LLM: `[No high-confidence document excerpts found for this topic]... [General knowledge, not from the uploaded document]`.
+
+---
+
+### Issue 1.4: Silent Degradation on Scanned Image PDFs
+
+#### 1. In Simple Language
+If a student or judge uploads a scanned textbook where pages are images of text rather than digital text, and OCR is not installed or returns near-empty text, the system previously returned empty chunks without telling anyone. The student wouldn't know why the teacher couldn't answer questions from their upload.
+
+#### 2. The Core Technical Problem
+In `modules/rag/src/parsing/pdf_parser.py`:
+- Scanned pages with `< 30` characters were silently skipped if OCR was absent.
+- `ParsedDocument` had no `warnings` field to communicate diagnostic data quality issues to the frontend or orchestration engine.
+
+#### 3. The Solution & Technical Implementation
+- Extended `ParsedDocument` with `warnings: List[str] = Field(default_factory=list)`.
+- In `pdf_parser.py`, if a page has `< 30` characters, an explicit diagnostic warning is attached:
+  `"Page X appears to be a scanned image with minimal text; OCR unavailable or incomplete."`
+- In `parser.py`, if the entire document yields near-zero text, an overarching warning is populated in `ParsedDocument.warnings` so the UI can prompt the student.
 
 ---
 
