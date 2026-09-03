@@ -54,8 +54,10 @@ class AvatarVoiceService:
         visual_spec = segment.visual_spec
         avatar_cue = segment.avatar_cue
 
-        # 1. TTS Synthesis
-        tts_result = self.tts.synthesize(text=script_text, language=language)
+        # 1. TTS Synthesis with cue-driven prosody
+        tts_result = self.tts.synthesize(
+            text=script_text, language=language, avatar_cue=avatar_cue
+        )
 
         # 2. Visual Synthesis
         visual_result = self.visuals.render(visual_spec)
@@ -106,7 +108,11 @@ class AvatarVoiceService:
                     self._jobs[job_id].progress_pct = 0.25
                     self._jobs[job_id].stage = "synthesizing_audio_and_visuals"
 
-            tts_result = self.tts.synthesize(text=segment.script_text, language=segment.language)
+            tts_result = self.tts.synthesize(
+                text=segment.script_text,
+                language=segment.language,
+                avatar_cue=segment.avatar_cue
+            )
             visual_result = self.visuals.render(segment.visual_spec)
 
             with self._lock:
