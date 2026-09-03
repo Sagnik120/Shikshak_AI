@@ -118,7 +118,148 @@ class TestRAGFaithfulnessAndGroundednessEval:
         assert "grounded_on: []" in prompt_str
 
     # =========================================================================
-    # 3. SCANNED PDF / MINIMAL TEXT WARNING DETECTION (Issue R5)
+    # 3. DOMAIN 2: NCERT HINDI BIOLOGY (Life Processes / जैव प्रक्रम)
+    # =========================================================================
+
+    @pytest.fixture
+    def hindi_biology_document(self, rag_service):
+        """Ingests a verified NCERT Class 10 Hindi Biology chapter on Life Processes."""
+        text = """
+# अध्याय ६: जैव प्रक्रम - पोषण, श्वसन एवं उत्सर्जन
+
+## अनुभाग १: स्वपोषी पोषण एवं प्रकाश संश्लेषण
+स्वपोषी पोषण में पौधे सूर्य के प्रकाश और क्लोरोफिल की उपस्थिति में कार्बन डाइऑक्साइड तथा जल से कार्बोहाइड्रेट बनाते हैं।
+प्रकाश संश्लेषण की रासायनिक अभिक्रिया: 6CO2 + 12H2O -> C6H12O6 + 6O2 + 6H2O।
+पत्तियों की सतह पर उपस्थित सूक्ष्म रंध्रों (स्टोमेटा) द्वारा गैसों का आदान-प्रदान होता है।
+
+## अनुभाग २: श्वसन प्रक्रम एवं ऊर्जा विमुक्ति
+श्वसन प्रक्रम में ग्लूकोज का विखंडन विभिन्न चरणों में संपन्न होता है।
+प्रथम चरण में छह कार्बन वाले ग्लूकोज अणु का तीन कार्बन वाले पाइरुवेट अणु में विखंडन कोशिकाद्रव्य में होता है।
+ऑक्सीजन की उपस्थिति में पाइरुवेट का विखंडन माइटोकॉन्ड्रिया में होता है तथा कार्बन डाइऑक्साइड, जल और अत्यधिक एटीपी (ATP) ऊर्जा विमुक्त होती है।
+ऑक्सीजन के अभाव में यीस्ट में किण्वन द्वारा एथेनॉल और कार्बन डाइऑक्साइड बनते हैं।
+
+## अनुभाग ३: उत्सर्जन तंत्र एवं नेफ्रॉन
+मानव उत्सर्जन तंत्र में एक जोड़ा वृक्क (गुर्दे), मूत्रवाहिनी, मूत्राशय तथा मूत्रमार्ग होते हैं।
+वृक्क में निस्यंदन की आधारभूत इकाई वृक्काणु अथवा नेफ्रॉन (Nephron) कहलाती है।
+नेफ्रॉन में बोमन सम्पुट और केशिका गुच्छ (Glomerulus) यूरिया और नाइट्रोजनी अपशिष्टों को रक्त से पृथक करते हैं।
+"""
+        return rag_service.ingest_document(
+            file_bytes=text.encode("utf-8"),
+            filename="ncert_class10_biology_hindi.md",
+            mime_type="text/markdown"
+        )
+
+    @pytest.mark.parametrize("query,expected_keyword", [
+        ("श्वसन प्रक्रम में ग्लूकोज का विखंडन किस प्रकार होता है?", "पाइरुवेट"),
+        ("प्रकाश संश्लेषण की रासायनिक अभिक्रिया क्या है?", "c6h12o6"),
+        ("वृक्क में उत्सर्जन की आधारभूत इकाई क्या कहलाती है?", "नेफ्रॉन"),
+    ])
+    def test_hindi_biology_in_scope_queries_grounded(
+        self, rag_service, hindi_biology_document, query, expected_keyword
+    ):
+        """Validates grounded retrieval on Hindi Biology textbook with domain citations."""
+        result = rag_service.retrieve_context(
+            document_id=hindi_biology_document.document_id,
+            query_text=query,
+            top_k=3
+        )
+        assert result.has_sufficient_context is True
+        assert len(result.chunks) > 0
+        all_text = " ".join(c.text.lower() for c in result.chunks)
+        assert expected_keyword.lower() in all_text
+
+        grounded_ctx = rag_service.get_grounded_prompt(
+            document_id=hindi_biology_document.document_id,
+            query_text=query
+        )
+        assert grounded_ctx.has_sufficient_context is True
+        assert len(grounded_ctx.candidate_chunk_ids) > 0
+
+    @pytest.mark.parametrize("cross_domain_query", [
+        "What were the primary military campaigns of Napoleon Bonaparte in 1812?",
+        "How do B-Tree and LSM-tree storage engines differ in distributed databases?",
+        "Explain the law of conservation of momentum in elastic collisions.",
+    ])
+    def test_hindi_biology_out_of_scope_queries_rejected(
+        self, rag_service, hindi_biology_document, cross_domain_query
+    ):
+        """Cross-domain English history/CS/physics questions against Hindi Biology must be 100% rejected."""
+        result = rag_service.retrieve_context(
+            document_id=hindi_biology_document.document_id,
+            query_text=cross_domain_query,
+            top_k=3
+        )
+        assert result.has_sufficient_context is False
+        assert result.risk_level == "high_hallucination_risk"
+        assert len(result.chunks) == 0
+
+    # =========================================================================
+    # 4. DOMAIN 3: COMPUTER SCIENCE & GRAPH ALGORITHMS (Technical English)
+    # =========================================================================
+
+    @pytest.fixture
+    def cs_algorithms_document(self, rag_service):
+        """Ingests a verified Computer Science chapter on Graph Theory and Shortest Paths."""
+        text = """
+# Chapter 4: Graph Algorithms and Shortest Paths
+
+## Section 4.1: Dijkstra's Algorithm
+Dijkstra's algorithm solves the single-source shortest-path problem on a weighted directed graph G = (V, E) with non-negative edge weights.
+The algorithm maintains a set of visited vertices whose final shortest-path weights from the source have already been determined.
+A min-priority queue (min-heap) stores vertices keyed by their current tentative distance estimates d[v].
+In each iteration, the vertex u with minimum d[u] is extracted from the priority queue.
+For every adjacent neighbor v of u, edge relaxation is performed: if d[u] + w(u, v) < d[v], then d[v] = d[u] + w(u, v).
+Using a binary min-heap, Dijkstra's algorithm runs in O((V + E) log V) time.
+
+## Section 4.2: Breadth-First Search
+Breadth-First Search (BFS) explores all vertices at distance k before exploring vertices at distance k + 1.
+BFS uses a First-In-First-Out (FIFO) queue and runs in O(V + E) time on unweighted graphs.
+"""
+        return rag_service.ingest_document(
+            file_bytes=text.encode("utf-8"),
+            filename="cs_graph_algorithms.md",
+            mime_type="text/markdown"
+        )
+
+    @pytest.mark.parametrize("query,expected_keyword", [
+        ("How does Dijkstra's algorithm find the shortest path in a graph?", "priority queue"),
+        ("What is the time complexity of Dijkstra with a binary min-heap?", "log v"),
+        ("What data structure does Breadth-First Search use?", "fifo"),
+    ])
+    def test_cs_algorithms_in_scope_queries_grounded(
+        self, rag_service, cs_algorithms_document, query, expected_keyword
+    ):
+        """Validates grounded retrieval on CS graph algorithms document."""
+        result = rag_service.retrieve_context(
+            document_id=cs_algorithms_document.document_id,
+            query_text=query,
+            top_k=3
+        )
+        assert result.has_sufficient_context is True
+        assert len(result.chunks) > 0
+        all_text = " ".join(c.text.lower() for c in result.chunks)
+        assert expected_keyword.lower() in all_text
+
+    @pytest.mark.parametrize("cross_domain_query", [
+        "Explain the light-dependent reactions of photosynthesis in chloroplasts.",
+        "What is the role of hemoglobin in human respiratory circulation?",
+        "What is the capital and GDP of Argentina in 2024?",
+    ])
+    def test_cs_algorithms_out_of_scope_queries_rejected(
+        self, rag_service, cs_algorithms_document, cross_domain_query
+    ):
+        """Cross-domain biology and economics questions against CS Algorithms must be 100% rejected."""
+        result = rag_service.retrieve_context(
+            document_id=cs_algorithms_document.document_id,
+            query_text=cross_domain_query,
+            top_k=3
+        )
+        assert result.has_sufficient_context is False
+        assert result.risk_level == "high_hallucination_risk"
+        assert len(result.chunks) == 0
+
+    # =========================================================================
+    # 5. SCANNED PDF / MINIMAL TEXT WARNING DETECTION (Issue R5)
     # =========================================================================
 
     def test_scanned_minimal_text_document_produces_warning(self):
