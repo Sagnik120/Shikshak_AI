@@ -13,6 +13,14 @@ class VisualSpec(BaseModel):
     content: Union[str, Dict[str, Any], List[Any]] = Field(
         ..., description="LaTeX, structured JSON, code snippet, prompt, or coordinates"
     )
+    steps: Optional[List[str]] = Field(
+        default=None,
+        description="Optional ordered sequence of progressive steps (e.g. math derivations, line-by-line reveals)"
+    )
+    execution_output: Optional[str] = Field(
+        default=None,
+        description="Optional terminal/simulation execution output to display in an active output pane"
+    )
 
 
 class TeachingSegment(BaseModel):
@@ -76,6 +84,11 @@ class VisualRenderResult(BaseModel):
     width: int = 1344
     height: int = 1080
     visual_type: str
+    step_image_paths: List[str] = Field(
+        default_factory=list,
+        description="Ordered paths of progressive visual step frames"
+    )
+    is_progressive: bool = False
 
 
 class RenderJobStatus(BaseModel):
