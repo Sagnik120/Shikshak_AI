@@ -22,7 +22,13 @@ class FallbackTTSAdapter:
         self.output_dir = output_dir or os.path.join(tempfile.gettempdir(), "shikshak_tts")
         os.makedirs(self.output_dir, exist_ok=True)
 
-    def synthesize(self, text: str, language: str = "en", voice_id: Optional[str] = None) -> TTSResult:
+    def synthesize(
+        self,
+        text: str,
+        language: str = "en",
+        voice_id: Optional[str] = None,
+        avatar_cue: str = "neutral"
+    ) -> TTSResult:
         """Generate audio and word timestamps for text offline."""
         chosen_voice = voice_id or resolve_voice_id(language)
         session_id = uuid.uuid4().hex[:8]
