@@ -88,6 +88,10 @@ class VisualRenderResult(BaseModel):
         default_factory=list,
         description="Ordered paths of progressive visual step frames"
     )
+    step_contents: List[str] = Field(
+        default_factory=list,
+        description="Original text or LaTeX representation of each progressive step"
+    )
     is_progressive: bool = False
 
 
