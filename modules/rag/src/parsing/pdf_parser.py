@@ -9,6 +9,7 @@ from typing import List, Tuple
 
 from modules.rag.src.models import RawSection
 from modules.rag.src.parsing.ocr import extract_text_from_pdf_page_ocr
+from modules.rag.src.parsing.structure import is_chapter_or_section_heading
 
 logger = logging.getLogger(__name__)
 
@@ -61,13 +62,17 @@ def parse_pdf(file_bytes: bytes) -> Tuple[List[RawSection], List[str]]:
             page_lines = [line.strip() for line in page_text.split("\n") if line.strip()]
             if page_lines:
                 first_line = page_lines[0]
-                # Heading pattern: e.g. "Chapter 1: ...", "1. Introduction", short uppercase lines
-                if (
+                is_heading, heading_title = is_chapter_or_section_heading(first_line)
+                if not is_heading and (
                     re.match(r'^(Chapter|Section|\d+(\.\d+)*)\s+', first_line, re.IGNORECASE)
                     or (first_line.isupper() and len(first_line) < 60)
                     or (len(first_line.split()) <= 6 and len(first_line) < 50 and not first_line.endswith('.'))
                 ):
-                    current_heading = first_line
+                    is_heading = True
+                    heading_title = first_line
+
+                if is_heading and heading_title:
+                    current_heading = heading_title
                     if current_heading not in chapters:
                         chapters.append(current_heading)
 

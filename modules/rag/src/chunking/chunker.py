@@ -31,12 +31,17 @@ def get_tokenizer():
         _TOKENIZER = AutoTokenizer.from_pretrained("BAAI/bge-m3")
         return _TOKENIZER
     except Exception:
-        # Fallback character/word approximation tokenizer when offline/model not cached
+        # Script-aware approximation tokenizer when offline/model not cached
         class SimpleApproximationTokenizer:
             def encode(self, text: str, add_special_tokens: bool = False) -> list[int]:
-                # Approx 1 token ≈ 4 characters or 0.75 words
+                # Indic/Devanagari scripts expand to ~2.3 subword tokens per word in BGE-M3/XLM-R
+                # English/Latin scripts expand to ~1.3 tokens per word
+                devanagari_chars = len(re.findall(r'[\u0900-\u097F]', text))
+                total_chars = len(text.strip())
+                multiplier = 2.3 if total_chars > 0 and (devanagari_chars / total_chars) > 0.15 else 1.3
                 words = re.findall(r'\S+', text)
-                return list(range(len(words)))
+                n_tokens = max(1, int(len(words) * multiplier)) if words else 0
+                return list(range(n_tokens))
 
             def decode(self, token_ids: list[int]) -> str:
                 return ""
@@ -46,14 +51,17 @@ def get_tokenizer():
 
 
 def count_tokens(text: str, tokenizer: Any = None) -> int:
-    """Count tokens in string using tokenizer or word approximation."""
+    """Count tokens in string using tokenizer or script-aware subword expansion approximation."""
     if not text:
         return 0
     tok = tokenizer or get_tokenizer()
     try:
         return len(tok.encode(text, add_special_tokens=False))
     except Exception:
-        return max(1, int(len(text.split()) * 1.3))
+        devanagari_chars = len(re.findall(r'[\u0900-\u097F]', text))
+        total_chars = len(text.strip())
+        multiplier = 2.3 if total_chars > 0 and (devanagari_chars / total_chars) > 0.15 else 1.3
+        return max(1, int(len(text.split()) * multiplier))
 
 
 def split_text_into_token_chunks(
