@@ -87,7 +87,8 @@ class RAGService:
         document_id: Optional[str] = None,
         query_text: str = "",
         top_k: int = 5,
-        relevance_threshold: float = 0.2
+        relevance_threshold: float = 0.5001,
+        confidence_threshold: float = 0.52
     ) -> RetrievalResult:
         """Retrieve top grounded chunks for a teaching concept or student question.
         
@@ -108,7 +109,8 @@ class RAGService:
             document_id=clean_doc_id,
             query_text=query_text,
             top_k=top_k,
-            relevance_threshold=relevance_threshold
+            relevance_threshold=relevance_threshold,
+            confidence_threshold=confidence_threshold
         )
 
     def get_grounded_prompt(
@@ -116,14 +118,16 @@ class RAGService:
         document_id: Optional[str] = None,
         query_text: str = "",
         top_k: int = 5,
-        relevance_threshold: float = 0.2
+        relevance_threshold: float = 0.5001,
+        confidence_threshold: float = 0.52
     ) -> GroundedContext:
         """Convenience method returning ready-to-inject grounding prompt block with chunk IDs."""
         result = self.retrieve_context(
             document_id=document_id,
             query_text=query_text,
             top_k=top_k,
-            relevance_threshold=relevance_threshold
+            relevance_threshold=relevance_threshold,
+            confidence_threshold=confidence_threshold
         )
         return format_grounding_context_block(
             retrieved_chunks=result.chunks,
