@@ -56,7 +56,7 @@ The RAG module implements an enterprise-grade hybrid retrieval architecture desi
 | **Multilingual Structure Extractor**| Data-driven script registry detecting Devanagari (`अध्याय`) and Bengali (`অধ্যায়`) chapters, universal Indic numeral normalization (`০-৯`, `०-९`), and multilingual TF-IDF with Bengali/Hindi stopwords. | **100% Complete & Tested (38 tests)** |
 | **Indic Semantic Chunker** | Windowed semantic chunker with per-word Indic ($2.4\times$) and Latin ($1.3\times$) subword budgeting, trailing fragment merge guard, and recursive hard split verification. | **100% Complete & Tested (23 tests)** |
 | **Multilingual Embeddings**| `BGEM3EmbeddingAdapter` (dense 1024-dim vectors + sparse weights) and `E5BM25EmbeddingAdapter` fallback. | **100% Complete & Tested** |
-| **Vector Store Indexing**| `ChromaVectorStoreAdapter` implementing Contract §14 (`VectorStoreAdapter`), supporting upsert, cosine query, and document deletion. | **100% Complete & Tested** |
+| **Vector Store Indexing**| `ChromaVectorStoreAdapter` implementing Contract §14 (`VectorStoreAdapter`), supporting upsert, cosine query, and document deletion. Hardened with fail-loud preflight checks (`scripts/preflight_check.py`) preventing silent mock degradations during demos. | **100% Complete & Tested** |
 | **Hybrid Retriever & RRF**| Reciprocal Rank Fusion combiner fusing dense and sparse search rankings with constant $k=60$. | **100% Complete & Tested** |
 | **Calibrated Reranker Pipeline** | Two-threshold cross-encoder reranker: baseline entailment ($0.5001$) for paraphrase recall, citation cutoff ($0.52$), and early punctuation-only query filtering. | **100% Complete & Tested (27 tests)** |
 | **Grounding Prompt Engine**| `format_grounding_context_block()` creating anti-hallucination prompts with citation tags, `no_document_context` mode, and risk flags. | **100% Complete & Tested** |
@@ -191,6 +191,7 @@ modules/rag/
 - **[`src/indexing/chroma_adapter.py`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/modules/rag/src/indexing/chroma_adapter.py)**:
   - Concrete implementation using ChromaDB with local file persistence (`chroma_db/`).
   - Manages isolated document collections, stores chunk text and metadata, and performs cosine distance vector queries.
+  - Runtime readiness is preflight-verified via `scripts/preflight_check.py` to prevent silent mock degradations during live teaching takes.
 
 ### Retrieval & Grounding Subsystems (`src/retrieval/`, `src/grounding/`)
 - **[`src/retrieval/rrf.py`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/modules/rag/src/retrieval/rrf.py)**:

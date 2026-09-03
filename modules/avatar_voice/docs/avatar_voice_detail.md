@@ -57,14 +57,14 @@ The module is engineered as an asynchronous, multi-stage multimedia synthesis pi
 
 | Subsystem | Implementation Details | Status |
 |---|---|---|
-| **Contract Schemas** | Pydantic v2 schemas for `TeachingSegment`, `RenderedVideoSegment`, `VisualSpec`, `WordTimestamp`, `TTSResult`, `AvatarRenderResult`, `VisualRenderResult`. Added `VisualSpec.steps`, `VisualSpec.execution_output`, `VisualRenderResult.step_image_paths`, `VisualRenderResult.step_contents`, and `AvatarRenderResult.tier_used` / `tier_used_reason`. | **100% Complete & Tested** |
+| **Contract Schemas** | Pydantic v2 schemas for `TeachingSegment`, `RenderedVideoSegment`, `VisualSpec`, `WordTimestamp`, `TTSResult`, `AvatarRenderResult`, `VisualRenderResult`. Widened `avatar_cue` to all 5 Contract §6 cues (`neutral`, `emphasis`, `questioning`, `encouraging`, `celebratory`). Added `VisualSpec.steps`, `VisualSpec.execution_output`, `VisualRenderResult.step_image_paths`, `VisualRenderResult.step_contents`, and `AvatarRenderResult.tier_used` / `tier_used_reason`. | **100% Complete & Tested** |
 | **Progressive Step-by-Step Visuals** | `EquationRenderer` generates cumulative multi-step math derivations with cyan highlights; `CodeRenderer` generates 3-stage execution flows. Sequenced by `compute_content_aware_step_durations()` with formula complexity weighting, cue-word timestamp alignment, and water-filling duration conservation. | **100% Complete & Tested (23 tests)** |
-| **Multilingual TTS with Cue Prosody** | `EdgeTTSAdapter` supporting Microsoft Neural Voices across English, Hindi, and Bengali (`bn-IN-TanishaaNeural`, `bn-IN-BashkarNeural`) with W3C SSML `<prosody>` rate & pitch modulation driven by pedagogical cues (`emphasis`, `questioning`, `encouraging`, `celebratory`, `neutral`). | **100% Complete & Tested (22 tests)** |
+| **Multilingual TTS with Cue Prosody** | `EdgeTTSAdapter` supporting Microsoft Neural Voices across English, Hindi, and Bengali (`bn-IN-TanishaaNeural`, `bn-IN-BashkarNeural`) with W3C SSML `<prosody>` rate & pitch modulation driven by pedagogical cues (`emphasis`, `questioning`, `encouraging`, `celebratory`, `neutral`). | **100% Complete & Tested (30 tests)** |
 | **Language-Aware Fallback TTS** | `FallbackTTSAdapter` pure-Python acoustic waveform generator with language-aware pacing (`en: 1.0`, `hinglish: 1.12`, `hi: 1.20`) and correct conditional order avoiding prefix collision bugs. | **100% Complete & Tested (7 tests)** |
 | **Resilient TTS Factory** | `TTSFactory.get_adapter("resilient")` automatic online-to-offline fallback wrapper with end-to-end cue propagation. | **100% Complete & Tested** |
-| **Viseme 2D Avatar (Tier 1)** | `VisemeAvatarAdapter` Tier 1 engine: calculates audio RMS energy, generates 24 FPS transparent RGBA frames, dynamically switches 4 mouth visemes (`closed`, `slightly_open`, `wide_open`, `o_shape`), natural 3-4s blink cycle, and cue-reactive poses (`neutral`, `emphasis`, `questioning`). | **100% Complete & Tested** |
+| **Viseme 2D Avatar (Tier 1)** | `VisemeAvatarAdapter` Tier 1 engine: calculates audio RMS energy, generates 24 FPS transparent RGBA frames, dynamically switches 4 mouth visemes (`closed`, `slightly_open`, `wide_open`, `o_shape`), natural 3-4s blink cycle, and cue-reactive poses (`neutral`, `emphasis`, `questioning`, `encouraging`, `celebratory`). | **100% Complete & Tested** |
 | **MuseTalk Neural Avatar (Tier 2)** | `MuseTalkAvatarAdapter` Tier 2 neural model adapter with CUDA/MPS hardware acceleration diagnostics, weights validation (`models/musetalk`), test mode execution, and transparent fallback to Tier 1 visemes with explicit telemetry logging. Managed via `AvatarFactory` (`auto`, `tier1`, `tier2`). | **100% Complete & Tested (7 tests)** |
-| **Visual Renderers** | 6 specialized renderers: `EquationRenderer` (LaTeX / Math), `GraphRenderer` (Matplotlib), `CodeRenderer` (Syntax-highlighted code slides), `DiagramRenderer` (Structured nodes/arrows), `TimelineRenderer` (Chronological milestones), `MapRenderer` (Geographical landmarks), plus `ImageRenderer`. | **100% Complete & Tested** |
+| **Visual Renderers** | 6 specialized renderers: `EquationRenderer` (LaTeX / Math), `GraphRenderer` (Matplotlib), `CodeRenderer` (Syntax-highlighted code slides), `DiagramRenderer` (Structured nodes/arrows), `TimelineRenderer` (Chronological milestones), `MapRenderer` (Geographical landmarks), plus `ImageRenderer`. Required packages (`matplotlib`, `Pillow`) tracked in `requirements.txt`. | **100% Complete & Tested** |
 | **Compositor Engine** | `FFmpegCompositor`: Dual-path discovery (System PATH + `imageio-ffmpeg` static binary). Assembles progressive visual sequence across duration via `concat` filter, overlays avatar PiP (576x540), audio track, and bottom subtitle box into MP4 H.264. Includes pure-Pillow software compositor fallback. | **100% Complete & Tested** |
 | **Unified Service Facade** | `AvatarVoiceService`: Synchronous `render_segment_sync()` and thread-safe async queue `render_segment()` with job polling `get_status()`. | **100% Complete & Tested** |
 | **Automated Verification** | 16 test suites covering models, progressive visuals, content-aware timing, TTS pacing, SSML cue prosody, visemes, MuseTalk tier telemetry, compositor layouts, and async queues. | **100+ Unit/Integration Tests Passing** |
@@ -133,7 +133,7 @@ modules/avatar_voice/
 ### Core & Service Layer
 - **[`src/models.py`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/modules/avatar_voice/src/models.py)**:
   - Defines `VisualSpec`: validates visual type (`equation|graph|diagram|code|image|timeline|map|simulation`) and content (LaTeX, JSON dictionary, code string).
-  - Defines `TeachingSegment` (Contract §6): enforces `node_id`, `script_text`, `language`, `visual_spec`, and `avatar_cue` (`neutral`, `emphasis`, `questioning`).
+  - Defines `TeachingSegment` (Contract §6): enforces `node_id`, `script_text`, `language`, `visual_spec`, and `avatar_cue` (`neutral`, `emphasis`, `questioning`, `encouraging`, `celebratory`).
   - Defines `RenderedVideoSegment` (Contract §7): validates output `node_id`, `video_url`, verified `duration_sec`, and optional `captions_vtt_url`.
   - Defines internal tracking models: `WordTimestamp`, `TTSResult`, `AvatarRenderResult`, `VisualRenderResult`, and `RenderJobStatus`.
 - **[`src/service.py`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/modules/avatar_voice/src/service.py)**:
@@ -167,6 +167,8 @@ modules/avatar_voice/
     - `neutral`: Balanced eye gaze and neutral brow position.
     - `emphasis`: Slightly raised brows, alert gaze, forward tilt.
     - `questioning`: Asymmetric eyebrow raise (curious look) with subtle head tilt.
+    - `encouraging`: Warm smile aperture, open attentive brow, slight nodding posture.
+    - `celebratory`: Upbeat wide smile, animated brow lift, energetic head tilt.
   - Emits transparent RGBA PNG frames ready for overlay composition.
 - **[`src/avatar/musetalk_avatar.py`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/modules/avatar_voice/src/avatar/musetalk_avatar.py)**:
   - Implements the modern MuseTalk Tier 2 neural talking-head avatar adapter.
