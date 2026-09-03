@@ -78,6 +78,7 @@ class EquationRenderer(BaseRenderer):
             height=self.height,
             visual_type="equation",
             step_image_paths=step_paths,
+            step_contents=steps,
             is_progressive=True,
         )
 
