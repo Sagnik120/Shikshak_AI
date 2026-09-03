@@ -37,9 +37,21 @@ class FallbackTTSAdapter:
         word_timestamps: List[WordTimestamp] = []
         audio_samples: List[int] = []
 
+        # Language-aware pacing scale factors
+        # English: baseline 1.0 (approx 140 WPM)
+        # Hindi: ~1.20 (slower syllable cadence, ~115 WPM, matching Edge-TTS neural pacing)
+        # Hinglish: ~1.12 (code-mixed cadence, ~125 WPM)
+        lang_key = language.lower().strip()
+        if "hinglish" in lang_key:
+            pacing_factor = 1.12
+        elif lang_key == "hi" or lang_key.startswith("hi-") or lang_key.startswith("hi_") or lang_key == "hindi":
+            pacing_factor = 1.20
+        else:
+            pacing_factor = 1.00
+
         current_time = 0.0
         for idx, word in enumerate(words):
-            word_duration = max(0.2, len(word) * 0.06 + 0.15)
+            word_duration = max(0.2 * pacing_factor, (len(word) * 0.06 + 0.15) * pacing_factor)
             start_sec = current_time
             end_sec = current_time + word_duration
             word_timestamps.append(
@@ -64,9 +76,10 @@ class FallbackTTSAdapter:
                 int_sample = int(sample_val * 32767 * 0.7)
                 audio_samples.append(max(-32768, min(32767, int_sample)))
 
-            pause_samples = int(0.05 * sample_rate)
+            pause_sec = 0.05 * pacing_factor
+            pause_samples = int(pause_sec * sample_rate)
             audio_samples.extend([0] * pause_samples)
-            current_time = end_sec + 0.05
+            current_time = end_sec + pause_sec
 
         total_duration = round(current_time, 2)
 
