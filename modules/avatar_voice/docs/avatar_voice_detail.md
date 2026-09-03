@@ -57,17 +57,17 @@ The module is engineered as an asynchronous, multi-stage multimedia synthesis pi
 
 | Subsystem | Implementation Details | Status |
 |---|---|---|
-| **Contract Schemas** | Pydantic v2 schemas for `TeachingSegment`, `RenderedVideoSegment`, `VisualSpec`, `WordTimestamp`, `TTSResult`, `AvatarRenderResult`, `VisualRenderResult`. Added `VisualSpec.steps`, `VisualSpec.execution_output`, and `VisualRenderResult.step_image_paths`. | **100% Complete & Tested** |
-| **Progressive Step-by-Step Visuals** | `EquationRenderer` generates cumulative multi-step math derivation slide sequences with active cyan `#06b6d4` highlights and amber `#f59e0b` step badges. `CodeRenderer` generates a 3-stage execution flow (Code $\rightarrow$ Active Line $\rightarrow$ Output Terminal pane). | **100% Complete & Tested (11 tests)** |
-| **Multilingual TTS** | `EdgeTTSAdapter` supporting Microsoft Neural Voices (`hi-IN-SwaraNeural`, `hi-IN-MadhurNeural`, `en-IN-NeerjaNeural`, `en-US-AriaNeural`) with word boundary timestamp parsing and WebVTT creation. | **100% Complete & Tested** |
+| **Contract Schemas** | Pydantic v2 schemas for `TeachingSegment`, `RenderedVideoSegment`, `VisualSpec`, `WordTimestamp`, `TTSResult`, `AvatarRenderResult`, `VisualRenderResult`. Added `VisualSpec.steps`, `VisualSpec.execution_output`, `VisualRenderResult.step_image_paths`, `VisualRenderResult.step_contents`, and `AvatarRenderResult.tier_used` / `tier_used_reason`. | **100% Complete & Tested** |
+| **Progressive Step-by-Step Visuals** | `EquationRenderer` generates cumulative multi-step math derivations with cyan highlights; `CodeRenderer` generates 3-stage execution flows. Sequenced by `compute_content_aware_step_durations()` with formula complexity weighting, cue-word timestamp alignment, and water-filling duration conservation. | **100% Complete & Tested (23 tests)** |
+| **Multilingual TTS with Cue Prosody** | `EdgeTTSAdapter` supporting Microsoft Neural Voices across English, Hindi, and Bengali (`bn-IN-TanishaaNeural`, `bn-IN-BashkarNeural`) with W3C SSML `<prosody>` rate & pitch modulation driven by pedagogical cues (`emphasis`, `questioning`, `encouraging`, `celebratory`, `neutral`). | **100% Complete & Tested (22 tests)** |
 | **Language-Aware Fallback TTS** | `FallbackTTSAdapter` pure-Python acoustic waveform generator with language-aware pacing (`en: 1.0`, `hinglish: 1.12`, `hi: 1.20`) and correct conditional order avoiding prefix collision bugs. | **100% Complete & Tested (7 tests)** |
-| **Resilient TTS Factory** | `TTSFactory.get_adapter("resilient")` automatic online-to-offline fallback wrapper. | **100% Complete & Tested** |
-| **Viseme 2D Avatar** | `VisemeAvatarAdapter` Tier 1 engine: calculates audio RMS energy, generates 24 FPS transparent RGBA frames, dynamically switches 4 mouth visemes (`closed`, `slightly_open`, `wide_open`, `o_shape`), natural 3-4s blink cycle, and cue-reactive poses (`neutral`, `emphasis`, `questioning`). | **100% Complete & Tested** |
-| **Wav2Lip Neural Avatar** | `Wav2LipAvatarAdapter` Tier 2 neural model skeleton adapter with graceful fallback to Tier 1 visemes. | **Scaffolded / Fallback Active** |
+| **Resilient TTS Factory** | `TTSFactory.get_adapter("resilient")` automatic online-to-offline fallback wrapper with end-to-end cue propagation. | **100% Complete & Tested** |
+| **Viseme 2D Avatar (Tier 1)** | `VisemeAvatarAdapter` Tier 1 engine: calculates audio RMS energy, generates 24 FPS transparent RGBA frames, dynamically switches 4 mouth visemes (`closed`, `slightly_open`, `wide_open`, `o_shape`), natural 3-4s blink cycle, and cue-reactive poses (`neutral`, `emphasis`, `questioning`). | **100% Complete & Tested** |
+| **MuseTalk Neural Avatar (Tier 2)** | `MuseTalkAvatarAdapter` Tier 2 neural model adapter with CUDA/MPS hardware acceleration diagnostics, weights validation (`models/musetalk`), test mode execution, and transparent fallback to Tier 1 visemes with explicit telemetry logging. Managed via `AvatarFactory` (`auto`, `tier1`, `tier2`). | **100% Complete & Tested (7 tests)** |
 | **Visual Renderers** | 6 specialized renderers: `EquationRenderer` (LaTeX / Math), `GraphRenderer` (Matplotlib), `CodeRenderer` (Syntax-highlighted code slides), `DiagramRenderer` (Structured nodes/arrows), `TimelineRenderer` (Chronological milestones), `MapRenderer` (Geographical landmarks), plus `ImageRenderer`. | **100% Complete & Tested** |
 | **Compositor Engine** | `FFmpegCompositor`: Dual-path discovery (System PATH + `imageio-ffmpeg` static binary). Assembles progressive visual sequence across duration via `concat` filter, overlays avatar PiP (576x540), audio track, and bottom subtitle box into MP4 H.264. Includes pure-Pillow software compositor fallback. | **100% Complete & Tested** |
 | **Unified Service Facade** | `AvatarVoiceService`: Synchronous `render_segment_sync()` and thread-safe async queue `render_segment()` with job polling `get_status()`. | **100% Complete & Tested** |
-| **Automated Verification** | 12 test suites covering models, progressive visuals, TTS pacing, visemes, visual distinctness, compositor layouts, and async queues. | **50+ Unit/Integration Tests Passing** |
+| **Automated Verification** | 16 test suites covering models, progressive visuals, content-aware timing, TTS pacing, SSML cue prosody, visemes, MuseTalk tier telemetry, compositor layouts, and async queues. | **100+ Unit/Integration Tests Passing** |
 
 ---
 
@@ -88,21 +88,24 @@ modules/avatar_voice/
 │   ├── models.py                               # Authoritative Pydantic schemas (Contracts §6 & §7 + domain types)
 │   ├── service.py                              # Unified service facade and async worker pool
 │   ├── avatar/
-│   │   ├── __init__.py                         # Exposes AvatarAdapter, VisemeAvatarAdapter, Wav2LipAvatarAdapter
+│   │   ├── __init__.py                         # Exposes AvatarAdapter, VisemeAvatarAdapter, MuseTalkAvatarAdapter, AvatarFactory
 │   │   ├── base.py                             # Abstract Base Class AvatarAdapter (Contract §14)
+│   │   ├── factory.py                          # AvatarFactory resolving auto, tier1, tier2
+│   │   ├── musetalk_avatar.py                  # Tier 2 MuseTalk neural avatar adapter with hardware checks & fallback telemetry
 │   │   ├── viseme_avatar.py                    # Tier 1 2D viseme animated teacher avatar engine (@ 24 FPS)
-│   │   └── wav2lip_avatar.py                   # Tier 2 neural lip-sync model adapter skeleton
+│   │   └── wav2lip_avatar.py                   # Legacy neural lip-sync model adapter skeleton
 │   ├── compositor/
 │   │   ├── __init__.py                         # Exposes FFmpegCompositor
-│   │   └── ffmpeg_compositor.py                # 1920x1080 split-screen FFmpeg & PIL video compositor
+│   │   └── ffmpeg_compositor.py                # 1920x1080 split-screen FFmpeg & PIL video compositor with progressive concat
 │   ├── tts/
 │   │   ├── __init__.py                         # Exposes TTSAdapter, EdgeTTSAdapter, FallbackTTSAdapter, TTSFactory
 │   │   ├── base.py                             # Abstract Base Class TTSAdapter (Contract §14) & Language Map
-│   │   ├── edge_tts_adapter.py                 # Microsoft Edge-TTS async multilingual neural voice adapter
+│   │   ├── edge_tts_adapter.py                 # Microsoft Edge-TTS async multilingual neural voice adapter with SSML cue prosody
 │   │   ├── fallback_adapter.py                 # Pure-Python acoustic waveform generator (zero network dependency)
 │   │   └── factory.py                          # Resilient TTS factory with automatic degradation
 │   └── visuals/
-│       ├── __init__.py                         # Exposes VisualRendererFactory and all renderer classes
+│       ├── __init__.py                         # Exposes VisualRendererFactory, timing utilities, and all renderer classes
+│       ├── timing.py                           # Content-aware progressive reveal timing with water-filling floor allocation
 │       ├── base.py                             # BaseVisualRenderer abstract class and canvas constants
 │       ├── code_renderer.py                    # Monospace code slide renderer with dark terminal theme
 │       ├── diagram_renderer.py                 # Concept flowchart and node-link diagram renderer
@@ -165,8 +168,14 @@ modules/avatar_voice/
     - `emphasis`: Slightly raised brows, alert gaze, forward tilt.
     - `questioning`: Asymmetric eyebrow raise (curious look) with subtle head tilt.
   - Emits transparent RGBA PNG frames ready for overlay composition.
+- **[`src/avatar/musetalk_avatar.py`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/modules/avatar_voice/src/avatar/musetalk_avatar.py)**:
+  - Implements the modern MuseTalk Tier 2 neural talking-head avatar adapter.
+  - Automatically performs hardware diagnostics (CUDA / Apple MPS / CPU) and model weights verification at `models/musetalk`.
+  - In environments without GPU acceleration or weights, gracefully and transparently degrades to Tier 1 visemes, attaching telemetry metadata: `tier_used="tier1"` and `tier_used_reason="MuseTalk weights or CUDA unavailable; operating on Tier 1 viseme fallback"`.
+- **[`src/avatar/factory.py`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/modules/avatar_voice/src/avatar/factory.py)**:
+  - Implements `AvatarFactory.get_adapter(engine)` dynamically resolving `"auto"` (attempt Tier 2, fallback to Tier 1), `"tier1"` (strictly Viseme), and `"tier2"` (strictly MuseTalk).
 - **[`src/avatar/wav2lip_avatar.py`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/modules/avatar_voice/src/avatar/wav2lip_avatar.py)**:
-  - Prepares video tensor preprocessing for neural talking-face generation, safely delegating to `VisemeAvatarAdapter` when deep-learning weights are absent.
+  - Legacy neural talking-face adapter skeleton maintained for backward compatibility.
 
 ### Visual Presentation Layer (`src/visuals/`)
 - **[`src/visuals/base.py`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/modules/avatar_voice/src/visuals/base.py)**:
@@ -212,22 +221,27 @@ modules/avatar_voice/
              +--------------------------+--------------------------+
              |                                                     |
   (1) [TTSAdapter.synthesize]                            (2) [VisualRendererFactory.render]
-      - Resolves voice (e.g. Swara/Neerja)                   - Dispatches visual_spec.type
-      - Generates audio file (.mp3 / .wav)                   - Renders 1344x1080 graphic slide
-      - Extracts word timestamps & .vtt                      - Returns visual image path
+      - Resolves voice (Swara/Neerja/Tanishaa)               - Dispatches visual_spec.type
+      - Applies SSML cue prosody (rate/pitch)                - Renders 1344x1080 graphic slide
+      - Generates audio file (.mp3 / .wav)                   - Emits step images & step contents
+      - Extracts word timestamps & .vtt                      - Returns visual image path(s)
              |                                                     |
              +--------------------------+--------------------------+
                                         |
                                         v
-                          (3) [AvatarAdapter.render]
-                              - Receives audio file & script
-                              - Calculates RMS volume curve @ 24 FPS
-                              - Renders lip-synced RGBA teacher frames
-                              - Applies avatar_cue (neutral/emphasis/questioning)
+                          (3) [AvatarFactory -> AvatarAdapter.render]
+                              - Resolves tier: auto / tier1 / tier2
+                              - MuseTalk Tier-2 (with hardware/weights check)
+                              - Graceful Tier-1 fallback with transparent telemetry
+                              - 24 FPS lip-sync, blink cycles, cue poses
+                              - Emits tier_used & tier_used_reason
                                         |
                                         v
                         (4) [FFmpegCompositor.compose]
                             - Assembles 1920x1080 canvas
+                            - Sequences progressive visuals using content-aware
+                              timing (formula complexity + cue-word timestamps)
+                            - Conserves 100% audio duration via water-filling floor
                             - Overlays visual slide (left 70%)
                             - Overlays avatar PiP (top-right 30%)
                             - Burns / references VTT captions
