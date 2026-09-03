@@ -76,6 +76,14 @@ class AvatarRenderResult(BaseModel):
     duration_sec: float
     is_transparent: bool = True
     tier: str = "tier1_viseme"
+    tier_used: str = Field(
+        default="tier1_viseme",
+        description="Explicit tier utilized: 'tier1_viseme' or 'tier2_musetalk'"
+    )
+    tier_used_reason: Optional[str] = Field(
+        default=None,
+        description="Detailed diagnostic reason for tier selection or fallback"
+    )
 
 
 class VisualRenderResult(BaseModel):
