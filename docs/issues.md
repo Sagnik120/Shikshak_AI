@@ -22,8 +22,11 @@ This document summarizes the key architectural issues, bug fixes, and system imp
 | **Avatar/Voice** | `AV-04` | Monotone delivery; cue-driven SSML prosody & Bengali voices | **High (P1)** | **RESOLVED & TESTED** | `tests/unit/test_tts_cue_prosody.py` (22/22 passed) |
 | **Avatar/Voice** | `AV-05` | Naive uniform visual reveal timing vs formula complexity | **High (P1)** | **RESOLVED & TESTED** | `tests/unit/test_progressive_timing.py` (12/12 passed) |
 | **Avatar/Voice** | `AV-06` | MuseTalk Tier-2 neural avatar architecture & transparent telemetry | **High (P1)** | **RESOLVED & TESTED** | `tests/unit/test_musetalk_tier_reporting.py` (7/7 passed) |
+| **Avatar/Voice** | `AV-07` | Contract §6 `avatar_cue` enum missing `encouraging`/`celebratory` cues | **Critical (P0)** | **RESOLVED & TESTED** | `tests/unit/test_tts_cue_prosody.py` (Contract §6 widened) |
 | **Operations** | `OPS-01` | Lack of preflight diagnostic to detect runtime fallback degradation | **High (P1)** | **RESOLVED & VERIFIED** | `scripts/preflight_check.py` |
 | **Operations** | `OPS-02` | CI/CD & judge preflight gap (`--require-ffmpeg`, `--check-tier2`, `--json`) | **High (P1)** | **RESOLVED & TESTED** | `tests/unit/test_preflight_enhanced.py` (8/8 passed) |
+| **Operations** | `OPS-03` | ChromaDB silent fallback to mock hiding missing vector store | **High (P1)** | **RESOLVED & TESTED** | `tests/unit/test_preflight_enhanced.py` (Fails loud before demo) |
+| **Operations** | `OPS-04` | Clean evaluator machine installs missing `edge-tts`, `imageio-ffmpeg`, `matplotlib` | **High (P1)** | **RESOLVED & VERIFIED** | `requirements.txt` & `scripts/preflight_check.py` |
 
 ---
 
