@@ -71,7 +71,7 @@ class RetrievedChunk(BaseModel):
 
 class RetrievalRequest(BaseModel):
     """Query parameters for retrieving grounding context."""
-    document_id: str
+    document_id: Optional[str] = Field(default=None, description="Document ID or None for topic-only teaching")
     query_text: str
     top_k: int = Field(default=5, ge=1, le=50)
     relevance_threshold: float = Field(default=0.2, description="Minimum reranker score for grounding")
@@ -79,17 +79,22 @@ class RetrievalRequest(BaseModel):
 
 class RetrievalResult(BaseModel):
     """Result of retrieval operation."""
-    document_id: str
+    document_id: Optional[str] = Field(default=None, description="Document ID or None for topic-only teaching")
     query_text: str
     chunks: List[RetrievedChunk] = Field(default_factory=list)
     has_sufficient_context: bool = Field(
         default=True,
-        description="False if all retrieved candidates are below relevance threshold"
+        description="False if all retrieved candidates are below relevance threshold or no document provided"
     )
     risk_level: str = Field(
         default="low",
-        description="'low' or 'high_hallucination_risk' (low context / poor match)"
+        description="'low', 'no_document_context', or 'high_hallucination_risk'"
     )
+
+    @property
+    def candidate_chunks(self) -> List[RetrievedChunk]:
+        """Convenience alias for chunks."""
+        return self.chunks
 
 
 class GroundedContext(BaseModel):

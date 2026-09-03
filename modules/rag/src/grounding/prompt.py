@@ -15,6 +15,22 @@ def format_grounding_context_block(
 
     Follows the strict grounding prompt specification in detailed_design.md §6.1.
     """
+    if risk_level == "no_document_context":
+        formatted = (
+            "SOURCE MATERIAL: [No source document was provided — topic-based teaching mode]\n\n"
+            "Instructions:\n"
+            "- Teach and explain this concept using authoritative, clear pedagogical general knowledge.\n"
+            "- Do NOT fabricate citations, document excerpts, page numbers, or slide numbers.\n"
+            "- Ground all technical explanations in standard, verified curriculum facts.\n"
+            "- Output at the end: grounded_on: []"
+        )
+        return GroundedContext(
+            formatted_prompt_context=formatted,
+            candidate_chunk_ids=[],
+            has_sufficient_context=False,
+            risk_flag="no_document_context"
+        )
+
     if not retrieved_chunks or not has_sufficient_context:
         formatted = (
             "SOURCE MATERIAL: [No high-confidence document excerpts found for this topic]\n\n"
