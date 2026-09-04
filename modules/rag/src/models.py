@@ -41,6 +41,7 @@ class ParsedDocument(BaseModel):
     )
     warnings: List[str] = Field(
         default_factory=list,
+        exclude=True,
         description="Diagnostic warnings (e.g. scanned pages with near-zero text, OCR incomplete)"
     )
 

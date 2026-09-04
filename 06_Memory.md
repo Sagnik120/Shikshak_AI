@@ -11,11 +11,11 @@
 > - Next immediate step: ...
 > ```
 
-### [Phase 0] Repo bootstrap — 2026-09-02
-- Status: STABLE
-- Built: Scaffolded folder structure, gitignore, and cross-module contracts.
-- Tested: Directory structure verified.
-- Stubbed/remaining: Inter-module endpoints.
+### [Phase 0] Setup & RAG Scaffolding
+- Status: STABLE (RAG schemas, ParsedDocument, PDF chunking, chunk/fusion retrieval complete)
+- Built: RAG module schemas and contract alignment. Fixed contract drift (2026-09-04) where `ParsedDocument.warnings` leaked into serialized outputs. Fixed Windows access violation regression (2026-09-04) during `CrossEncoder` model materialization by explicitly setting `TOKENIZERS_PARALLELISM=false` and `OMP_NUM_THREADS=1`.
+- Tested: Python/pytest skeleton in place. 17/17 RAG tests passing.
+- Stubbed/remaining: Actual model embeddings. Offline verification overrides these with Fake/Mock endpoints.
 - Deviations/notes: none.
 - Next immediate step: Phase 1 Ingestion.
 
@@ -42,3 +42,11 @@
 - Stubbed/remaining: None.
 - Deviations/notes: No file parsing is duplicated; ML Core solely acts on `rag` module chunks. Model downloads bypassed in tests via `mock.patch`.
 - Next immediate step: Backend/Frontend integration.
+
+### [Phase 7] Backend Integration (P0) — 2026-09-04
+- Status: STABLE (P0 Source & Testing complete)
+- Built: FastAPI app, `/sessions` REST routes for topic-based learning, WS `/sessions/{id}/live` driver mapping to `AIOperationService` state machine, in-memory repositories. 13 unit/integration tests fully covering P0 flows.
+- Tested: 13/13 passing in 0.11s using `TestClient` and `websocket_connect` with `Mock` boundaries at `AIOperationService`.
+- Stubbed/remaining: P1 (RAG upload integration, Postgres storage), P2 (advanced HUMAN intervention).
+- Deviations/notes: No logic duplicated in Backend. Acts purely as a thin relay/FSM-driver feeding the orchestrator.
+- Next immediate step: Backend testing phase (`task_backend_testing.md`).

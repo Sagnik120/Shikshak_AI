@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+import os
+# Mitigate Windows threading/runtime access violations during CrossEncoder load
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ["OMP_NUM_THREADS"] = "1"
+
 import logging
 from typing import List, Dict, Any, Tuple
 
