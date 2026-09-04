@@ -46,3 +46,9 @@ temp_audio/
 Thumbs.db
 .vscode/
 .idea/
+
+# Internal Working Drafts & Gap Analysis Scratchpads
+modules/**/docs/00_OVERALL_GAP_ANALYSIS.md
+modules/**/docs/00_OVERALL_ROUND2_REVIEW.md
+modules/**/docs/*_fix_plan*.md
+modules/avatar_voice/instructions/detailed_design_avatar_voice.md
