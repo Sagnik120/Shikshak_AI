@@ -7,6 +7,16 @@ from typing import Dict, List, Protocol
 from modules.avatar_voice.src.models import TTSResult, WordTimestamp
 
 VOICE_CATALOG: Dict[str, Dict[str, str]] = {
+    "bn": {
+        "female": "bn-IN-TanishaaNeural",
+        "male": "bn-IN-BashkarNeural",
+        "default": "bn-IN-TanishaaNeural",
+    },
+    "bengali": {
+        "female": "bn-IN-TanishaaNeural",
+        "male": "bn-IN-BashkarNeural",
+        "default": "bn-IN-TanishaaNeural",
+    },
     "hi": {
         "female": "hi-IN-SwaraNeural",
         "male": "hi-IN-MadhurNeural",
@@ -45,6 +55,8 @@ def resolve_voice_id(language: str, gender: str = "female") -> str:
     lang_key = language.strip().lower()
     if lang_key in VOICE_CATALOG:
         return VOICE_CATALOG[lang_key].get(gender.lower(), VOICE_CATALOG[lang_key]["default"])
+    if "bn" in lang_key or "bengali" in lang_key or "bangla" in lang_key:
+        return VOICE_CATALOG["bn"]["default"]
     if "hi" in lang_key:
         return VOICE_CATALOG["hi"]["default"]
     if "in" in lang_key:
@@ -55,6 +67,12 @@ def resolve_voice_id(language: str, gender: str = "female") -> str:
 class TTSAdapter(Protocol):
     """Protocol for Text-to-Speech synthesis per Contract §14."""
 
-    def synthesize(self, text: str, language: str, voice_id: str) -> TTSResult:
+    def synthesize(
+        self,
+        text: str,
+        language: str = "en",
+        voice_id: Optional[str] = None,
+        avatar_cue: str = "neutral"
+    ) -> TTSResult:
         """Synthesize spoken narration audio and timing metadata from text."""
         ...

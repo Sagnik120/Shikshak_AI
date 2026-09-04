@@ -58,6 +58,8 @@ class VisemeAvatarAdapter:
             duration_sec=duration_sec,
             is_transparent=True,
             tier="tier1_viseme",
+            tier_used="tier1_viseme",
+            tier_used_reason="Tier 1 procedural 2D viseme animation active (zero-GPU CPU mode)",
         )
 
     def _extract_rms_envelope(self, audio_path: str, fps: int) -> Tuple[List[float], float]:

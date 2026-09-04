@@ -9,6 +9,7 @@ import threading
 import uuid
 from typing import Dict, Optional, Union
 from modules.avatar_voice.src.avatar.base import AvatarAdapter
+from modules.avatar_voice.src.avatar.factory import AvatarFactory
 from modules.avatar_voice.src.avatar.viseme_avatar import VisemeAvatarAdapter
 from modules.avatar_voice.src.compositor.ffmpeg_compositor import FFmpegCompositor
 from modules.avatar_voice.src.models import (
@@ -35,7 +36,7 @@ class AvatarVoiceService:
         max_workers: int = 4,
     ):
         self.tts = tts_adapter or TTSFactory.get_adapter("resilient", output_dir=output_dir)
-        self.avatar = avatar_adapter or VisemeAvatarAdapter(output_dir=output_dir)
+        self.avatar = avatar_adapter or AvatarFactory.get_adapter("auto", output_dir=output_dir)
         self.visuals = VisualRendererFactory(output_dir=output_dir)
         self.compositor = FFmpegCompositor(output_dir=output_dir)
 
@@ -54,8 +55,10 @@ class AvatarVoiceService:
         visual_spec = segment.visual_spec
         avatar_cue = segment.avatar_cue
 
-        # 1. TTS Synthesis
-        tts_result = self.tts.synthesize(text=script_text, language=language)
+        # 1. TTS Synthesis with cue-driven prosody
+        tts_result = self.tts.synthesize(
+            text=script_text, language=language, avatar_cue=avatar_cue
+        )
 
         # 2. Visual Synthesis
         visual_result = self.visuals.render(visual_spec)
@@ -106,7 +109,11 @@ class AvatarVoiceService:
                     self._jobs[job_id].progress_pct = 0.25
                     self._jobs[job_id].stage = "synthesizing_audio_and_visuals"
 
-            tts_result = self.tts.synthesize(text=segment.script_text, language=segment.language)
+            tts_result = self.tts.synthesize(
+                text=segment.script_text,
+                language=segment.language,
+                avatar_cue=segment.avatar_cue
+            )
             visual_result = self.visuals.render(segment.visual_spec)
 
             with self._lock:

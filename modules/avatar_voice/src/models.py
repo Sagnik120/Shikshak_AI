@@ -13,6 +13,14 @@ class VisualSpec(BaseModel):
     content: Union[str, Dict[str, Any], List[Any]] = Field(
         ..., description="LaTeX, structured JSON, code snippet, prompt, or coordinates"
     )
+    steps: Optional[List[str]] = Field(
+        default=None,
+        description="Optional ordered sequence of progressive steps (e.g. math derivations, line-by-line reveals)"
+    )
+    execution_output: Optional[str] = Field(
+        default=None,
+        description="Optional terminal/simulation execution output to display in an active output pane"
+    )
 
 
 class TeachingSegment(BaseModel):
@@ -24,7 +32,7 @@ class TeachingSegment(BaseModel):
     script_text: str = Field(..., description="The spoken narration script")
     language: str = Field(default="en", description="Language code e.g. en, hi, Hinglish")
     visual_spec: VisualSpec = Field(..., description="Specification of the on-screen visual aid")
-    avatar_cue: Literal["neutral", "emphasis", "questioning"] = Field(
+    avatar_cue: Literal["neutral", "emphasis", "questioning", "encouraging", "celebratory"] = Field(
         default="neutral", description="Facial and pose cue for the avatar"
     )
 
@@ -68,6 +76,14 @@ class AvatarRenderResult(BaseModel):
     duration_sec: float
     is_transparent: bool = True
     tier: str = "tier1_viseme"
+    tier_used: str = Field(
+        default="tier1_viseme",
+        description="Explicit tier utilized: 'tier1_viseme' or 'tier2_musetalk'"
+    )
+    tier_used_reason: Optional[str] = Field(
+        default=None,
+        description="Detailed diagnostic reason for tier selection or fallback"
+    )
 
 
 class VisualRenderResult(BaseModel):
@@ -76,6 +92,15 @@ class VisualRenderResult(BaseModel):
     width: int = 1344
     height: int = 1080
     visual_type: str
+    step_image_paths: List[str] = Field(
+        default_factory=list,
+        description="Ordered paths of progressive visual step frames"
+    )
+    step_contents: List[str] = Field(
+        default_factory=list,
+        description="Original text or LaTeX representation of each progressive step"
+    )
+    is_progressive: bool = False
 
 
 class RenderJobStatus(BaseModel):

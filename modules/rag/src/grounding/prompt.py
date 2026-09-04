@@ -15,6 +15,22 @@ def format_grounding_context_block(
 
     Follows the strict grounding prompt specification in detailed_design.md §6.1.
     """
+    if risk_level == "no_document_context":
+        formatted = (
+            "SOURCE MATERIAL: [No source document was provided — topic-based teaching mode]\n\n"
+            "Instructions:\n"
+            "- Teach and explain this concept using authoritative, clear pedagogical general knowledge.\n"
+            "- Do NOT fabricate citations, document excerpts, page numbers, or slide numbers.\n"
+            "- Ground all technical explanations in standard, verified curriculum facts.\n"
+            "- Output at the end: grounded_on: []"
+        )
+        return GroundedContext(
+            formatted_prompt_context=formatted,
+            candidate_chunk_ids=[],
+            has_sufficient_context=False,
+            risk_flag="no_document_context"
+        )
+
     if not retrieved_chunks or not has_sufficient_context:
         formatted = (
             "SOURCE MATERIAL: [No high-confidence document excerpts found for this topic]\n\n"
@@ -46,11 +62,19 @@ def format_grounding_context_block(
 
     context_body = "\n\n".join(chunk_blocks)
 
+    guidance_note = ""
+    if risk_level == "moderate_relevance":
+        guidance_note = (
+            "- Note: The question uses indirect or paraphrased phrasing. Bridge the student's terminology "
+            "with the source concepts in the excerpts below.\n"
+        )
+
     formatted = (
         "You are teaching using ONLY the following source material. Each excerpt has an ID.\n\n"
         f"{context_body}\n\n"
         "Instructions:\n"
         "- Answer/explain using ONLY the information in the excerpts above.\n"
+        f"{guidance_note}"
         "- If the excerpts do not contain enough information to fully answer, say so explicitly,\n"
         "  then you may supplement with general knowledge — but you MUST label that portion as\n"
         "  '[General knowledge, not from the uploaded document]'.\n"
@@ -62,5 +86,5 @@ def format_grounding_context_block(
         formatted_prompt_context=formatted,
         candidate_chunk_ids=candidate_ids,
         has_sufficient_context=True,
-        risk_flag=None if risk_level == "low" else "marginal_context_score"
+        risk_flag=risk_level
     )

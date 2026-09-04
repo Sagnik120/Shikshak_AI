@@ -19,14 +19,24 @@ class ResilientTTSAdapter:
         self.edge_adapter = EdgeTTSAdapter(output_dir=output_dir)
         self.fallback_adapter = FallbackTTSAdapter(output_dir=output_dir)
 
-    def synthesize(self, text: str, language: str = "en", voice_id: Optional[str] = None) -> TTSResult:
+    def synthesize(
+        self,
+        text: str,
+        language: str = "en",
+        voice_id: Optional[str] = None,
+        avatar_cue: str = "neutral"
+    ) -> TTSResult:
         """Synthesize text to speech with automatic fallback on network or driver error."""
         voice = voice_id or resolve_voice_id(language)
         try:
-            return self.edge_adapter.synthesize(text=text, language=language, voice_id=voice)
+            return self.edge_adapter.synthesize(
+                text=text, language=language, voice_id=voice, avatar_cue=avatar_cue
+            )
         except Exception as e:
             logger.warning(f"Primary Edge-TTS failed ({e}). Cascading to FallbackTTSAdapter.")
-            return self.fallback_adapter.synthesize(text=text, language=language, voice_id=voice)
+            return self.fallback_adapter.synthesize(
+                text=text, language=language, voice_id=voice, avatar_cue=avatar_cue
+            )
 
 
 class TTSFactory:

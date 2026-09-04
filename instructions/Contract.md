@@ -70,7 +70,7 @@
   "script_text": "string",
   "language": "string",
   "visual_spec": { "type": "string", "content": "string|object (e.g. LaTeX, code, image_prompt)" },
-  "avatar_cue": "neutral|emphasis|questioning"
+  "avatar_cue": "neutral|emphasis|questioning|encouraging|celebratory"
 }
 ```
 

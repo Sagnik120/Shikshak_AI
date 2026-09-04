@@ -38,7 +38,8 @@ class HybridRetriever:
         document_id: str,
         query_text: str,
         top_k: int = 5,
-        relevance_threshold: float = 0.2
+        relevance_threshold: float = 0.5001,
+        confidence_threshold: float = 0.52
     ) -> RetrievalResult:
         """Execute hybrid retrieve-then-rerank pipeline per detailed_design.md §5.
 
@@ -47,9 +48,17 @@ class HybridRetriever:
         2. Retrieve top-20 dense candidates and top-20 sparse candidates from vector store.
         3. Fuse candidate lists using Reciprocal Rank Fusion (RRF) -> top 10.
         4. Cross-encoder rerank top 10 with BAAI/bge-reranker-v2-m3 -> top-k (default 5).
-        5. Check relevance threshold: if top score < relevance_threshold, flag low context.
+        5. Two-threshold calibrated evaluation:
+           - In neural cross-encoder reranking, sigmoid scores <= 0.5001 represent neutral
+             logits (0 ± 0.0002) with zero positive entailment (out-of-scope cross-domain queries).
+             These are strictly filtered out as cross-domain noise.
+           - If top_score >= confidence_threshold (0.52): has_sufficient=True, risk_level="low".
+           - If 0.5001 < top_score < confidence_threshold: has_sufficient=True, risk_level="moderate_relevance"
+             (successfully accepts conversational paraphrases and Hinglish queries).
+           - If top_score <= 0.5001 or not retrieved_chunks: has_sufficient=False, risk_level="high_hallucination_risk".
         """
-        if not query_text.strip():
+        import re
+        if not query_text.strip() or not re.search(r'\w', query_text):
             return RetrievalResult(
                 document_id=document_id,
                 query_text=query_text,
@@ -103,10 +112,24 @@ class HybridRetriever:
                 )
             )
 
-        # 5. Threshold evaluation (Edge case §5.1 / §6.3)
+        # 5. Two-threshold calibrated evaluation
         top_score = retrieved_chunks[0].score if retrieved_chunks else 0.0
-        has_sufficient = (len(retrieved_chunks) > 0 and top_score >= relevance_threshold)
-        risk_level = "low" if has_sufficient else "high_hallucination_risk"
+        top_chunk = retrieved_chunks[0] if retrieved_chunks else None
+
+        is_cross_domain_noise = False
+        if top_chunk and top_score <= relevance_threshold:
+            is_cross_domain_noise = True
+
+        if is_cross_domain_noise or not retrieved_chunks or top_score < relevance_threshold:
+            has_sufficient = False
+            risk_level = "high_hallucination_risk"
+            retrieved_chunks = []
+        elif top_score >= confidence_threshold:
+            has_sufficient = True
+            risk_level = "low"
+        else:
+            has_sufficient = True
+            risk_level = "moderate_relevance"
 
         return RetrievalResult(
             document_id=document_id,

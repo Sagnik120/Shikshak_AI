@@ -31,12 +31,18 @@ def get_tokenizer():
         _TOKENIZER = AutoTokenizer.from_pretrained("BAAI/bge-m3")
         return _TOKENIZER
     except Exception:
-        # Fallback character/word approximation tokenizer when offline/model not cached
+        # Script-aware approximation tokenizer when offline/model not cached
         class SimpleApproximationTokenizer:
             def encode(self, text: str, add_special_tokens: bool = False) -> list[int]:
-                # Approx 1 token ≈ 4 characters or 0.75 words
+                # Indic (Devanagari/Bengali) words expand to ~2.4 subwords in BGE-M3/XLM-R
+                # Latin/English words expand to ~1.3 tokens per word
                 words = re.findall(r'\S+', text)
-                return list(range(len(words)))
+                total_tokens = 0.0
+                for w in words:
+                    has_indic = bool(re.search(r'[\u0900-\u097F\u0980-\u09FF]', w))
+                    total_tokens += 2.4 if has_indic else 1.3
+                n_tokens = max(1, int(total_tokens)) if words else 0
+                return list(range(n_tokens))
 
             def decode(self, token_ids: list[int]) -> str:
                 return ""
@@ -46,14 +52,19 @@ def get_tokenizer():
 
 
 def count_tokens(text: str, tokenizer: Any = None) -> int:
-    """Count tokens in string using tokenizer or word approximation."""
+    """Count tokens in string using tokenizer or script-aware subword expansion approximation."""
     if not text:
         return 0
     tok = tokenizer or get_tokenizer()
     try:
         return len(tok.encode(text, add_special_tokens=False))
     except Exception:
-        return max(1, int(len(text.split()) * 1.3))
+        words = re.findall(r'\S+', text)
+        total_tokens = 0.0
+        for w in words:
+            has_indic = bool(re.search(r'[\u0900-\u097F\u0980-\u09FF]', w))
+            total_tokens += 2.4 if has_indic else 1.3
+        return max(1, int(total_tokens)) if words else 0
 
 
 def split_text_into_token_chunks(
@@ -142,12 +153,72 @@ def split_text_into_token_chunks(
         final_tokens = count_tokens(final_chunk, tok)
 
         # Min-chunk-size guard: if trailing chunk < min_chunk_tokens, merge into previous
+        # only if the combined text does not breach max_tokens
         if chunks and final_tokens < min_chunk_tokens:
-            chunks[-1] = f"{chunks[-1]} {final_chunk}"
+            merged = f"{chunks[-1]} {final_chunk}".strip()
+            if count_tokens(merged, tok) <= max_tokens:
+                chunks[-1] = merged
+            else:
+                chunks.append(final_chunk)
         else:
             chunks.append(final_chunk)
 
-    return chunks
+    # Final ground-truth verification guard against subword budget overflow
+    return finalize_and_verify_chunks(
+        chunks=chunks,
+        max_tokens=max_tokens,
+        min_chunk_tokens=min_chunk_tokens,
+        tokenizer=tok
+    )
+
+
+def finalize_and_verify_chunks(
+    chunks: List[str],
+    max_tokens: int = 500,
+    min_chunk_tokens: int = 50,
+    tokenizer: Any = None
+) -> List[str]:
+    """Ground-truth validation pass ensuring every emitted chunk strictly satisfies <= max_tokens.
+
+    Guarantees Contract §4 chunk token budget even under heavy Indic conjunct expansion,
+    code-mixed Hinglish, or trailing sentence merges.
+    """
+    if not chunks:
+        return []
+
+    tok = tokenizer or get_tokenizer()
+    verified: List[str] = []
+
+    for chunk in chunks:
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+
+        real_tokens = count_tokens(chunk, tok)
+        if real_tokens <= max_tokens:
+            verified.append(chunk)
+        else:
+            # Recursively subdivide chunk that exceeded max_tokens
+            sentences = re.split(r'(?<=[.!?।\n])\s+', chunk)
+            sentences = [s.strip() for s in sentences if s.strip()]
+            if len(sentences) > 1:
+                mid = len(sentences) // 2
+                part1 = " ".join(sentences[:mid]).strip()
+                part2 = " ".join(sentences[mid:]).strip()
+                verified.extend(
+                    finalize_and_verify_chunks([part1, part2], max_tokens, min_chunk_tokens, tok)
+                )
+            else:
+                # If a single sentence exceeds max_tokens, split on words
+                words = chunk.split()
+                mid = len(words) // 2
+                part1 = " ".join(words[:mid]).strip()
+                part2 = " ".join(words[mid:]).strip()
+                verified.extend(
+                    finalize_and_verify_chunks([part1, part2], max_tokens, min_chunk_tokens, tok)
+                )
+
+    return verified
 
 
 def chunk_sections(

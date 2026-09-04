@@ -84,27 +84,51 @@ class RAGService:
 
     def retrieve_context(
         self,
-        document_id: str,
-        query_text: str,
+        document_id: Optional[str] = None,
+        query_text: str = "",
         top_k: int = 5,
-        relevance_threshold: float = 0.2
+        relevance_threshold: float = 0.5001,
+        confidence_threshold: float = 0.52
     ) -> RetrievalResult:
-        """Retrieve top grounded chunks for a teaching concept or student question."""
+        """Retrieve top grounded chunks for a teaching concept or student question.
+        
+        If document_id is None or empty, short-circuits to general-knowledge topic-only mode.
+        """
+        clean_doc_id = document_id.strip() if document_id and isinstance(document_id, str) else None
+        if not clean_doc_id:
+            logger.info("retrieve_context called without document_id; short-circuiting to topic-only mode.")
+            return RetrievalResult(
+                document_id=None,
+                query_text=query_text,
+                chunks=[],
+                has_sufficient_context=False,
+                risk_level="no_document_context"
+            )
+
         return self.retriever.retrieve(
-            document_id=document_id,
+            document_id=clean_doc_id,
             query_text=query_text,
             top_k=top_k,
-            relevance_threshold=relevance_threshold
+            relevance_threshold=relevance_threshold,
+            confidence_threshold=confidence_threshold
         )
 
     def get_grounded_prompt(
         self,
-        document_id: str,
-        query_text: str,
-        top_k: int = 5
+        document_id: Optional[str] = None,
+        query_text: str = "",
+        top_k: int = 5,
+        relevance_threshold: float = 0.5001,
+        confidence_threshold: float = 0.52
     ) -> GroundedContext:
         """Convenience method returning ready-to-inject grounding prompt block with chunk IDs."""
-        result = self.retrieve_context(document_id, query_text, top_k=top_k)
+        result = self.retrieve_context(
+            document_id=document_id,
+            query_text=query_text,
+            top_k=top_k,
+            relevance_threshold=relevance_threshold,
+            confidence_threshold=confidence_threshold
+        )
         return format_grounding_context_block(
             retrieved_chunks=result.chunks,
             has_sufficient_context=result.has_sufficient_context,
