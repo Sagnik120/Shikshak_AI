@@ -1,5 +1,5 @@
-# Progress — 2026-09-04T13:48:00+05:30
-Overall Status: IN PROGRESS (AI Agent Orchestration complete; ML Core next)
+# Progress — 2026-09-04T16:00:00+05:30
+Overall Status: IN PROGRESS (ML Core complete; Frontend/Backend next)
 
 ## Phases (04_Phases.md)
 - [x] Phase 0 — Skeleton (RAG scaffolding, models, and interfaces complete)
@@ -8,7 +8,7 @@ Overall Status: IN PROGRESS (AI Agent Orchestration complete; ML Core next)
 - [x] Phase 3 — Explanation & Visual Selection (AI Orchestrator Explainer Agent implemented)
 - [x] Phase 4 — Video Generation (avatar_voice: Multilingual TTS, Viseme 2D Avatar @ 24 FPS, 6 Subject-Aware Visual Renderers, FFmpeg Compositor, Async Queue)
 - [x] Phase 5 — Interaction Loop (AI Orchestrator Questioner Agent implemented)
-- [x] Phase 6 — Evaluation & Adaptation (AI Orchestrator Adaptation Controller implemented; ML Core eval stubbed)
+- [x] Phase 6 — Evaluation & Adaptation (AI Orchestrator Adaptation Controller and ML Core evaluator implemented)
 - [x] Phase 7 — Assessment & Learner Profile (AI Orchestrator Assessment Agent implemented)
 - [ ] Phase 8 — Frontend Polish & Multilingual
 - [ ] Phase 9 — Documentation & Demo
@@ -36,4 +36,4 @@ Overall Status: IN PROGRESS (AI Agent Orchestration complete; ML Core next)
 6. **Cross-Platform Preflight Enhancements**: `scripts/preflight_check.py` upgraded with `--require-ffmpeg`, `--check-tier2`, and `--json` machine-readable output (`tests/unit/test_preflight_enhanced.py` — 8/8 passed).
 
 ## Known Issues / Blockers
-- ML Core is the next pending implementation task (client stubbed in orchestration).
+- Testing for ML Core is complete. The next pending task is Backend/Frontend integration.

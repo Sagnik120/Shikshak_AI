@@ -34,3 +34,11 @@
 - Stubbed/remaining: `ml_core` evaluator is mocked.
 - Deviations/notes: Adapted failure threshold to strictly match 1st fail -> MODIFY, 2nd fail -> REGENERATE, 3rd fail -> HUMAN.
 - Next immediate step: ML Core implementation.
+
+### [Phase 6] ML Core — 2026-09-04
+- Status: STABLE (Source and Testing complete)
+- Built: `EvaluationResult` schemas, `LLMAdapter` facade, deterministic MCQ Exact match evaluator, Hybrid Freeform evaluator using `sentence-transformers` for pre-filter thresholds with LLM judge fallback, Physics misconception taxonomy and classifier, deterministic Visual Type suggester. 20 isolated unit/integration tests with robust `FakeLLMAdapter` and `mock.patch` injection.
+- Tested: Python import smoke check passed. 20 tests executed and verified locally (20 passed in 0.19s). Confirmed backwards-compatible with 27/27 Orchestrator unit tests.
+- Stubbed/remaining: None.
+- Deviations/notes: No file parsing is duplicated; ML Core solely acts on `rag` module chunks. Model downloads bypassed in tests via `mock.patch`.
+- Next immediate step: Backend/Frontend integration.

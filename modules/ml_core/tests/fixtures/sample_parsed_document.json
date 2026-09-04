@@ -1,0 +1,25 @@
+{
+  "document_id": "doc_123",
+  "source_lang": "en",
+  "chunks": [
+    {
+      "chunk_id": "chunk_1",
+      "text": "Newton's first law states that an object will remain at rest or in uniform motion in a straight line unless acted upon by an external force.",
+      "section_title": "First Law",
+      "page_or_slide": 1,
+      "embedding_ref": "emb_1"
+    },
+    {
+      "chunk_id": "chunk_2",
+      "text": "Force is equal to mass times acceleration. F = ma.",
+      "section_title": "Second Law",
+      "page_or_slide": 2,
+      "embedding_ref": "emb_2"
+    }
+  ],
+  "detected_structure": {
+    "chapters": ["Laws of Motion"],
+    "key_terms": []
+  },
+  "warnings": []
+}

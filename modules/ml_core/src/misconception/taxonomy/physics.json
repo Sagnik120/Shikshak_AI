@@ -1,0 +1,17 @@
+{
+  "subject": "physics",
+  "taxonomies": [
+    {
+      "tag": "confuses_mass_and_weight",
+      "description": "Student believes mass and weight are the same thing and depend on gravity."
+    },
+    {
+      "tag": "assumes_force_implies_velocity",
+      "description": "Student believes that a constant force implies a constant velocity instead of acceleration."
+    },
+    {
+      "tag": "misunderstands_action_reaction",
+      "description": "Student believes Newton's third law forces act on the same object and cancel each other out."
+    }
+  ]
+}

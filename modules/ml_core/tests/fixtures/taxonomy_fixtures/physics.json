@@ -1,0 +1,13 @@
+{
+  "subject": "physics",
+  "taxonomies": [
+    {
+      "tag": "test_tag_mass_weight",
+      "description": "Confuses mass and weight."
+    },
+    {
+      "tag": "test_tag_velocity_acceleration",
+      "description": "Confuses velocity and acceleration."
+    }
+  ]
+}
