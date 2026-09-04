@@ -6,7 +6,7 @@ with font auto-scaling and broken-syntax fallback.
 
 import os
 import uuid
-from typing import Any, Dict, Union
+from typing import Any, Dict, List, Union
 from PIL import Image, ImageDraw
 from modules.avatar_voice.src.models import VisualRenderResult
 from modules.avatar_voice.src.visuals.base import BaseRenderer, THEME

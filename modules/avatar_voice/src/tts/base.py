@@ -3,7 +3,7 @@ Base interfaces and protocols for Text-to-Speech synthesis.
 Strictly conforms to Contract.md §14 (TTSAdapter).
 """
 
-from typing import Dict, List, Protocol
+from typing import Dict, List, Protocol, Optional
 from modules.avatar_voice.src.models import TTSResult, WordTimestamp
 
 VOICE_CATALOG: Dict[str, Dict[str, str]] = {
