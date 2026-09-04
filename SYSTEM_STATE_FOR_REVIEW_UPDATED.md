@@ -47,7 +47,7 @@ Shikshak_AI/
     ├── ai_agent_orchestration/           # Multi-agent pedagogical brain (Planner/Explainer/Questioner)
     │   └── src/ (adapters/, agents/, integration/, schemas/, state_machine/, logging_utils.py, service.py)
     ├── backend/                          # Web API server, session management, WebSockets
-    │   └── src/ (.gitkeep ONLY — 0 lines of Python code)
+    │   └── src/ (api/, integrations/, persistence/, schemas/, state/, auth.py, config.py, main.py)
     ├── frontend/                         # Split-screen classroom web interface
     │   └── src/ (.gitkeep ONLY — 0 lines of code)
     ├── ml_core/                          # ML evaluation, misconception tagging, visual heuristics
@@ -66,7 +66,7 @@ Shikshak_AI/
 | `modules/avatar_voice` | Multimedia synthesis pipeline: Edge-TTS neural speech with W3C SSML cue prosody, 24 FPS 4-viseme 2D avatar, MuseTalk Tier-2 neural adapter, 6 subject-aware visual renderers, progressive timing, FFmpeg compositor. | **Fully documented** (matches actual code) |
 | `modules/ai_agent_orchestration` | Multi-agent state machine coordinating Planner, Explainer, Questioner, Adaptation Controller, and Assessment agents. | **Fully documented** (Implementation complete and tested) |
 | `modules/ml_core` | ML student evaluation, misconception classifier, partial credit scorer, and visual type heuristics. | **Fully documented** (Implementation complete and tested) |
-| `modules/backend` | FastAPI application serving REST endpoints, WebSocket bidirectional relays, session lifecycle, and Postgres/SQLite persistence. | **Documented as target design only** (`src/` is empty) |
+| `modules/backend` | FastAPI application serving REST endpoints, WebSocket bidirectional relays, session lifecycle, and in-memory persistence. | **Fully documented** (P0 flow implemented and tested) |
 | `modules/frontend` | Next.js / React web application with 70/30 split-screen layout, subtitle bar, interactive question overlays, and audit feed. | **Documented as target design only** (`src/` is empty) |
 | `modules/mlops` | Segment hash caching, system telemetry, latency tracking, and model serving infrastructure. | **Documented as target design only** (`src/` is empty) |
 | `modules/testing` | Cross-module contract testing, automated grading benchmarks, and stress testing. | **Documented as target design only** (`src/` is empty) |
@@ -90,14 +90,14 @@ This section traces what happens when an external request is initiated, using th
 
 | Pipeline Question | Actual Code Reality | Current Status |
 |---|---|:---:|
-| **Where does a request enter (API route / CLI / handler)?** | There is **NO API route or server**. `modules/backend/src/` contains only `.gitkeep`. | **(d) Does not exist yet** (for API) |
-| **What calls `RAGService`? With what arguments, from where?** | `ai_agent_orchestration` has an integration client (`rag_client.py`) that acts as a stub pointing to RAG, successfully utilized in tests. Production runtime lacks a Backend caller. | **(b) Implemented but untested end-to-end** |
-| **What calls `AvatarVoiceService`? With what arguments, from where?** | In production code, the orchestration layer prepares `TeachingSegment`s. The actual handoff is unexercised because the Backend is missing. | **(b) Implemented but untested end-to-end** |
+| **Where does a request enter (API route / CLI / handler)?** | FastAPI application (`modules/backend/src/main.py`) routing REST (`api/rest.py`) and WebSockets (`api/ws.py`). | **(a) Fully implemented and tested (P0)** |
+| **What calls `RAGService`? With what arguments, from where?** | `ai_agent_orchestration` has an integration client (`rag_client.py`) that points to RAG. Backend `POST /sessions/{id}/upload` (P1) is deferred, so document ingestion is currently offline. | **(b) Orchestration boundary mocked; API upload deferred** |
+| **What calls `AvatarVoiceService`? With what arguments, from where?** | Backend `SessionDriver` polls `AvatarVoiceService.get_status(job_id)` inside the `api/ws.py` loop during the `DEMONSTRATE` state to retrieve video payloads for the client. | **(a) Fully implemented and tested** |
 | **What decides the `LessonPlan` / `TeachingSegment` sequence? Where does that logic live?** | `modules/ai_agent_orchestration/src/agents/planner.py` (PlannerAgent) and `explainer.py` (ExplainerAgent) are fully implemented. They communicate via `TeacherOrchestrator` (the state machine). | **(a) Fully implemented and tested in isolation** |
 | **What decides when to ask a question vs. keep explaining?** | `TeacherOrchestrator` triggers `QuestionerAgent` during the `ASK` state, generated from `modules/ai_agent_orchestration/src/agents/questioner.py`. | **(a) Fully implemented and tested in isolation** |
-| **Where is student response evaluation implemented?** | `modules/ml_core/src/answer_evaluation/freeform_evaluator.py` and `mcq_evaluator.py`. Handles similarity threshold checks (sentence-transformers) and LLM judge fallbacks. | **(a) Fully implemented and tested in isolation** |
-| **Where is learner profile / progress tracking stored and updated?** | **Nowhere**. `modules/backend/src/` has no database models or CRUD logic. | **(d) Does not exist yet** |
-| **What does the actual HTTP/API contract look like?** | **0 endpoints exist**. There is no FastAPI app instance. | **(d) Does not exist yet** |
+| **Where is student response evaluation implemented?** | `modules/ml_core/src/answer_evaluation/freeform_evaluator.py` and `mcq_evaluator.py`. Backend relays the `student_response` WS event to Orchestration, which invokes ML Core. | **(a) Fully implemented and integrated via Backend** |
+| **Where is learner profile / progress tracking stored and updated?** | In-memory dict (`InMemorySessionRepository`) in Backend for P0 MVP. Postgres is deferred to P1. | **(b) MVP implemented, P1 deferred** |
+| **What does the actual HTTP/API contract look like?** | `api/rest.py` exposes `/sessions`, `/topic`, `/plan`. `api/ws.py` exposes `/live` WebSocket for bidirectional JSON payloads defined in `Contract.md`. | **(a) Fully implemented and tested** |
 
 ---
 
@@ -122,8 +122,8 @@ This section traces what happens when an external request is initiated, using th
 - **Status**: **Fully Implemented**. 20 passing tests (verified offline).
 
 ### 3.5 `modules/backend`
-- **Purpose**: FastAPI backend service providing REST endpoints and WebSocket relays.
-- **Status**: **MISSING**. `src/` contains `.gitkeep`.
+- **Purpose**: FastAPI backend service providing REST endpoints and WebSocket relays. Drives the AIOperationService state machine.
+- **Status**: **Fully Implemented (P0)**. 13 passing tests. P1 (Upload/RAG/Postgres) deferred.
 
 ### 3.6 `modules/frontend`
 - **Purpose**: Next.js/React frontend providing a split-screen educational player.
@@ -166,11 +166,11 @@ It is passed through to the `LearnerConstraints`, constraining the LLM prompts i
 
 ## 5. Known Broken / Untested Integration Points
 
-1. **`backend` ──> ALL**: No backend server exists to mount Orchestration, RAG, ML Core, or Avatar_Voice.
-2. **`frontend` ──> `backend`**: No frontend application exists.
-3. **End-to-End Database**: There is no persistence layer mapping `session_id` to actual LearnerProfiles or RAG indices in production runtime.
+1. **`frontend` ──> `backend`**: No frontend application exists. The Backend API currently has no active client consuming the WebSocket video/event streams.
+2. **RAG ──> Backend Ingestion**: The `POST /sessions/{id}/upload` route is deferred (P1), so real-time document grounding is disconnected from the API. (Topic-based fallback works natively).
+3. **End-to-End Database**: There is no persistent database. Sessions live in an ephemeral `InMemorySessionRepository`, so server restarts obliterate active sessions.
 
-All individual modules (RAG, Avatar, ML Core, Orchestration) have fully passing, heavily mocked isolation boundaries.
+All individual modules (RAG, Avatar, ML Core, Orchestration, Backend) have fully passing mock-boundary isolation tests, preventing downstream failures when frontend integration starts.
 
 ---
 
@@ -194,16 +194,12 @@ All individual modules (RAG, Avatar, ML Core, Orchestration) have fully passing,
 ### Step 2: Docs & Setup
 - No root `README.md` exists. Setup instructions are absent/planned for Phase 9.
 
-### Step 3: Dependencies
-- Missing from `requirements.txt`: `edge-tts`, `imageio-ffmpeg`, `matplotlib`.
-
 ### Step 4: Starting the app
-- **FAILURE**: `backend` and `frontend` are completely empty. No web server exists.
+- **PARTIAL SUCCESS**: `backend` can be started via `uvicorn modules.backend.src.main:app`. However, `frontend` is completely empty.
 
 ### Step 5: What DOES Work
-- `python scripts/preflight_check.py` works.
-- `pytest tests/ -v` and `pytest modules/ai_agent_orchestration/tests/ -v` pass completely green (over 280+ total tests across all modules).
-- `python scripts/run_rag_diagnostics.py` runs end-to-end RAG queries.
+- `pytest tests/ -v` passes completely green across all modules (nearly 300 total tests).
+- Backend tests (`pytest modules/backend/tests -v`) pass 13/13 native E2E mocked tests for REST & WS endpoints.
 
 ---
 
@@ -222,4 +218,4 @@ All individual modules (RAG, Avatar, ML Core, Orchestration) have fully passing,
 | **9** | **Multilingual capability** | **PARTIAL** | RAG & TTS handle multilingual assets natively; UI/Agent multilingual handling pending. |
 | **10** | **Student questioning & assessment** | **DONE** (Logic only) | `QuestionerAgent` in Orchestration, `MLCoreService.evaluate_answer()` in ML Core. |
 | **11** | **Adaptive response to student performance** | **DONE** (Logic only) | `AdaptationController` FSM logic (`ALLOW/MODIFY/REGENERATE/HUMAN`). |
-| **12** | **Working application/prototype** | **MISSING** | Missing `backend` routing and `frontend` React UI. |
+| **12** | **Working application/prototype** | **PARTIAL** | Backend API is fully functional; missing `frontend` React UI. |

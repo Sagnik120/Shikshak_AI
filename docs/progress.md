@@ -1,5 +1,5 @@
 # Progress — 2026-09-04T16:00:00+05:30
-Overall Status: IN PROGRESS (ML Core complete; Frontend/Backend next)
+Overall Status: IN PROGRESS (Backend P0 complete; Frontend P0 next)
 
 ## Phases (04_Phases.md)
 - [x] Phase 0 — Skeleton (RAG scaffolding, models, and interfaces complete)
@@ -10,8 +10,9 @@ Overall Status: IN PROGRESS (ML Core complete; Frontend/Backend next)
 - [x] Phase 5 — Interaction Loop (AI Orchestrator Questioner Agent implemented)
 - [x] Phase 6 — Evaluation & Adaptation (AI Orchestrator Adaptation Controller and ML Core evaluator implemented)
 - [x] Phase 7 — Assessment & Learner Profile (AI Orchestrator Assessment Agent implemented)
-- [ ] Phase 8 — Frontend Polish & Multilingual
-- [ ] Phase 9 — Documentation & Demo
+- [x] Phase 8 — Backend P0 Integration (REST/WS relay implemented + fully tested; Upload/RAG P1 deferred)
+- [ ] Phase 9 — Frontend Polish & Multilingual
+- [ ] Phase 10 — Documentation & Demo
 
 ## Mandatory Requirements Checklist (PS §17)
 - [x] Learning from uploaded material (RAG complete & grounded)

@@ -36,7 +36,7 @@ Currently, the **RAG**, **Avatar/Voice**, **AI Agent Orchestration**, and **ML C
 - `modules/avatar_voice/`: Implemented. Contains text-to-speech adapters, visual rendering, a Viseme avatar adapter, and an FFmpeg compositor.
 - `modules/ai_agent_orchestration/`: **IMPLEMENTED**. Contains core FSM, teaching agents, and adaptation controller.
 - `modules/ml_core/`: **IMPLEMENTED**. Contains evaluators, concept extraction, misconception classification, and visual rule mappings.
-- `modules/backend/`: **MISSING** (only `.gitkeep` and planned instructions).
+- `modules/backend/`: **IMPLEMENTED**. Contains FastAPI server, websockets, state driver, and in-memory persistence.
 - `modules/frontend/`: **MISSING** (only `.gitkeep` and planned instructions).
 - `docs/` & `*.md` files (root): Extensive PRDs, architectural constraints, and design specs.
 
@@ -79,8 +79,8 @@ The ML Core handles specific NLP tasks cheaper/more reliably than raw LLM calls.
 | **RAG** | IMPLEMENTED | `modules/rag/src/service.py` | Integration with Planner/Explainer |
 | **Avatar & Voice** | IMPLEMENTED | `modules/avatar_voice/src/service.py` | External API integrations (HeyGen/D-ID) |
 | **AI Orchestration** | IMPLEMENTED | `modules/ai_agent_orchestration/src/` | Integration with real ML Core |
-| **ML Core** | IMPLEMENTED | `modules/ml_core/src/` | Testing is complete; integration with Backend pending |
-| **Backend API** | MISSING | `modules/backend/src/` | FastAPI server, websockets, state store |
+| **ML Core** | IMPLEMENTED | `modules/ml_core/src/` | Testing complete |
+| **Backend API** | IMPLEMENTED | `modules/backend/src/` | FastAPI server, websockets, tested P0 MVP |
 | **Frontend App** | MISSING | `modules/frontend/src/` | React UI, video player, Q&A interaction |
 
 ## 10. Tests / Known Issues
@@ -89,17 +89,18 @@ The ML Core handles specific NLP tasks cheaper/more reliably than raw LLM calls.
 - **Risks**: The integration boundary between Backend/Frontend and the newly built Orchestration/ML engines remains untested.
 
 ## 11. Remaining Work
-- **P0**: Build the `backend` FastAPI server to orchestrate requests.
+- **[DONE]**: Build the `backend` FastAPI server to orchestrate requests (P0 flow).
 - **[DONE]**: Implement the `ai_agent_orchestration` state machine (Planner, Explainer, Controller).
 - **[DONE]**: Implement `ml_core` Answer Evaluator to support the teaching loop.
 - **P0**: Build the `frontend` React UI (video player, interaction widgets).
-- **P1**: Connect `frontend` to `backend` via WebSockets for real-time interaction.
+- **P0**: Connect `frontend` to `backend` via WebSockets for real-time interaction.
 - **P2**: Refine UI aesthetics, add advanced misconception tagging.
 
 ## 12. Developer Quick Start
 - Review `instructions/Contract.md` for schemas.
 - Examine `modules/ai_agent_orchestration/src/` and `modules/ml_core/src/` to understand the currently implemented agent workflows and evaluation mechanics.
-- Next steps involve scaffolding the FastAPI backend in `modules/backend/src/`.
+- Examine `modules/backend/src/` for the FastAPI/WebSocket integration routes.
+- Next priority is scaffolding the frontend UI in `modules/frontend/src/`.
 
 ## 13. Critical Context
 - **Contract Enforcement**: Cross-module communication must strictly adhere to the schemas defined in `instructions/Contract.md`. Do not bypass them.
