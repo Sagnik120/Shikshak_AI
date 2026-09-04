@@ -27,4 +27,10 @@
 - Deviations/notes: Pure Python fallback acoustic generator and Pillow canvas compositor implemented to guarantee 100% test suite reliability across offline and non-GPU environments.
 - Next immediate step: Connect `ai_agent_orchestration` and `backend` to `AvatarVoiceService.render_segment()`.
 
-
+### [Phase 5 & 6] AI Agent Orchestration — 2026-09-04
+- Status: STABLE
+- Built: FSM (`TeacherOrchestrator`), `PlannerAgent`, `ExplainerAgent`, `QuestionerAgent`, `AssessmentAgent`, and `AdaptationController`.
+- Tested: 27 unit and integration tests passing offline (`tests/unit/` and `tests/integration/`).
+- Stubbed/remaining: `ml_core` evaluator is mocked.
+- Deviations/notes: Adapted failure threshold to strictly match 1st fail -> MODIFY, 2nd fail -> REGENERATE, 3rd fail -> HUMAN.
+- Next immediate step: ML Core implementation.
