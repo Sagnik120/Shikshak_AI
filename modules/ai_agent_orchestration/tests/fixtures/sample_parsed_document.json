@@ -1,0 +1,12 @@
+{
+  "document_id": "doc_12345",
+  "filename": "physics_intro.pdf",
+  "content_type": "application/pdf",
+  "detected_structure": {
+    "title": "Intro to Physics",
+    "sections": ["Kinematics", "Dynamics"]
+  },
+  "raw_text": "Physics is the study of matter...",
+  "page_count": 10,
+  "language": "en"
+}

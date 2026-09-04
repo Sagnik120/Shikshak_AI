@@ -1,0 +1,50 @@
+{
+  "correct": [
+    {
+      "node_id": "node_1",
+      "correct": true,
+      "confidence": 0.9,
+      "partial_credit": 0.0,
+      "misconception_tag": null,
+      "feedback_text": "Perfect answer."
+    }
+  ],
+  "partial": [
+    {
+      "node_id": "node_1",
+      "correct": false,
+      "confidence": 0.5,
+      "partial_credit": 0.5,
+      "misconception_tag": null,
+      "feedback_text": "Got the formula right but units wrong."
+    }
+  ],
+  "incorrect_with_misconception": [
+    {
+      "node_id": "node_1",
+      "correct": false,
+      "confidence": 0.8,
+      "partial_credit": 0.0,
+      "misconception_tag": "gravity_is_magnetism",
+      "feedback_text": "Student confused gravity with magnetic forces."
+    }
+  ],
+  "repeated_failure": [
+    {
+      "node_id": "node_1",
+      "correct": false,
+      "confidence": 0.8,
+      "partial_credit": 0.0,
+      "misconception_tag": null,
+      "feedback_text": "Wrong."
+    },
+    {
+      "node_id": "node_1",
+      "correct": false,
+      "confidence": 0.8,
+      "partial_credit": 0.0,
+      "misconception_tag": null,
+      "feedback_text": "Wrong again."
+    }
+  ]
+}

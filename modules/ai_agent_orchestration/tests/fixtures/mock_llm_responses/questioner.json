@@ -1,0 +1,7 @@
+{
+  "node_id": "node_1",
+  "question_text": "What is gravity?",
+  "type": "mcq",
+  "options": ["A force", "A color", "A sound"],
+  "expected_concept": "Gravity is a fundamental force."
+}

@@ -1,0 +1,10 @@
+{
+  "node_id": "node_1",
+  "script_text": "Welcome to the intro.",
+  "language": "English",
+  "visual_spec": {
+    "type": "image",
+    "content": "A simple image of an apple falling."
+  },
+  "avatar_cue": "neutral"
+}

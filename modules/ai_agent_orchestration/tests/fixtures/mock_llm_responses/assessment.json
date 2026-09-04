@@ -1,0 +1,8 @@
+{
+  "lesson_id": "lesson_abc",
+  "score_pct": 95.0,
+  "strong_areas": ["Kinematics"],
+  "weak_areas": [],
+  "recommended_next": ["Dynamics"],
+  "narrative_feedback": "Great job!"
+}

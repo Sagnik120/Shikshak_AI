@@ -1,0 +1,28 @@
+{
+  "lesson_id": "lesson_abc",
+  "source": "document",
+  "constraints": {
+    "level": "beginner",
+    "language": "English",
+    "time_budget_min": 15,
+    "style": "visual"
+  },
+  "nodes": [
+    {
+      "node_id": "node_1",
+      "concept": "Intro",
+      "depth": "intro",
+      "est_minutes": 5,
+      "visual_type": "image",
+      "checkpoint_question": true
+    },
+    {
+      "node_id": "node_2",
+      "concept": "Core",
+      "depth": "core",
+      "est_minutes": 10,
+      "visual_type": "equation",
+      "checkpoint_question": true
+    }
+  ]
+}
