@@ -20,10 +20,13 @@ build/
 *.log
 
 # Model Weights & Embeddings Cache
-models/
+models/*
+!models/.gitkeep
 checkpoints/
 .cache/
 huggingface/
+.huggingface/
+.hf/
 nltk_data/
 
 # Vector Stores & Databases
@@ -31,6 +34,8 @@ chroma_db/
 *.chroma
 *.sqlite3
 *.db
+data/storage/*
+!data/storage/.gitkeep
 
 # Generated Media Outputs
 output/
@@ -41,11 +46,19 @@ temp_audio/
 *.wav
 *.mp3
 
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
 # IDE & OS
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
+*.tar
+*.tar.gz
+*.zip
 
 # Internal Working Drafts & Gap Analysis Scratchpads
 modules/**/docs/00_OVERALL_GAP_ANALYSIS.md

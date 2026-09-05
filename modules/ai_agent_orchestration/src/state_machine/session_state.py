@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Any
 from dataclasses import dataclass, field
 from modules.ai_agent_orchestration.src.schemas.lesson import LessonPlan, LearnerConstraints
 from modules.ai_agent_orchestration.src.schemas.evaluation import EvaluationResult
@@ -14,3 +14,5 @@ class SessionState:
     topic: Optional[str] = None
     document_id: Optional[str] = None
     current_feedback_override: Optional[str] = None
+    recent_segment: Optional[Any] = None
+    recent_question: Optional[Any] = None

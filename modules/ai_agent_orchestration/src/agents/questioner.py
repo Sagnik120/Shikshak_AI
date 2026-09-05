@@ -8,16 +8,23 @@ class QuestionerAgent(BaseAgent):
     def generate_question(
         self,
         node: LessonNode,
-        recent_segment: TeachingSegment
+        recent_segment: Optional[TeachingSegment] = None
     ) -> InteractionEvent:
         """
         Generate an InteractionEvent for a LessonNode.
         """
         system_prompt = self.load_prompt("questioner_system.md")
         
+        segment_data = {}
+        if recent_segment is not None:
+            if hasattr(recent_segment, "model_dump"):
+                segment_data = recent_segment.model_dump()
+            elif isinstance(recent_segment, dict):
+                segment_data = recent_segment
+
         user_content = {
             "node": node.model_dump(),
-            "recent_teaching_segment": recent_segment.model_dump()
+            "recent_teaching_segment": segment_data
         }
             
         user_prompt = f"Please generate a question to assess understanding of this node:\n{json.dumps(user_content, indent=2)}"

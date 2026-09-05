@@ -10,6 +10,7 @@ chromadb>=0.4.22
 sentence-transformers>=2.2.2
 transformers>=4.36.0
 rank-bm25>=0.2.2
+huggingface_hub>=0.20.0
 
 # Avatar / Voice
 edge-tts>=6.1.9

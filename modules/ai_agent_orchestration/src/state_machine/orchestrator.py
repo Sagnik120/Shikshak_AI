@@ -73,13 +73,14 @@ class TeacherOrchestrator:
                 grounding_chunks=chunks,
                 previous_feedback=session.current_feedback_override
             )
-            # Clear override after use
+            # Clear override after use and save recent_segment
             session.current_feedback_override = None
+            session.recent_segment = segment
             
             return self._transition(session, current_state, TeacherState.DEMONSTRATE, "Explanation segment generated", segment)
 
         elif current_state == TeacherState.DEMONSTRATE:
-            segment = inputs.get("segment")
+            segment = inputs.get("segment") or getattr(session, "recent_segment", None)
             job_id = self.avatar_client.render_segment(segment)
             node = session.lesson_plan.nodes[session.current_node_index]
             
@@ -90,15 +91,17 @@ class TeacherOrchestrator:
 
         elif current_state == TeacherState.QUESTION:
             node = session.lesson_plan.nodes[session.current_node_index]
-            recent_segment = inputs.get("segment")
+            recent_segment = inputs.get("segment") or getattr(session, "recent_segment", None)
             event = self.questioner.generate_question(node, recent_segment)
+            session.recent_question = event
             return self._transition(session, current_state, TeacherState.EVALUATE, "Question generated", event)
 
         elif current_state == TeacherState.EVALUATE:
             student_response = inputs.get("student_response")
             node = session.lesson_plan.nodes[session.current_node_index] if session.lesson_plan and session.lesson_plan.nodes else None
-            concept = node.concept if node else ""
-            eval_result = self.ml_core.evaluate_answer(student_response, expected_concept=concept)
+            recent_q = getattr(session, "recent_question", None)
+            expected = getattr(recent_q, "expected_concept", None) or (node.concept if node else "")
+            eval_result = self.ml_core.evaluate_answer(student_response, expected_concept=expected)
             session.evaluation_history.append(eval_result)
             return self._transition(session, current_state, TeacherState.ADAPT, "Answer evaluated", eval_result)
 

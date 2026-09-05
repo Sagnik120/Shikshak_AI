@@ -16,14 +16,80 @@ class SmartMockLLMAdapter(LLMAdapter):
     """
 
     def complete(self, messages: List[Dict[str, str]], tools: Optional[List[Dict[str, Any]]] = None) -> str:
-        prompt_text = " ".join(m.get("content", "") for m in messages)
-        prompt_lower = prompt_text.lower()
+        system_content = ""
+        user_content = ""
+        for m in messages:
+            if m.get("role") == "system":
+                system_content += " " + m.get("content", "")
+            else:
+                user_content += " " + m.get("content", "")
 
-        # 1. Planner Agent -> LessonPlan (Contract §5)
-        if "lessonplan" in prompt_lower or "planner" in prompt_lower:
+        sys_lower = system_content.lower()
+        full_lower = (system_content + " " + user_content).lower()
+
+        # 1. Questioner Agent -> InteractionEvent (Contract §8)
+        if (
+            "evaluating student understanding" in sys_lower
+            or "interactive question" in sys_lower
+            or "interactionevent" in full_lower
+        ):
+            return json.dumps({
+                "node_id": "node_active",
+                "question_text": "Which principle describes the conservation of energy in an isolated system?",
+                "type": "mcq",
+                "options": [
+                    "First Law of Thermodynamics",
+                    "Second Law of Thermodynamics",
+                    "Newton's Third Law",
+                    "Ohm's Law"
+                ],
+                "expected_concept": "First Law of Thermodynamics"
+            })
+
+        # 2. Assessment Agent -> AssessmentReport (Contract §12)
+        if (
+            "assessment evaluator" in sys_lower
+            or "assessmentreport" in full_lower
+            or "score_pct" in sys_lower
+        ):
             return json.dumps({
                 "lesson_id": "lesson_auto_generated",
-                "source": "document" if "document_id" in prompt_lower else "topic",
+                "score_pct": 95.0,
+                "strong_areas": ["Foundational Principles", "Core Mechanics"],
+                "weak_areas": [],
+                "recommended_next": ["Advanced Problem Solving"],
+                "narrative_feedback": "Outstanding progress! You demonstrated thorough understanding across all lesson checkpoints."
+            })
+
+        # 3. Explainer Agent -> TeachingSegment (Contract §6)
+        if (
+            "explaining a specific lesson concept" in sys_lower
+            or "teachingsegment" in full_lower
+            or ("teaching segment" in sys_lower and "question" not in sys_lower)
+        ):
+            cue = "emphasis" if "previous_feedback" in full_lower else "neutral"
+            return json.dumps({
+                "node_id": "node_active",
+                "script_text": "Welcome to today's lesson. Let us explore the core principles together step by step.",
+                "language": "en",
+                "visual_spec": {
+                    "type": "equation",
+                    "content": "E = mc^2"
+                },
+                "avatar_cue": cue
+            })
+
+        # 4. Planner Agent -> LessonPlan (Contract §5)
+        if (
+            "lesson planner" in sys_lower
+            or "planner" in sys_lower
+            or "lessonplan" in full_lower
+            or "lesson plan" in sys_lower
+            or "curriculum" in full_lower
+        ):
+            return json.dumps({
+                "lesson_id": "lesson_auto_generated",
+                "source": "document" if "document_id" in full_lower else "topic",
                 "constraints": {
                     "level": "beginner",
                     "language": "en",
@@ -49,48 +115,8 @@ class SmartMockLLMAdapter(LLMAdapter):
                 ]
             })
 
-        # 2. Explainer Agent -> TeachingSegment (Contract §6)
-        if "teachingsegment" in prompt_lower or "explainer" in prompt_lower:
-            cue = "emphasis" if "previous_feedback" in prompt_lower else "neutral"
-            return json.dumps({
-                "node_id": "node_active",
-                "script_text": "Welcome to today's lesson. Let us explore the core principles together step by step.",
-                "language": "en",
-                "visual_spec": {
-                    "type": "equation",
-                    "content": "E = mc^2"
-                },
-                "avatar_cue": cue
-            })
-
-        # 3. Questioner Agent -> InteractionEvent (Contract §8)
-        if "interactionevent" in prompt_lower or "questioner" in prompt_lower:
-            return json.dumps({
-                "node_id": "node_active",
-                "question_text": "Which principle describes the conservation of energy in an isolated system?",
-                "type": "mcq",
-                "options": [
-                    "First Law of Thermodynamics",
-                    "Second Law of Thermodynamics",
-                    "Newton's Third Law",
-                    "Ohm's Law"
-                ],
-                "expected_concept": "First Law of Thermodynamics"
-            })
-
-        # 4. Assessment Agent -> AssessmentReport (Contract §12)
-        if "assessmentreport" in prompt_lower or "assessment" in prompt_lower:
-            return json.dumps({
-                "lesson_id": "lesson_auto_generated",
-                "score_pct": 95.0,
-                "strong_areas": ["Foundational Principles", "Core Mechanics"],
-                "weak_areas": [],
-                "recommended_next": ["Advanced Problem Solving"],
-                "narrative_feedback": "Outstanding progress! You demonstrated thorough understanding across all lesson checkpoints."
-            })
-
         # 5. ML Core Evaluation / Misconceptions
-        if "evaluation" in prompt_lower or "misconception" in prompt_lower:
+        if "evaluation" in full_lower or "misconception" in full_lower:
             return json.dumps({
                 "correct": True,
                 "confidence": 1.0,
