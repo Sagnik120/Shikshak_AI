@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import json
 import logging
 from typing import List, Dict, Any, Optional
@@ -128,6 +129,26 @@ class SmartMockLLMAdapter(LLMAdapter):
         return json.dumps({"status": "ok", "message": "SmartMock completed"})
 
 
+def _load_env():
+    """Silently populate os.environ from root .env if present and not already set."""
+    # Find project root (4 levels up from modules/ai_agent_orchestration/src/adapters/gemini_adapter.py)
+    root = Path(__file__).resolve().parent.parent.parent.parent.parent
+    env_file = root / ".env"
+    if env_file.exists():
+        try:
+            with open(env_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, v = line.split("=", 1)
+                        k = k.strip()
+                        v = v.strip().strip("'\"")
+                        if k and k not in os.environ:
+                            os.environ[k] = v
+        except Exception:
+            pass
+
+
 class GeminiLLMAdapter(LLMAdapter):
     """
     Live Google Gemini LLM adapter conforming to Contract §14.
@@ -136,6 +157,7 @@ class GeminiLLMAdapter(LLMAdapter):
     """
 
     def __init__(self, api_key: Optional[str] = None, model: str = "gemini-2.0-flash"):
+        _load_env()
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY", "")
         self.model = os.environ.get("GEMINI_MODEL", model)
         self.fallback = SmartMockLLMAdapter()

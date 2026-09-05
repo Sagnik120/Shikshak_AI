@@ -65,13 +65,28 @@ class EdgeTTSAdapter:
                     )
 
         # Write WebVTT captions
+        content = submaker.get_srt()
+        if "-->" not in content and word_timestamps:
+            def _fmt(sec: float) -> str:
+                m = int(sec // 60)
+                s = int(sec % 60)
+                ms = int((sec % 1) * 1000)
+                return f"{m:02d}:{s:02d}.{ms:03d}"
+
+            vtt_cues = ["WEBVTT\n"]
+            chunk_sz = 4
+            for i in range(0, len(word_timestamps), chunk_sz):
+                c = word_timestamps[i : i + chunk_sz]
+                start_s = _fmt(c[0].start_sec)
+                end_s = _fmt(c[-1].end_sec)
+                phrase = " ".join(w.word for w in c)
+                vtt_cues.append(f"{start_s} --> {end_s}\n{phrase}\n")
+            content = "\n".join(vtt_cues)
+        elif not content.startswith("WEBVTT"):
+            content = f"WEBVTT\n\n{content}"
+
         with open(vtt_path, "w", encoding="utf-8") as f:
-            f.write(submaker.get_srt().replace("-->", "-->"))
-            f.seek(0)
-            content = submaker.get_srt()
-            if not content.startswith("WEBVTT"):
-                f.seek(0)
-                f.write(f"WEBVTT\n\n{content}")
+            f.write(content)
 
         # Transcode MP3 to WAV 24kHz mono
         duration_sec = self._transcode_to_wav(mp3_path, wav_path)
