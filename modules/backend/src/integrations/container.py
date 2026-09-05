@@ -1,14 +1,7 @@
 import sys
 import os
 
-# Stub concrete LLM adapter for hackathon MVP path
-try:
-    from modules.ai_agent_orchestration.tests.fixtures.fake_llm_adapter import FakeLLMAdapter
-except ImportError:
-    # Fallback if tests folder isn't in path
-    class FakeLLMAdapter:
-        def complete(self, messages, tools=None):
-            return "{}"
+from modules.ai_agent_orchestration.src.adapters.gemini_adapter import get_llm_adapter
 
 from modules.ai_agent_orchestration.src.state_machine.orchestrator import TeacherOrchestrator
 from modules.ai_agent_orchestration.src.agents.planner import PlannerAgent
@@ -32,7 +25,7 @@ class RAGClientStub:
         return [c.text for c in res.chunks]
 
 def get_services():
-    llm_adapter = FakeLLMAdapter()
+    llm_adapter = get_llm_adapter()
     
     # Initialize Core Services
     ml_core_service = MLCoreService(llm_adapter=llm_adapter)
