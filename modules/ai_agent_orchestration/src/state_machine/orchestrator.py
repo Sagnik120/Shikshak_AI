@@ -96,7 +96,9 @@ class TeacherOrchestrator:
 
         elif current_state == TeacherState.EVALUATE:
             student_response = inputs.get("student_response")
-            eval_result = self.ml_core.evaluate_answer(student_response)
+            node = session.lesson_plan.nodes[session.current_node_index] if session.lesson_plan and session.lesson_plan.nodes else None
+            concept = node.concept if node else ""
+            eval_result = self.ml_core.evaluate_answer(student_response, expected_concept=concept)
             session.evaluation_history.append(eval_result)
             return self._transition(session, current_state, TeacherState.ADAPT, "Answer evaluated", eval_result)
 
