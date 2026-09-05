@@ -71,11 +71,11 @@ class SmartMockLLMAdapter(LLMAdapter):
             cue = "emphasis" if "previous_feedback" in full_lower else "neutral"
             return json.dumps({
                 "node_id": "node_active",
-                "script_text": "Welcome to today's lesson. Let us explore the core principles together step by step.",
+                "script_text": "Welcome to today's lesson on foundational mechanics. Newton's First Law states that an object will remain at rest or keep moving at a constant velocity unless an unbalanced external force acts upon it. Imagine a spacecraft drifting in deep space — with no friction or gravity, it will coast forward indefinitely without using any fuel. This natural tendency of all matter to resist changes in its state of motion is what we call inertia.",
                 "language": "en",
                 "visual_spec": {
-                    "type": "equation",
-                    "content": "E = mc^2"
+                    "type": "diagram",
+                    "content": "Balanced Forces vs. Unbalanced Net Force: Inertia Vector Map"
                 },
                 "avatar_cue": cue
             })
@@ -183,31 +183,35 @@ class GeminiLLMAdapter(LLMAdapter):
                     "parts": [{"text": content}]
                 })
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
         params = {"key": self.api_key}
         payload: Dict[str, Any] = {
             "contents": contents,
             "generationConfig": {
                 "temperature": 0.2,
-                "responseMimeType": "application/json"
-            }
+                "responseMimeType": "application/json",
+            },
         }
         if system_instruction:
             payload["systemInstruction"] = system_instruction
 
-        try:
-            with httpx.Client(timeout=30.0) as client:
-                resp = client.post(url, params=params, json=payload)
-                resp.raise_for_status()
-                data = resp.json()
-                candidates = data.get("candidates", [])
-                if candidates and "content" in candidates[0]:
-                    parts = candidates[0]["content"].get("parts", [])
-                    if parts and "text" in parts[0]:
-                        return parts[0]["text"]
-        except Exception as e:
-            logger.warning(f"Live Gemini call failed ({e}); degrading gracefully to SmartMockLLMAdapter.")
-            return self.fallback.complete(messages, tools)
+        models_to_try = [self.model]
+        if "1.5-flash" not in self.model:
+            models_to_try.append("gemini-1.5-flash")
+
+        for m in models_to_try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent"
+            try:
+                with httpx.Client(timeout=30.0) as client:
+                    resp = client.post(url, params=params, json=payload)
+                    resp.raise_for_status()
+                    data = resp.json()
+                    candidates = data.get("candidates", [])
+                    if candidates and "content" in candidates[0]:
+                        parts = candidates[0]["content"].get("parts", [])
+                        if parts and "text" in parts[0]:
+                            return parts[0]["text"]
+            except Exception as e:
+                logger.warning(f"Live Gemini call for '{m}' failed ({e}).")
 
         return self.fallback.complete(messages, tools)
 

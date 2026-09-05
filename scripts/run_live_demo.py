@@ -103,7 +103,8 @@ def main():
     constraints = LearnerConstraints(level="beginner", language=language, time_budget_min=10, style="intuitive")
 
     print(f"\n{BOLD}[2/6] Generating Pedagogical Lesson Plan for: '{topic}'...{RESET}")
-    current_state, plan = ai_service.process_next_step(session_id, TeacherState.INIT, {"topic": topic, "constraints": constraints})
+    current_state, _ = ai_service.process_next_step(session_id, TeacherState.UNDERSTAND, {"topic": topic, "constraints": constraints})
+    current_state, plan = ai_service.process_next_step(session_id, current_state, {})
     print(f"  {GREEN}✓{RESET} Plan ID: {plan.lesson_id}")
     print(f"  {GREEN}✓{RESET} Curriculum Nodes:")
     for i, node in enumerate(plan.nodes, 1):
@@ -111,6 +112,7 @@ def main():
 
     # 4. Teach Node 1 (Explain & Render Video)
     first_node = plan.nodes[0]
+    first_node.checkpoint_question = True
     print(f"\n{BOLD}[3/6] Teaching Node 1: '{first_node.concept}'...{RESET}")
     current_state, segment = ai_service.process_next_step(session_id, current_state, {})
     
@@ -140,9 +142,14 @@ def main():
                 break
             time.sleep(0.5)
 
-    # 5. Checkpoint Question (if present or generate one)
+    # 5. Checkpoint Question
     print(f"\n{BOLD}[5/6] Generating Pedagogical Checkpoint Question...{RESET}")
-    current_state, question = ai_service.process_next_step(session_id, current_state, {})
+    if current_state == TeacherState.QUESTION:
+        current_state, question = ai_service.process_next_step(session_id, current_state, {})
+    else:
+        question = ai_service.orchestrator.questioner.generate_question(first_node, segment)
+        current_state = TeacherState.EVALUATE
+
 
     print(f"\n{BLUE}{BOLD}{'-' * 70}{RESET}")
     print(f"{CYAN}{BOLD}❓ Checkpoint Question:{RESET} {question.question_text}")
@@ -184,18 +191,18 @@ def main():
 
     # 6. Evaluate & Adapt
     print(f"\n{BOLD}[6/6] Evaluating Response & Computing Pedagogical Adaptation...{RESET}")
-    current_state, eval_result = ai_service.process_next_step(session_id, TeacherState.EVALUATE, {"student_response": student_response})
+    current_state, eval_result = ai_service.process_next_step(session_id, current_state, {"student_response": student_response})
     
     print(f"  • Correct:     {'✅ Yes' if eval_result.correct else '❌ No'}")
     print(f"  • Confidence:  {eval_result.confidence * 100:.1f}%")
     print(f"  • Feedback:    {eval_result.feedback_text}")
 
-    current_state, decision = ai_service.process_next_step(session_id, TeacherState.ADAPT, {"eval_result": eval_result})
+    current_state, decision = ai_service.process_next_step(session_id, current_state, {"eval_result": eval_result})
     print(f"  • Decision:    {BOLD}{decision.action}{RESET} ({decision.reason})")
 
-    # Step to DONE to get the final Assessment Report
-    current_state, _ = ai_service.process_next_step(session_id, TeacherState.CONTINUE, {})
-    current_state, report = ai_service.process_next_step(session_id, TeacherState.DONE, {})
+    # Generate the final Assessment Report
+    assessor = ai_service.orchestrator.assessor
+    report = assessor.generate_report(session.lesson_plan.lesson_id, [eval_result])
 
     print(f"\n{BLUE}{BOLD}{'=' * 75}{RESET}")
     print(f"{GREEN}{BOLD}   🎉 SESSION MASTERY REPORT (AssessmentAgent){RESET}")
