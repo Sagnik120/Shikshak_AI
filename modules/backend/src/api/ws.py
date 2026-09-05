@@ -32,6 +32,15 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str, token: str):
     else:
         current_state = TeacherState.EXPLAIN
 
+    # Send current lesson plan so frontend immediately populates nodes and progress
+    if driver.session and driver.session.lesson_plan:
+        plan_obj = driver.session.lesson_plan
+        plan_dict = plan_obj.model_dump() if hasattr(plan_obj, "model_dump") else plan_obj
+        await websocket.send_json(WSMessage(
+            event_type="curriculum_loaded",
+            payload=plan_dict
+        ).model_dump())
+
     try:
         while True:
             # Checkpoint current state before processing step
@@ -50,8 +59,43 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str, token: str):
                 # Next step advances into EXPLAIN
 
             elif current_state == TeacherState.EXPLAIN:
+                node_concept = ""
+                if driver.session and driver.session.lesson_plan and hasattr(driver.session, "current_node_index"):
+                    idx = getattr(driver.session, "current_node_index", 0)
+                    if idx < len(driver.session.lesson_plan.nodes):
+                        node_concept = driver.session.lesson_plan.nodes[idx].concept
+
+                await websocket.send_json(WSMessage(
+                    event_type="ai_state",
+                    payload={"state": "TEACH", "concept": node_concept}
+                ).model_dump())
+
                 current_state, segment = driver.step(current_state, {})
                 # State is now DEMONSTRATE
+
+                # Stream immediate explanation chunk to subtitle and whiteboard stage
+                script_text = getattr(segment, "script_text", "")
+                await websocket.send_json(WSMessage(
+                    event_type="explanation_chunk",
+                    payload={
+                        "script_text": script_text,
+                        "title": node_concept or "Concept Explanation",
+                        "concept": node_concept
+                    }
+                ).model_dump())
+
+                # Send RAG grounding citations if document was ingested
+                if driver.session and driver.session.document_id:
+                    chunks = getattr(segment, "grounding_chunks", None) or []
+                    if chunks:
+                        await websocket.send_json(WSMessage(
+                            event_type="citation_updated",
+                            payload={
+                                "source_title": driver.session.topic or "Textbook / Syllabus",
+                                "excerpt": chunks[0] if isinstance(chunks[0], str) else str(chunks[0]),
+                                "page_number": 1
+                            }
+                        ).model_dump())
 
                 # DEMONSTRATE step yields a job_id for Avatar rendering
                 current_state, payload = driver.step(current_state, {"segment": segment})
@@ -62,9 +106,15 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str, token: str):
                     while True:
                         status = avatar_service.get_status(job_id)
                         if status and status.status == "done":
+                            res_payload = status.result.model_dump() if hasattr(status.result, "model_dump") else status.result
+                            video_file = res_payload.get("video_url")
+                            if video_file and not video_file.startswith("http"):
+                                res_payload["video_url"] = f"/api/v1/media/video?file={video_file}"
+                            res_payload["title"] = node_concept
+                            res_payload["script_text"] = script_text
                             await websocket.send_json(WSMessage(
                                 event_type="video_segment",
-                                payload=status.result.model_dump() if hasattr(status.result, "model_dump") else status.result
+                                payload=res_payload
                             ).model_dump())
                             break
                         elif status and status.status == "failed":
@@ -78,6 +128,11 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str, token: str):
 
             elif current_state == TeacherState.QUESTION:
                 # Generate checkpoint question
+                await websocket.send_json(WSMessage(
+                    event_type="ai_state",
+                    payload={"state": "INTERACT"}
+                ).model_dump())
+
                 current_state, question_event = driver.step(current_state, {})
                 await websocket.send_json(WSMessage(
                     event_type="interaction_event",

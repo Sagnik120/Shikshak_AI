@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Classroom — Shikshak AI</title>
+  <meta name="description" content="Interactive live AI classroom with adaptive multimodal explanations, real-time checkpoint evaluation, and AI telemetry inspection.">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path d='M7 16C7 11.0294 11.0294 7 16 7' stroke='%232A3FA0' stroke-width='3' stroke-linecap='round'/><path d='M25 16C25 20.9706 20.9706 25 16 25' stroke='%230FA3A3' stroke-width='3' stroke-linecap='round'/><circle cx='16' cy='16' r='3.5' fill='%232A3FA0'/></svg>">
+</head>
+<body>
+
+  <!-- Top Classroom Bar -->
+  <header class="app-header">
+    <div class="header-left">
+      <a href="index.html" class="brand">
+        <div class="signal-logo" aria-hidden="true">
+          <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M7 16C7 11.0294 11.0294 7 16 7" stroke="#2A3FA0" stroke-width="3" stroke-linecap="round"/>
+            <path d="M25 16C25 20.9706 20.9706 25 16 25" stroke="#0FA3A3" stroke-width="3" stroke-linecap="round"/>
+            <circle cx="16" cy="16" r="3.5" fill="#2A3FA0"/>
+          </svg>
+        </div>
+        <span>Shikshak<span class="ai-suffix">AI</span></span>
+      </a>
+
+      <span class="profile-badge" style="background:var(--indigo-light); color:var(--indigo-primary); font-weight:700;">Live classroom</span>
+      <span id="lesson-breadcrumb" style="font-size:0.85rem; color:var(--text-secondary); font-weight:500;">Lesson · Loading topic...</span>
+    </div>
+
+    <div class="header-right">
+      <!-- Connection Status Dot -->
+      <span class="status-signal connected" id="connection-signal">
+        <span class="signal-dot"></span> <span id="connection-label">Connecting</span>
+      </span>
+
+      <!-- In-Class Controls -->
+      <select id="classroom-lang" class="presets-select" title="Switch audio language">
+        <option value="en" selected>English</option>
+        <option value="hi">Hindi (हिंदी)</option>
+        <option value="hinglish">Hinglish</option>
+      </select>
+
+      <button type="button" class="btn btn-secondary btn-pill" id="btn-mute" title="Toggle audio mute" style="padding: 6px 12px; font-size: 0.8rem;">
+        <span>🔊 Audio</span>
+      </button>
+
+      <select id="classroom-speed" class="presets-select" title="Playback speed">
+        <option value="1">1.0x</option>
+        <option value="1.25">1.25x</option>
+        <option value="1.5">1.5x</option>
+      </select>
+
+      <button type="button" class="btn btn-secondary btn-pill" id="btn-raise-hand" title="Ask question or raise hand" style="padding: 6px 14px; font-size: 0.8rem;">
+        <span>✋ Raise Hand</span>
+      </button>
+
+      <a href="index.html" class="btn btn-secondary btn-pill" title="Return to Launchpad" style="padding: 6px 14px; font-size: 0.8rem;">
+        <span>Exit</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- 3-Panel Classroom Workspace -->
+  <div class="classroom-layout">
+    
+    <!-- LEFT PANEL: Curriculum Path (approx 20%) -->
+    <aside class="curriculum-panel" aria-label="Curriculum path">
+      <div class="curriculum-header">
+        <h2>Today’s path</h2>
+        <div class="progress-summary">
+          <span id="curriculum-progress-text">Preparing curriculum...</span>
+          <span id="curriculum-progress-pct" style="color:var(--teal-accent);">0%</span>
+        </div>
+        <div class="curriculum-rail">
+          <div class="curriculum-rail-fill" id="curriculum-rail-fill" style="width: 0%;"></div>
+        </div>
+      </div>
+
+      <!-- Curriculum Nodes List -->
+      <ul class="nodes-list" id="nodes-list">
+        <li class="node-item active" id="node-loading">
+          <span class="node-marker">1</span>
+          <span>Loading curriculum path...</span>
+        </li>
+      </ul>
+
+      <!-- Quick Help Buttons -->
+      <div class="curriculum-help">
+        <button type="button" class="quick-help-btn" id="btn-repeat-concept">
+          <span>🔄</span> <span>Repeat this concept</span>
+        </button>
+        <button type="button" class="quick-help-btn" id="btn-simpler-analogy">
+          <span>💡</span> <span>Use a simpler analogy</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- CENTER PANEL: Lesson Stage (approx 55%) -->
+    <main class="stage-panel">
+      
+      <!-- 16:9 Video Canvas / Stage -->
+      <div class="video-stage-container" id="stage-container">
+        
+        <div class="video-stage-inner" id="stage-inner">
+          <!-- Whiteboard Slide -->
+          <div class="whiteboard-slide" id="whiteboard-slide">
+            <span class="slide-badge" id="slide-badge">LESSON STAGE</span>
+            <h2 id="slide-title">“Preparing your lesson...”</h2>
+            <p id="slide-subtext">Initializing the pedagogical orchestrator and teaching segment.</p>
+          </div>
+
+          <!-- Video Element (with subtitle track) -->
+          <video id="lesson-video" style="display:none; width:100%; height:100%; object-fit:cover;" playsinline>
+            <track kind="subtitles" id="video-subtitles" srclang="en" label="English">
+          </video>
+        </div>
+
+        <!-- Floating PiP Teacher Avatar -->
+        <div class="pip-avatar" id="pip-avatar" title="AI Teacher Avatar (24 FPS Lip-Sync)">
+          <div class="avatar-graphic avatar-talking" id="avatar-graphic">
+            <div class="avatar-head"></div>
+            <div class="avatar-mouth" id="avatar-mouth"></div>
+          </div>
+        </div>
+
+        <!-- Preparing State Overlay -->
+        <div class="stage-preparing-overlay" id="stage-preparing-overlay">
+          <div class="pulsing-silhouette">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+          </div>
+          <h3>Your teacher is preparing this explanation...</h3>
+          <p id="preparing-subtext">Checking your last answer against the next example.</p>
+          <div class="stage-loading-bar"></div>
+        </div>
+
+        <!-- Stage Bottom Controls Bar -->
+        <div class="video-controls-bar">
+          <div class="controls-left">
+            <button type="button" class="ctrl-btn" id="ctrl-play" title="Play/Pause">▶</button>
+            <button type="button" class="ctrl-btn" id="ctrl-rewind" title="Rewind 10s">↺ 10s</button>
+            <button type="button" class="ctrl-btn" id="ctrl-forward" title="Forward 10s">↻ 10s</button>
+            <span id="time-display">01:24 / 03:45</span>
+          </div>
+          <div class="controls-right">
+            <button type="button" class="ctrl-btn" id="ctrl-fullscreen" title="Fullscreen">⛶</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Subtitle Bar with Word Highlighting -->
+      <div class="subtitle-bar" id="subtitle-bar">
+        <div id="subtitle-content">
+          The cell membrane is a selective doorway, not a wall. It is the cell's <span class="highlight-phrase">first decision-maker</span>.
+        </div>
+      </div>
+
+      <!-- Reaction Row -->
+      <div class="reactions-row">
+        <button type="button" class="reaction-btn" data-reaction="clear">👍 Clear</button>
+        <button type="button" class="reaction-btn" data-reaction="fast">⏩ Too fast</button>
+        <button type="button" class="reaction-btn" data-reaction="helpful">💡 Helpful</button>
+      </div>
+
+      <!-- Checkpoint Question Card (Mounted beneath video) -->
+      <div class="checkpoint-card" id="checkpoint-card">
+        <div class="checkpoint-header">
+          <span class="checkpoint-pill" id="checkpoint-tag">CHECKPOINT QUIZ · NODE 3</span>
+          <span style="font-size: 0.8rem; color:var(--text-secondary);">Select the best answer</span>
+        </div>
+
+        <h3 id="question-text">Which phrase best describes the role of the cell membrane?</h3>
+
+        <div class="options-list" id="options-list">
+          <div class="option-card" data-idx="0" data-answer="It stores the cell's genetic code.">
+            <div class="option-radio"></div>
+            <span class="option-text">It stores the cell's genetic code.</span>
+          </div>
+          <div class="option-card selected" data-idx="1" data-answer="It controls what enters and leaves the cell.">
+            <div class="option-radio"></div>
+            <span class="option-text">It controls what enters and leaves the cell.</span>
+          </div>
+          <div class="option-card" data-idx="2" data-answer="It creates energy from sunlight.">
+            <div class="option-radio"></div>
+            <span class="option-text">It creates energy from sunlight.</span>
+          </div>
+        </div>
+
+        <button type="button" class="btn btn-primary" id="btn-check-answer" style="width: 100%;">
+          <span>Check my answer →</span>
+        </button>
+
+        <!-- Evaluation Feedback Banner -->
+        <div class="eval-banner" id="eval-banner">
+          <span id="eval-icon">✓</span>
+          <div id="eval-text"></div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- RIGHT PANEL: AI Inspector & Notes (approx 25%) -->
+    <aside class="inspector-panel" aria-label="AI telemetry inspector and notes">
+      <!-- Tabs Header -->
+      <div class="inspector-tabs">
+        <button type="button" class="tab-btn active" id="tab-btn-inspector">AI Inspector</button>
+        <button type="button" class="tab-btn" id="tab-btn-notes">Notes</button>
+      </div>
+
+      <!-- Tab 1: AI Inspector Content -->
+      <div class="tab-content" id="tab-content-inspector">
+        
+        <!-- 1. Live State Machine Progression -->
+        <div class="telemetry-card">
+          <div class="telemetry-label">1. Live State Machine</div>
+          <div class="state-rail" id="state-rail">
+            <span class="state-node done" id="sn-plan">PLAN</span>
+            <span>→</span>
+            <span class="state-node active" id="sn-teach">TEACH</span>
+            <span>→</span>
+            <span class="state-node" id="sn-interact">INTERACT</span>
+            <span>→</span>
+            <span class="state-node" id="sn-evaluate">EVALUATE</span>
+            <span>→</span>
+            <span class="state-node" id="sn-adapt">ADAPT</span>
+          </div>
+        </div>
+
+        <!-- 2. Grounding Evidence Citation -->
+        <div class="telemetry-card">
+          <div class="telemetry-label">2. Grounding Evidence</div>
+          <div class="citation-card">
+            <div class="citation-source">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              </svg>
+              <span id="citation-source-text">Biology_Notes.pdf · Page 12</span>
+            </div>
+            <p class="citation-excerpt" id="citation-excerpt">
+              “The plasma membrane is selectively permeable: it permits the entry and exit of some materials while preventing the movement of others across the phospholipid bilayer.”
+            </p>
+          </div>
+        </div>
+
+        <!-- 3. Evaluation Confidence Meter -->
+        <div class="telemetry-card">
+          <div class="telemetry-label">3. Evaluation Confidence</div>
+          <div class="confidence-meter">
+            <span style="font-size: 0.85rem; color:var(--text-secondary);">Semantic Match:</span>
+            <span class="confidence-val" id="confidence-val">91%</span>
+          </div>
+          <div class="progress-track" style="margin-top: 8px; height: 6px;">
+            <div class="progress-fill" id="confidence-bar" style="width: 91%; background: var(--teal-accent);"></div>
+          </div>
+        </div>
+
+        <!-- 4. Adaptation Decision Badge -->
+        <div class="telemetry-card">
+          <div class="telemetry-label">4. Pedagogical Adaptation</div>
+          <div class="decision-card" id="decision-card">
+            <div>
+              <span class="decision-badge modify" id="decision-badge">MODIFY</span>
+              <div style="font-size: 0.75rem; color:var(--text-secondary); margin-top: 4px;" id="decision-reason">
+                Selective doorway analogy
+              </div>
+            </div>
+            <span style="font-size: 1.1rem;">⚡</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Tab 2: Notes Content -->
+      <div class="tab-content" id="tab-content-notes" style="display: none;">
+        <div class="telemetry-label">Auto-Collected Takeaways</div>
+        <div class="notes-list" id="notes-list">
+          <div class="note-item">
+            <strong>Selective permeability:</strong> A membrane lets some materials through and blocks others.
+          </div>
+          <div class="note-item">
+            <strong>Helpful analogy:</strong> Think of the membrane as a selective doorway, not a rigid wall.
+          </div>
+          <div class="note-item">
+            <strong>Key check:</strong> Material movement depends strictly on what the membrane gates permit.
+          </div>
+        </div>
+
+        <button type="button" class="btn btn-secondary btn-pill" id="btn-save-notes" style="width: 100%; margin-top: 16px;">
+          <span>Export Notes as PDF</span>
+        </button>
+      </div>
+
+    </aside>
+
+  </div>
+
+  <script type="module" src="js/classroom.js"></script>
+</body>
+</html>

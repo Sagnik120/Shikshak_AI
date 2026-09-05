@@ -29,3 +29,13 @@ app.include_router(ws_router)
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
+
+
+# Mount static frontend files strictly from modules/frontend/src
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
+
+frontend_dir = Path(__file__).resolve().parent.parent.parent / "frontend" / "src"
+if frontend_dir.exists() and (frontend_dir / "index.html").exists():
+    app.mount("/", StaticFiles(directory=str(frontend_dir), html=True), name="frontend")
+

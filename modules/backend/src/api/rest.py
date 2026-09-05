@@ -176,3 +176,32 @@ async def get_assessment_report(
     if not report:
         raise HTTPException(status_code=404, detail="Assessment report not found")
     return report
+
+
+@router.get("/sessions/{session_id}/plan", response_model=LessonPlan)
+async def get_plan(
+    session_id: str,
+    token: str = Depends(get_token_header),
+):
+    if session_repo.get_session_token(session_id) != token:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        driver = SessionDriver(session_id)
+        if driver.session and driver.session.lesson_plan:
+            return driver.session.lesson_plan
+    except Exception:
+        pass
+    raise HTTPException(status_code=404, detail="Plan not found for this session")
+
+
+from fastapi.responses import FileResponse
+import os
+
+@router.get("/media/video")
+async def get_rendered_video(path: Optional[str] = None, file: Optional[str] = None):
+    """Safely stream rendered video files to the frontend."""
+    target_path = path or file
+    if not target_path or not os.path.exists(target_path):
+        raise HTTPException(status_code=404, detail="Video file not found")
+    return FileResponse(target_path, media_type="video/mp4")
+

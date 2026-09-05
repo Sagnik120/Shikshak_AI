@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shikshak AI — Adaptive AI Teacher & Video Learning Platform</title>
+  <meta name="description" content="Shikshak AI turns your study material or any question into live, adaptive video explanations with real-time feedback and diagnostic mastery reports.">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path d='M7 16C7 11.0294 11.0294 7 16 7' stroke='%232A3FA0' stroke-width='3' stroke-linecap='round'/><path d='M25 16C25 20.9706 20.9706 25 16 25' stroke='%230FA3A3' stroke-width='3' stroke-linecap='round'/><circle cx='16' cy='16' r='3.5' fill='%232A3FA0'/></svg>">
+</head>
+<body>
+
+  <!-- Top App Header -->
+  <header class="app-header">
+    <div class="header-left">
+      <a href="index.html" class="brand">
+        <div class="signal-logo" aria-hidden="true">
+          <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M7 16C7 11.0294 11.0294 7 16 7" stroke="#2A3FA0" stroke-width="3" stroke-linecap="round"/>
+            <path d="M25 16C25 20.9706 20.9706 25 16 25" stroke="#0FA3A3" stroke-width="3" stroke-linecap="round"/>
+            <circle cx="16" cy="16" r="3.5" fill="#2A3FA0"/>
+          </svg>
+        </div>
+        <span>Shikshak<span class="ai-suffix">AI</span></span>
+      </a>
+    </div>
+
+    <div class="header-right">
+      <select id="preset-select" class="presets-select" title="Choose a demo preset">
+        <option value="cell_structure">Demo: Cell Structure (Biology)</option>
+        <option value="newtons_laws">Demo: Newton's Laws (Physics)</option>
+        <option value="photosynthesis">Demo: Photosynthesis (Botany)</option>
+        <option value="quadratics">Demo: Quadratic Equations (Math)</option>
+      </select>
+
+      <div class="profile-chip">
+        <div class="profile-avatar">SC</div>
+        <span>Sagnik Chandra</span>
+        <span class="profile-badge">Class 10 · CBSE</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Launchpad Workspace -->
+  <main class="launchpad-container">
+    
+    <!-- Setup Sequence Rail -->
+    <nav class="setup-rail" aria-label="Setup steps">
+      <div class="setup-step active" id="step-source">
+        <span>01 Source</span>
+      </div>
+      <span class="setup-arrow">→</span>
+      <div class="setup-step" id="step-explore">
+        <span>02 Explore</span>
+      </div>
+      <span class="setup-arrow">→</span>
+      <div class="setup-step" id="step-tune">
+        <span>03 Tune</span>
+      </div>
+      <span class="setup-arrow">→</span>
+      <div class="setup-step" id="step-teach">
+        <span>04 Teach</span>
+      </div>
+    </nav>
+
+    <!-- Headline Hero -->
+    <section class="launchpad-hero">
+      <h1>Shape the lesson before you enter the room.</h1>
+      <p>Bring study material or begin with a question. Shikshak will turn it into a live explanation, check your understanding, and adapt as learning progresses.</p>
+    </section>
+
+    <!-- Source Selection Grid: Upload or Explore -->
+    <section class="source-grid">
+      
+      <!-- Card 1: Upload Study Material -->
+      <div class="source-card" id="card-upload">
+        <div class="card-header-badge">01 · Source</div>
+        <h2>Upload study material</h2>
+        <p class="subtext">The teacher needs context to explain the right thing and stay strictly grounded.</p>
+
+        <!-- Drag & Drop Zone -->
+        <div class="drop-zone" id="drop-zone" tabindex="0" role="button" aria-label="Drop file to upload">
+          <input type="file" id="file-input" style="display:none" accept=".pdf,.docx,.pptx,.txt">
+          <svg class="drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <h3>Drop a file here, or browse</h3>
+          <p class="file-types">Supports PDF, DOCX, PPTX, TXT · Up to 25 MB</p>
+          <p class="privacy-note">🔒 Private & Secure · Extracted on-device and never shared</p>
+        </div>
+
+        <!-- Post-Upload Summary State -->
+        <div class="upload-summary" id="upload-summary">
+          <div class="summary-top">
+            <div class="file-meta">
+              <div class="file-icon-box">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                </svg>
+              </div>
+              <div>
+                <div class="file-title" id="uploaded-filename">NCERT_Class10_Biology_Ch2.pdf</div>
+                <div class="file-size" id="uploaded-filesize">2.4 MB · Analyzed just now</div>
+              </div>
+            </div>
+            <span class="status-signal connected">
+              <span class="signal-dot"></span> Parsed
+            </span>
+          </div>
+
+          <div class="chapter-pills" id="chapter-pills">
+            <span class="chapter-pill">Cell structure</span>
+            <span class="chapter-pill">Selective transport</span>
+            <span class="chapter-pill">Organelle roles</span>
+          </div>
+
+          <div class="lang-confidence">
+            <span>✓</span> Detected: English (99.4% confidence)
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2: Ask about Any Topic -->
+      <div class="source-card" id="card-topic">
+        <div class="card-header-badge">02 · Or explore</div>
+        <h2>Ask about any topic</h2>
+        <p class="subtext">Start with a specific curiosity or question and Shikshak builds the curriculum live.</p>
+
+        <div class="topic-input-wrapper">
+          <span class="topic-prefix">Teach me:</span>
+          <input type="text" id="topic-input" class="topic-input" placeholder="e.g., How does the cell membrane work?" value="Cell Membrane & Transport">
+          <span class="sparkle-icon" title="AI Curriculum Planner">✦</span>
+        </div>
+
+        <p class="subtext" style="margin-bottom: 10px; font-weight: 600; font-size: 0.8rem;">Quick Suggestions:</p>
+        <div class="suggestion-pills" id="suggestion-pills">
+          <button type="button" class="suggestion-pill selected" data-topic="Cell Membrane & Transport">Cell Membrane & Transport</button>
+          <button type="button" class="suggestion-pill" data-topic="Newton's Laws of Motion">Newton's Laws of Motion</button>
+          <button type="button" class="suggestion-pill" data-topic="Photosynthesis & Light Reactions">Photosynthesis</button>
+          <button type="button" class="suggestion-pill" data-topic="Quadratic Equations & Roots">Quadratic Equations</button>
+          <button type="button" class="suggestion-pill" data-topic="Python Loops & Recursion">Python Loops</button>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Section 3: Tune the Room -->
+    <section class="tune-section">
+      <div class="tune-header">
+        <div>
+          <div class="card-header-badge">03 · Tune the room</div>
+          <h2>Configure your learning pace</h2>
+        </div>
+        <span>Settings can be adjusted mid-lesson</span>
+      </div>
+
+      <div class="controls-grid">
+        <!-- Level -->
+        <div class="control-group">
+          <label for="control-level">Level</label>
+          <div class="segmented-control" id="control-level">
+            <button type="button" class="seg-btn active" data-value="beginner">Beginner</button>
+            <button type="button" class="seg-btn" data-value="intermediate">Intermediate</button>
+            <button type="button" class="seg-btn" data-value="advanced">Advanced</button>
+          </div>
+        </div>
+
+        <!-- Language -->
+        <div class="control-group">
+          <label for="control-language">Language</label>
+          <select id="control-language" class="select-input">
+            <option value="en" selected>English</option>
+            <option value="hi">Hindi (हिंदी)</option>
+            <option value="hinglish">Hinglish (Code-Mixed)</option>
+            <option value="bn">Bengali (বাংলা)</option>
+          </select>
+        </div>
+
+        <!-- Time Budget -->
+        <div class="control-group">
+          <label for="control-budget">Time Budget</label>
+          <div class="segmented-control" id="control-budget">
+            <button type="button" class="seg-btn" data-value="5">5 min</button>
+            <button type="button" class="seg-btn active" data-value="15">15 min</button>
+            <button type="button" class="seg-btn" data-value="30">30 min</button>
+          </div>
+        </div>
+
+        <!-- Teaching Style -->
+        <div class="control-group">
+          <label for="control-style">Teaching Style</label>
+          <select id="control-style" class="select-input">
+            <option value="visual" selected>Visual & Analogy</option>
+            <option value="exam">Exam-Oriented (CBSE)</option>
+            <option value="code">Code & Simulation</option>
+            <option value="story">Story-Driven</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <!-- Primary Action Bar -->
+    <section class="action-bar">
+      <div class="action-context">
+        <span class="action-status" id="action-status-text">Ready to build your lesson: Cell Membrane & Transport</span>
+        <span class="action-estimate">About 15–30 seconds to prepare your first personalized explanation</span>
+      </div>
+
+      <button type="button" id="btn-generate" class="btn btn-primary btn-pill">
+        <span>Generate personalized lesson plan →</span>
+      </button>
+    </section>
+
+    <!-- Animated Generation Progress Panel -->
+    <section class="generation-panel" id="generation-panel">
+      <div class="progress-stages">
+        <span class="stage-item current" id="stage-1">1. Analyzing material</span>
+        <span class="stage-item" id="stage-2">2. Structuring lesson nodes</span>
+        <span class="stage-item" id="stage-3">3. Ready</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <script type="module" src="js/launchpad.js"></script>
+</body>
+</html>

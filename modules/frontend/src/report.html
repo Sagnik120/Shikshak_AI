@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Post-Lesson Report — Shikshak AI</title>
+  <meta name="description" content="Personalized lesson mastery report with diagnostic evidence, teacher narrative, and next targets.">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path d='M7 16C7 11.0294 11.0294 7 16 7' stroke='%232A3FA0' stroke-width='3' stroke-linecap='round'/><path d='M25 16C25 20.9706 20.9706 25 16 25' stroke='%230FA3A3' stroke-width='3' stroke-linecap='round'/><circle cx='16' cy='16' r='3.5' fill='%232A3FA0'/></svg>">
+</head>
+<body>
+
+  <!-- Top App Header -->
+  <header class="app-header">
+    <div class="header-left">
+      <a href="index.html" class="brand">
+        <div class="signal-logo" aria-hidden="true">
+          <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M7 16C7 11.0294 11.0294 7 16 7' stroke="#2A3FA0" stroke-width="3" stroke-linecap="round"/>
+            <path d="M25 16C25 20.9706 20.9706 25 16 25' stroke="#0FA3A3" stroke-width="3" stroke-linecap="round"/>
+            <circle cx="16" cy="16" r="3.5" fill="#2A3FA0"/>
+          </svg>
+        </div>
+        <span>Shikshak<span class="ai-suffix">AI</span></span>
+      </a>
+      <span class="profile-badge" style="background:var(--teal-light); color:var(--teal-accent); font-weight:700;">Lesson report</span>
+      <span class="status-signal connected">
+        <span class="signal-dot"></span> Session Complete
+      </span>
+    </div>
+
+    <div class="header-right">
+      <div class="profile-chip">
+        <div class="profile-avatar">SC</div>
+        <span>Sagnik Chandra</span>
+        <span class="profile-badge">Class 10 · CBSE</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Report Main Container -->
+  <main class="report-container">
+    
+    <!-- Hero Headline -->
+    <section class="report-hero">
+      <h1 id="report-title">Cell structure, untangled.</h1>
+      <p id="report-subtitle">This report captures one useful misconception resolved and one clearer target for next time.</p>
+    </section>
+
+    <!-- 1. Top Mastery Score Overview Card -->
+    <section class="mastery-card">
+      <!-- Animated SVG Score Ring -->
+      <div class="score-ring-wrapper">
+        <svg viewBox="0 0 140 140">
+          <circle class="ring-bg" cx="70" cy="70" r="60"/>
+          <circle class="ring-progress" id="score-ring" cx="70" cy="70" r="60"/>
+        </svg>
+        <div class="score-text">
+          <div id="score-number">0</div>
+          <span>Mastery</span>
+        </div>
+      </div>
+
+      <div class="mastery-info">
+        <span class="mastery-status">Strong finish after adaptation</span>
+        <h2>You can explain the big idea.</h2>
+        <p>
+          You connected the cell membrane to selective movement after receiving the doorway analogy. Your response time improved by <strong>42%</strong> on the adapted checkpoint question.
+        </p>
+      </div>
+    </section>
+
+    <!-- 2. Evidence Breakdown: Strong Concepts vs Practice Targets -->
+    <section class="evidence-grid">
+      <!-- Strong Concepts -->
+      <div class="evidence-box">
+        <h3>
+          <span style="color: var(--teal-accent);">✓</span>
+          <span>Strong Concepts</span>
+        </h3>
+        <div class="evidence-pills">
+          <span class="pill-strong">Cell theory</span>
+          <span class="pill-strong">Selective permeability</span>
+          <span class="pill-strong">Organelle roles</span>
+        </div>
+        <p>You demonstrated firm conceptual recall and correctly separated membrane gating from nuclear genetic storage.</p>
+      </div>
+
+      <!-- Areas for Practice -->
+      <div class="evidence-box">
+        <h3>
+          <span style="color: var(--amber-warn);">⚡</span>
+          <span>Areas for Practice</span>
+        </h3>
+        <div class="evidence-pills">
+          <span class="pill-practice">Diffusion vs. osmosis</span>
+          <span class="pill-practice">Active transport</span>
+        </div>
+        <p>Useful next focus areas to solidify gradient-driven movement and energy-dependent transport pumps.</p>
+      </div>
+    </section>
+
+    <!-- 3. Teacher's Narrative Note -->
+    <section class="teacher-note-card">
+      <h3>
+        <span>📝</span> <span>Teacher's Diagnostic Note</span>
+      </h3>
+      <p>
+        “You initially hesitated on the membrane's core role, but once we grounded it with the selective doorway analogy, you correctly identified nutrient gating in under 4 seconds. Great intuition on passive transport.”
+      </p>
+    </section>
+
+    <!-- 4. Recommended Next Steps -->
+    <section class="next-steps-section">
+      <h3>Recommended Next Steps</h3>
+      <div class="next-steps-grid">
+        
+        <!-- Step 1 -->
+        <a href="classroom.html?mode=mock" class="step-card">
+          <div class="step-icon">↺</div>
+          <h4>Replay the tricky questions</h4>
+          <p>Two focused questions on passive transport · about 5 minutes.</p>
+          <span class="step-arrow">Start practice →</span>
+        </a>
+
+        <!-- Step 2 -->
+        <div class="step-card" id="step-active-transport">
+          <div class="step-icon">⚡</div>
+          <h4>Learn active transport</h4>
+          <p>Build the next connected concept using ATP pumps and carrier proteins.</p>
+          <span class="step-arrow">Explore concept →</span>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="step-card" id="step-review-notes">
+          <div class="step-icon">📖</div>
+          <h4>Review your saved notes</h4>
+          <p>Three core takeaways and the doorway analogy from today's lesson.</p>
+          <span class="step-arrow">Open notes →</span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 5. Bottom Action Bar -->
+    <section class="report-actions">
+      <a href="index.html" class="btn btn-secondary btn-pill">
+        <span>← Return to dashboard</span>
+      </a>
+
+      <div style="display: flex; gap: 12px;">
+        <a href="classroom.html?mode=mock" class="btn btn-secondary btn-pill">
+          <span>Retake tricky questions</span>
+        </a>
+        <button type="button" class="btn btn-primary btn-pill" id="btn-download-report">
+          <span>Download report (PDF)</span>
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <script type="module" src="js/report.js"></script>
+</body>
+</html>
