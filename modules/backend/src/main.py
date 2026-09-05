@@ -19,8 +19,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount both with /api/v1 prefix and root prefix for maximum client compatibility
 app.include_router(rest_router, prefix=settings.api_v1_str)
 app.include_router(ws_router, prefix=settings.api_v1_str)
+app.include_router(rest_router)
+app.include_router(ws_router)
+
 
 @app.get("/health")
 def health_check():
