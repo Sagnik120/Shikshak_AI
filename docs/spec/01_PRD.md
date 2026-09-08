@@ -50,7 +50,7 @@ Every teaching-loop step maps to one of:
 - NOT a full LMS (grading integrations, institutional rostering) — learner profile is
   self-contained to this app.
 - NOT real-time livestreaming avatar (turn-based interactive video is acceptable for MVP;
-  true real-time conversation is an Advanced Feature, see `new_phases.md`).
+  true real-time conversation is an advanced feature reserved for future scope).
 - NOT guaranteeing zero hallucination — the goal is RAG-grounded minimization, with citations.
 
 ## Mandatory Requirements (must all be demoable — from PS section 17)

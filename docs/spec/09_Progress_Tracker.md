@@ -21,11 +21,6 @@ Overall Status: NOT STARTED | IN PROGRESS | STABLE | BLOCKED
 - [ ] Phase 8 — Frontend Polish & Multilingual
 - [ ] Phase 9 — Documentation & Demo
 
-## Stage 2 Specs (new_phases.md)
-- [ ] Detection Layer batch
-- [ ] Decision Logic Layer batch
-- [ ] Advanced Features batch
-
 ## Mandatory Requirements Checklist (PS §17)
 - [ ] Learning from uploaded material
 - [ ] Topic-based teaching

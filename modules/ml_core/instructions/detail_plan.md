@@ -21,7 +21,7 @@ classification, visual-type suggestion.
    per-subject taxonomy (start with a small hand-curated taxonomy per common subject, e.g.
    physics: "confuses current with charge", "assumes Ohm's law linearity fails" — ref
    physics-education-research misconception inventories) using few-shot LLM classification;
-   log new tags for later taxonomy growth (see Batch A in `new_phases.md`).
+   log new tags for taxonomy expansion.
 5. **Visual-Type Suggester**: rule table keyed by subject/concept-type (math→equation/graph,
    physics→diagram/simulation, biology→labeled diagram, history→timeline/map,
    programming→code/flow/architecture) with an LLM fallback for ambiguous concepts — output
