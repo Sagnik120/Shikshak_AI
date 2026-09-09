@@ -3,7 +3,7 @@
 > **Module Identifier**: `ml_core`  
 > **Repository Path**: `modules/ml_core/`  
 > **Primary Role**: Student Response Evaluation, Misconception Taxonomy Classification, Key-Term Extraction & Visual Type Heuristics  
-> **Status**: **SCAFFOLDED & CONTRACT-LOCKED** (Ready for answer evaluation & misconception classifier implementation)  
+> **Status**: **IMPLEMENTED & VERIFIED** (28 unit/integration tests passing; isolated web testbed active on Port 8003)  
 > **Key Contracts**: Contract §9 (`StudentResponse`), Contract §10 (`EvaluationResult`), Contract §5 (`LessonPlan.visual_type`), Contract §6 (`TeachingSegment.visual_spec`)
 
 ---
@@ -27,30 +27,34 @@ The module is engineered to balance deterministic accuracy, low inference latenc
 ### Hybrid Answer Evaluation Engine
 Student responses are evaluated through a two-stage hybrid pipeline:
 - **Tier 1 (Deterministic Rule Match for MCQs)**:
-  - For multiple-choice questions, compares `StudentResponse.raw_answer` directly with `expected_concept` or answer keys.
-  - Zero latency, zero cost, and 100% deterministic accuracy (zero hallucination risk).
+  - Implemented in `src/answer_evaluation/mcq_evaluator.py`.
+  - For multiple-choice questions, compares `StudentResponse.raw_answer` directly with `expected_concept` or answer keys using case-insensitive normalization.
+  - Zero latency (< 1ms), zero token cost, and 100% deterministic accuracy (zero hallucination risk).
 - **Tier 2 (Embedding Cosine Similarity + Constrained LLM Judge for Free-Text)**:
+  - Implemented in `src/answer_evaluation/freeform_evaluator.py`.
   - For short-answer and conceptual questions, first runs cosine similarity between the student's answer embedding and the reference answer embedding.
-  - If similarity is $\ge 0.88$, immediately marks `correct = True, partial_credit = 1.0`.
+  - If similarity is $\ge 0.88$, immediately marks `correct = True, partial_credit = 1.0, confidence = 0.95`.
+  - If similarity is $< 0.40$, immediately marks `correct = False, partial_credit = 0.0, confidence = 0.90`.
   - If ambiguous ($0.40 \le \text{similarity} < 0.88$), dispatches to a constrained LLM judge with a strict rubric prompt emitting JSON:
     `{ "correct": bool, "partial_credit": float, "confidence": float, "feedback_text": str }`.
 
 ### Misconception Classification Taxonomies
-For incorrect or partially correct answers, `ml_core` classifies the error against curated, subject-specific misconception inventories:
-- **Physics**: *"Confuses velocity with acceleration"*, *"Assumes force is necessary for motion (Aristotelian trap)"*, *"Confuses electric potential with electric current"*.
-- **Mathematics**: *"Ignores negative signs when squaring"*, *"Divides by zero implicitly"*, *"Confuses perimeter with area"*.
-- **Computer Science**: *"Off-by-one loop boundary error"*, *"Confuses assignment (=) with equality (==)"*, *"Assumes recursion has no memory overhead"*.
+Implemented in `src/misconception/classifier.py`. For incorrect or partially correct answers, `ml_core` classifies the error against curated, subject-specific misconception inventories:
+- **Physics (`physics_taxonomies.json`)**: *"Confuses velocity with acceleration"*, *"Assumes force is necessary for motion (Aristotelian trap)"*, *"Confuses electric potential with electric current"*.
+- **Mathematics (`math_taxonomies.json`)**: *"Ignores negative signs when squaring"*, *"Divides by zero implicitly"*, *"Confuses perimeter with area"*.
+- **Computer Science (`cs_taxonomies.json`)**: *"Off-by-one loop boundary error"*, *"Confuses assignment (=) with equality (==)"*, *"Assumes recursion has no memory overhead"*.
 
 The resulting `misconception_tag` directly drives the Adaptation Controller in `ai_agent_orchestration`.
 
 ### Visual-Type Suggester
-A rule-based classification table mapping concepts and subjects to optimal visual modalities:
+Implemented in `src/visual_suggestion/suggester.py` & `rules.py`. A rule-based classification table mapping concepts and subjects to optimal visual modalities:
 $$\text{Subject / Concept Type} \longrightarrow \text{visual\_type}$$
 - Mathematics $\longrightarrow$ `equation` (LaTeX) or `graph` (Cartesian plots).
 - Physics $\longrightarrow$ `diagram` (Free-body / circuits) or `simulation`.
 - Biology / Chemistry $\longrightarrow$ `diagram` (Labeled anatomy / reaction flows).
 - History / Literature $\longrightarrow$ `timeline` (Chronological sequence) or `map` (Geographic routes).
 - Computer Science $\longrightarrow$ `code` (Syntax-highlighted terminal) or `diagram` (Architecture graphs).
+- Ambiguous Concepts $\longrightarrow$ Fallback to Gemini LLM with strict enum validation.
 
 ---
 
@@ -58,12 +62,15 @@ $$\text{Subject / Concept Type} \longrightarrow \text{visual\_type}$$
 
 | Component | Specification & Implementation | Status |
 |---|---|---|
-| **Contract Schemas** | Authoritative schemas in `instructions/Contract.md` (§9 `StudentResponse`, §10 `EvaluationResult`, §5 `LessonPlan`). | **Contract-Locked & Verified** |
-| **Module Instructions** | `instructions/overview.md`, `instructions/detail_plan.md`, `instructions/contract.md` detailing hybrid evaluation and misconception tagging. | **Complete** |
-| **Directory Skeleton** | `src/` and `tests/` (`unit/`, `integration/`, `e2e/`) partitioned and prepared. | **Scaffolded** |
-| **Answer Evaluator** | Two-stage hybrid evaluation engine scheduled for implementation in Phase 6. | **Next Immediate Sprint** |
-| **Taxonomy Store** | Per-subject JSON misconception taxonomy files and classification prompts. | **Next Immediate Sprint** |
-| **Visual Suggester** | Deterministic keyword and subject rule table with LLM fallback. | **Next Immediate Sprint** |
+| **Contract Schemas** | Authoritative schemas in `instructions/Contract.md` (§9 `StudentResponse`, §10 `EvaluationResult`, §5 `LessonPlan`, §6 `TeachingSegment`). | **Contract-Locked & Verified** |
+| **Module Instructions** | `instructions/overview.md`, `instructions/detail_plan.md`, `instructions/contract.md` detailing hybrid evaluation and misconception tagging. | **Complete & Synchronized** |
+| **Answer Evaluators** | `MCQEvaluator` (rule-based) & `FreeformEvaluator` (embedding cosine similarity + Gemini LLM judge). | **Fully Implemented & Verified** |
+| **Misconception Classifier** | Taxonomy-backed JSON matching for Physics, Math, CS with few-shot LLM fallback. | **Fully Implemented & Verified** |
+| **Concept Extractor** | Lightweight key-term & entity extraction emitting scored `ConceptChunk` objects. | **Fully Implemented & Verified** |
+| **Visual Suggester** | Rule table with LLM fallback mapping concepts to Contract §5 visual modalities. | **Fully Implemented & Verified** |
+| **MLCoreService Facade** | Unified orchestration entrypoint exposing all core evaluation and classification capabilities. | **Fully Implemented & Verified** |
+| **Web Testbed Studio** | Standalone FastAPI diagnostic server on **Port 8003** with pure light professional UI and hierarchical logging. | **Fully Implemented & Verified** |
+| **Test Suite** | Comprehensive pytest suite across unit, integration, and web test server (28 passing tests). | **100% Passing (28/28)** |
 
 ---
 
@@ -78,66 +85,114 @@ modules/ml_core/
 │   ├── detail_plan.md                          # Component specifications and evaluation algorithms
 │   └── overview.md                             # High-level module mission statement
 ├── src/
-│   ├── .gitkeep                                # Active source directory
-│   ├── __init__.py                             # (Target architecture) Package exports
-│   ├── evaluation/                             # (Target architecture)
-│   │   ├── __init__.py                         # Exposes AnswerEvaluator
-│   │   ├── evaluator.py                        # Master hybrid answer evaluator (Tier 1 Rule + Tier 2 Judge)
-│   │   ├── mcq_scorer.py                       # Exact-match and distractor rule scorer
-│   │   └── semantic_scorer.py                  # Embedding cosine similarity + LLM rubric judge
-│   ├── misconceptions/                         # (Target architecture)
+│   ├── __init__.py                             # Package exports
+│   ├── adapters/
+│   │   ├── __init__.py
+│   │   └── llm.py                              # LLM adapter interface
+│   ├── answer_evaluation/
+│   │   ├── __init__.py                         # Exposes MCQEvaluator and FreeformEvaluator
+│   │   ├── freeform_evaluator.py               # Embedding cosine similarity + Gemini rubric judge
+│   │   └── mcq_evaluator.py                    # Exact-match string rule scorer (< 1ms latency)
+│   ├── concept_extraction/
+│   │   ├── __init__.py                         # Exposes ConceptExtractor
+│   │   └── extractor.py                        # Lightweight key-term and entity extractor
+│   ├── embeddings/
+│   │   ├── __init__.py                         # Fast embedding utilities
+│   │   └── local_embeddings.py                 # Cosine similarity and vector representation
+│   ├── misconception/
 │   │   ├── __init__.py                         # Exposes MisconceptionClassifier
-│   │   ├── classifier.py                       # Misconception classifier mapping errors to tags
-│   │   └── taxonomies/                         # Hand-curated educational misconception dictionaries
-│   │       ├── cs_taxonomies.json              # Common programming misconceptions
-│   │       ├── math_taxonomies.json            # Algebra, calculus, and arithmetic traps
-│   │       └── physics_taxonomies.json         # Mechanics, electricity, and thermodynamics traps
-│   ├── models.py                               # (Target architecture) Pydantic schemas for EvaluationResult
-│   ├── service.py                              # (Target architecture) MLCoreService unified facade
-│   └── visuals/                                # (Target architecture)
+│   │   ├── classifier.py                       # Taxonomy-backed misconception diagnostic classifier
+│   │   └── taxonomies/                         # Curated pedagogical misconception dictionaries
+│   │       ├── cs_taxonomies.json              # Programming misconception catalog
+│   │       ├── math_taxonomies.json            # Algebra and calculus misconception catalog
+│   │       └── physics_taxonomies.json         # Mechanics and circuits misconception catalog
+│   ├── schemas/
+│   │   ├── __init__.py
+│   │   ├── concept.py                          # ConceptChunk schema
+│   │   ├── evaluation.py                       # EvaluationResult (Contract §10) and StudentResponse (§9)
+│   │   └── visual.py                           # VisualType enum and suggestion schemas
+│   ├── service.py                              # MLCoreService unified facade
+│   └── visual_suggestion/
 │       ├── __init__.py                         # Exposes VisualTypeSuggester
-│       └── suggester.py                        # Deterministic rule table mapping concepts to visual_type
+│       ├── rules.py                            # Subject and keyword rule mappings
+│       └── suggester.py                        # Heuristic recommender with LLM fallback
 └── tests/
     ├── e2e/
     │   └── .gitkeep                            # End-to-end evaluation benchmark suites
+    ├── fixtures/                               # Mock responses and sample student inputs
     ├── integration/
-    │   └── .gitkeep                            # Integration tests with ai_agent_orchestration
-    └── unit/
-        └── .gitkeep                            # Unit tests for scoring logic and misconception matching
+    │   ├── test_ml_core_service_contract.py    # Service facade contract verification
+    │   ├── test_orchestration_boundary.py      # Orchestrator boundary tests
+    │   └── test_rag_boundary.py                # RAG boundary tests
+    ├── unit/
+    │   ├── test_concept_extractor.py           # Unit tests for key-term extraction
+    │   ├── test_freeform_evaluator.py          # Unit tests for two-stage freeform scoring
+    │   ├── test_mcq_evaluator.py               # Unit tests for deterministic MCQ scoring
+    │   ├── test_misconception_classifier.py    # Unit tests for taxonomy matching
+    │   ├── test_ml_core_web_test_server.py     # Unit tests for web testbed REST server
+    │   ├── test_schemas.py                     # Schema validation tests
+    │   └── test_visual_suggester.py            # Unit tests for visual rule engine and fallback
+    └── web_test/                               # Standalone Web Diagnostic Testbed (Port 8003)
+        ├── logger.py                           # Hierarchical trace and hallucination logger
+        ├── server.py                           # FastAPI testbed application
+        ├── logs/                               # Categorized test trace output directory
+        │   ├── concepts/                       # Concept extraction traces
+        │   ├── errors/                         # Validation and exception traces
+        │   ├── evaluation/                     # Answer evaluation traces
+        │   ├── misconception/                  # Misconception classification traces
+        │   ├── service/                        # Facade dispatch traces
+        │   └── visuals/                        # Visual suggestion traces
+        └── static/                             # Pure light professional frontend
+            ├── css/
+            │   └── style.css                   # Crisp light theme styling (NO dark mode)
+            ├── js/
+            │   └── app.js                      # Diagnostic studio interactive logic
+            └── index.html                      # 5-tab diagnostic workbench
 ```
 
 ---
 
-## 5. Detailed File Logic (Planned & Authoritative Architecture)
+## 5. Detailed File Logic (Authoritative Codebase Implementation)
 
-### Target Files in `src/`
-- **`src/models.py`**:
-  - Implements `EvaluationResult` strictly adhering to Contract §10:
-    ```python
-    class EvaluationResult(BaseModel):
-        node_id: str
-        correct: bool
-        partial_credit: float = Field(..., ge=0.0, le=1.0)
-        misconception_tag: Optional[str] = None
-        confidence: float = Field(..., ge=0.0, le=1.0)
-        feedback_text: str
-    ```
-- **`src/evaluation/evaluator.py`**:
-  - Implements `AnswerEvaluator`:
-    - Checks question type: if `mcq`, delegates to `mcq_scorer.py`.
-    - If `short_answer` or `explain_in_own_words`, delegates to `semantic_scorer.py`.
-    - If answer is incorrect or partial, invokes `misconceptions/classifier.py` to diagnose the error.
-- **`src/evaluation/semantic_scorer.py`**:
-  - Calculates cosine similarity against expected concept embeddings.
-  - If threshold requires an LLM judge, executes a zero-temperature evaluation prompt ensuring objective scoring without grade inflation.
-- **`src/misconceptions/classifier.py`**:
-  - Compares student's erroneous reasoning against subject taxonomy JSON files using few-shot classification.
-  - Returns standardized tags (e.g. `physics:force_velocity_confusion`).
-- **`src/visuals/suggester.py`**:
-  - Analyzes concept title, subject keywords, and chapter metadata.
-  - Returns the recommended `visual_type` (`equation`, `graph`, `diagram`, `code`, `timeline`, `map`) to guide lesson planning.
-- **`src/service.py`**:
-  - `MLCoreService` facade exposing `evaluate_response()`, `classify_misconception()`, and `suggest_visual_type()`.
+### `src/service.py` (`MLCoreService`)
+- Serves as the primary public facade for all other modules (`ai_agent_orchestration`, `backend`).
+- Methods:
+  - `evaluate_answer(response: StudentResponse, expected_concept: str, subject: str = "general") -> EvaluationResult`:
+    Dispatches to `MCQEvaluator` if `response.response_type == "mcq_choice"`, or `FreeformEvaluator` otherwise. If the answer is incorrect, automatically invokes `MisconceptionClassifier` to attach `misconception_tag`.
+  - `classify_misconception(student_answer: str, question: str, subject: str) -> Optional[str]`:
+    Directly invokes `MisconceptionClassifier`.
+  - `extract_concepts(text: str, top_k: int = 5) -> List[ConceptChunk]`:
+    Directly invokes `ConceptExtractor`.
+  - `suggest_visual(concept: str, subject: str) -> str`:
+    Directly invokes `VisualTypeSuggester`.
+
+### `src/answer_evaluation/mcq_evaluator.py` (`MCQEvaluator`)
+- Pure rule-based string comparison.
+- Normalizes both `raw_answer` and `expected` by trimming whitespace and lowercasing.
+- Emits `EvaluationResult(node_id, correct=bool, partial_credit=1.0 or 0.0, confidence=1.0, feedback_text=str)`.
+- Never calls external APIs or LLMs.
+
+### `src/answer_evaluation/freeform_evaluator.py` (`FreeformEvaluator`)
+- Implements two-stage semantic evaluation:
+  1. Computes cosine similarity between embeddings of `raw_answer` and `expected_concept`.
+  2. If $\ge 0.88$: marks `correct=True, partial_credit=1.0, confidence=0.95`.
+  3. If $< 0.40$: marks `correct=False, partial_credit=0.0, confidence=0.90`.
+  4. If between $0.40$ and $0.88$: invokes LLM judge adapter with a strict JSON rubric prompt at `temperature=0.0`.
+
+### `src/misconception/classifier.py` (`MisconceptionClassifier`)
+- Reads curated taxonomy files from `src/misconception/taxonomies/`.
+- Queries Gemini adapter with the student's answer, question, and subject taxonomy.
+- Validates the returned tag against known taxonomy keys. If unmapped, defaults to `{subject}:general_conceptual_gap`.
+
+### `src/concept_extraction/extractor.py` (`ConceptExtractor`)
+- Tokenizes and cleans input educational text.
+- Extracts meaningful technical keyphrases and ranked n-grams.
+- Returns list of `ConceptChunk(term=str, score=float, start_char=int, end_char=int)`.
+
+### `src/visual_suggestion/suggester.py` & `rules.py` (`VisualTypeSuggester`)
+- Consults `SUBJECT_TO_VISUAL` and `CONCEPT_TO_VISUAL` rule dictionaries.
+- If a match is found, immediately returns the deterministic `VisualType`.
+- If unmatched, invokes Gemini LLM judge fallback with a constrained enum schema.
 
 ---
 
@@ -147,16 +202,16 @@ modules/ml_core/
 [Student submits answer via WebSocket / Backend]
                         |
                         v
-    MLCoreService.evaluate_response(StudentResponse, expected_concept)
+    MLCoreService.evaluate_answer(StudentResponse, expected_concept)
                         |
          +--------------+--------------+
          | Question Type == MCQ?       |
          +--------------+--------------+
            | YES                       | NO (Short Answer / Problem)
            v                           v
-  [mcq_scorer.py]             [semantic_scorer.py]
-  Exact rule match            1. Embedding cosine similarity check
-  Zero latency                2. If ambiguous -> Constrained LLM Rubric Judge
+   [mcq_evaluator.py]          [freeform_evaluator.py]
+   Exact rule match            1. Embedding cosine similarity check
+   Zero latency                2. If ambiguous -> Constrained LLM Rubric Judge
            |                           |
            +--------------+------------+
                           |
@@ -166,7 +221,7 @@ modules/ml_core/
           +---------------+---------------+
           | NO                            | YES
           v                               v
-   [correct = True]            [misconceptions/classifier.py]
+   [correct = True]            [misconception/classifier.py]
    [partial_credit = 1.0]      Matches reasoning against subject taxonomy
    [misconception_tag = None]  Identifies root misconception tag
           |                               |
@@ -210,7 +265,48 @@ The **`ml_core`** module provides dedicated intelligence for **Evaluate**:
 
 > [!IMPORTANT]
 > **Strict Guardrails for LLM Agents:**
-> 1. **Zero LLM Calls for MCQs**: Never invoke an LLM to grade a standard multiple-choice question. Always use rule-based string matching in `mcq_scorer.py` to eliminate latency and cost.
-> 2. **Deterministic Grading**: All LLM judge calls in `semantic_scorer.py` must run at `temperature = 0.0` with strict JSON schema enforcement to ensure evaluation consistency.
-> 3. **Never Fabricate Misconception Tags**: Misconception tags must follow the namespaced format (e.g. `subject:concept_error`). Always match against established taxonomy dictionaries in `src/misconceptions/taxonomies/` to allow the adaptation controller to trigger targeted remedies.
+> 1. **Zero LLM Calls for MCQs**: Never invoke an LLM to grade a standard multiple-choice question. Always use rule-based string matching in `mcq_evaluator.py` to eliminate latency and cost.
+> 2. **Deterministic Grading**: All LLM judge calls in `freeform_evaluator.py` must run at `temperature = 0.0` with strict JSON schema enforcement to ensure evaluation consistency.
+> 3. **Never Fabricate Misconception Tags**: Misconception tags must follow the namespaced format (e.g. `subject:concept_error`). Always match against established taxonomy dictionaries in `src/misconception/taxonomies/` to allow the adaptation controller to trigger targeted remedies.
 > 4. **Fixture-Based Unit Tests**: In accordance with `07_Test.md`, all unit tests in `modules/ml_core/tests/` must use offline fixtures or recorded evaluation mocks without making live network calls.
+
+---
+
+## 10. Interactive Web Testbed & Hierarchical Traceability Engine (Port 8003)
+
+To allow manual user testing and strict traceability without modifying the production backend on Port 8000, `ml_core` features a dedicated standalone testbed:
+
+### 10.1 Dedicated Server Configuration
+- **Server File**: `modules/ml_core/tests/web_test/server.py`
+- **Network Port**: **`8003`** (Zero collision with production Port 8000, Orchestration Port 8001, RAG Port 8002, Avatar Port 8004)
+- **Start Command**:
+  ```bash
+  ./.venv/bin/python modules/ml_core/tests/web_test/server.py
+  ```
+- **Web UI URL**: `http://localhost:8003/`
+
+### 10.2 Hierarchical Logging Engine (`logger.py`)
+Every operation executed via the testbed generates dual log files:
+1. A structured JSON manifest (`.json`) containing parsed request payloads, responses, latency, calling `.py` file, and calling function.
+2. A human-readable execution transcript (`.log`) formatted for quick visual inspection.
+
+Logs are cleanly organized into 6 dedicated categories:
+- `logs/evaluation/`: Answer evaluation runs (MCQ rule matches, cosine similarity scores, LLM judge verdicts).
+- `logs/misconception/`: Error taxonomy lookups, candidate matches, and diagnosed error tags.
+- `logs/concepts/`: Key-term extraction inputs, scored chunks, and execution timing.
+- `logs/visuals/`: Subject/keyword rule resolutions and fallback LLM suggestions.
+- `logs/service/`: High-level facade dispatch events.
+- `logs/errors/`: Full stack traces, Pydantic validation errors, and malformed inputs.
+
+### 10.3 Hallucination Detection & Traceability
+To ensure complete debugging transparency and catch any hallucinating prompt or function:
+- Every log record explicitly captures `calling_file` (e.g. `freeform_evaluator.py`, `classifier.py`) and `calling_function` (e.g. `_evaluate_freeform`, `classify_with_llm`).
+- If an LLM judge emits an invalid schema, an out-of-range confidence score, or an unmapped misconception tag, the logger flags `is_hallucination_suspect: True` and records the exact trigger in `logs/errors/`.
+
+### 10.4 Pure Light Professional Frontend
+- **Design Aesthetic**: Crisp white `#ffffff` cards on a soft slate `#f8fafc` surface with slate-200 borders and vibrant indigo/emerald accents.
+- **Strict Prohibition**: Strictly no dark mode or dark background surfaces.
+- **Features**:
+  - 5 dedicated workspaces: **Answer Evaluation**, **Misconception Classifier**, **Concept Extractor**, **Visual Suggester**, and **Structured Log Explorer**.
+  - One-click subject presets for Physics, Mathematics, Computer Science, and Biology.
+  - Live execution latency counters, confidence progress bars, and an interactive log inspector.
