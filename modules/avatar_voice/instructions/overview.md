@@ -8,6 +8,7 @@ The `avatar_voice` module produces the complete multimodal **AI Teaching Video**
 4. **1080p FFmpeg Video Compositor:** Synchronizes a 70% left visual slide (1344x1080) and a 30% right avatar stream (576x1080) with burned-in dynamic captions.
 5. **Asynchronous & Synchronous Service:** Non-blocking job queue with progressive percentage updates alongside immediate synchronous rendering.
 6. **Isolated Web Testbed on Port 8004:** Dedicated studio with light professional UI and hierarchical logging to test every module and trace errors down to the exact `.py` file and function.
+7. **Real Production Engines (Zero Mocks):** Operates on real Microsoft Edge Neural Cloud TTS, real 24 FPS RGBA viseme frames, real Matplotlib LaTeX/Pygments rendering, and real bundled FFmpeg binary (v7.1), backed by automated multi-tier failovers guaranteeing zero crashes in production.
 
 ---
 

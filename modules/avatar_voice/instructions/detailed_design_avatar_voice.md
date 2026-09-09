@@ -263,3 +263,11 @@ All web testbed actions and error events are logged through `AvatarVoiceTestLogg
   - `logs/errors/`: Full Python traceback, exception class, input payload, and exact source file and function name.
 - **Traceability Guarantee:** Every log manifest explicitly contains `"source_file"` and `"source_function"`, allowing instant identification of which `.py` file or function produced an unexpected result or hallucination.
 
+### 11.3 Real Engine Guarantee & Zero-Crash Production Architecture
+Every sub-engine in `avatar_voice` executes real production models and algorithms (zero mock data):
+1. **TTS:** Streams real audio from Microsoft Edge Neural Cloud voices (`EdgeTTSAdapter`), with an automatic cascade to `FallbackTTSAdapter` (pure Python 24 kHz acoustic wave synthesis) if internet connectivity or rate limits occur.
+2. **Avatar:** Parses real WAV binary audio to calculate true frame-by-frame RMS energy envelopes and renders 24 FPS transparent RGBA PNG frames (`VisemeAvatarAdapter`), with automatic environment diagnostics in `MuseTalkAvatarAdapter` falling back to CPU visemes if CUDA GPU acceleration is absent.
+3. **Visuals:** Uses real Matplotlib mathtext for LaTeX mathematics, Pygments for syntax-highlighted code with line numbers, SymPy/NumPy for mathematical curves, NetworkX for engineering diagrams, and Pillow for timelines and maps, with typography fallbacks if inputs contain syntax errors.
+4. **Compositor:** Uses real bundled FFmpeg binary (v7.1 via `imageio-ffmpeg`) for 1920x1080 @ 24 FPS MP4 video encoding, eliminating external OS package manager dependencies.
+
+
