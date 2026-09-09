@@ -63,6 +63,9 @@ modules/avatar_voice/tests/web_test/logs/*/*.log
 modules/ml_core/tests/web_test/logs/*/*.json
 modules/ml_core/tests/web_test/logs/*/*.log
 !modules/ml_core/tests/web_test/logs/*/.gitkeep
+modules/backend/tests/web_test/logs/*/*.json
+modules/backend/tests/web_test/logs/*/*.log
+!modules/backend/tests/web_test/logs/*/.gitkeep
 
 
 # IDE & OS

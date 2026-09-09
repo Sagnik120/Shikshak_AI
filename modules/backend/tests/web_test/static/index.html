@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shikshak AI — Backend Module Testbed</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <!-- App Header -->
+  <header class="app-header">
+    <div class="header-content">
+      <div class="brand">
+        <div class="brand-badge">PORT 8005</div>
+        <div class="brand-titles">
+          <h1>Shikshak AI <span class="brand-sub">Backend Testbed</span></h1>
+          <p class="brand-desc">Isolated Studio for Sessions, REST Endpoints, WebSocket Relay & Container Microservice Gateways</p>
+        </div>
+      </div>
+      <div class="header-status">
+        <div class="status-indicator">
+          <span class="status-dot"></span>
+          <span id="backend-status-text">FastAPI Engine Ready</span>
+        </div>
+        <span class="port-tag">Target: modules/backend/src</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="container">
+
+    <!-- Information Callout -->
+    <div class="info-callout">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+      </svg>
+      <div>
+        <strong>Isolated Backend Diagnostic Environment:</strong> Running on Port 8005. Production Backend (Port 8000) is 100% untouched. All tests generate dual JSON and text execution logs in <code>logs/{sessions,websocket,orchestration,rag_relay,avatar_relay,telemetry,errors}/</code>.
+      </div>
+    </div>
+
+    <!-- Tab Navigation -->
+    <nav class="tab-nav">
+      <button class="tab-btn active" data-tab="tab-sessions">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        1. Session & Auth Manager
+      </button>
+      <button class="tab-btn" data-tab="tab-upload">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        2. Document Ingestion & RAG
+      </button>
+      <button class="tab-btn" data-tab="tab-planner">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        3. Curriculum Planner & State
+      </button>
+      <button class="tab-btn" data-tab="tab-websocket">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        4. Live WebSocket Simulator
+      </button>
+      <button class="tab-btn" data-tab="tab-logs">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        5. Structured Log Explorer
+      </button>
+    </nav>
+
+    <!-- Tab 1: Session & Auth Manager -->
+    <section id="tab-sessions" class="tab-panel active">
+      <div class="studio-grid">
+        <div class="card">
+          <div class="card-title">
+            <span>Session Lifecycle & Token Issuer</span>
+            <span class="badge badge-blue">REST POST /sessions</span>
+          </div>
+          <div class="card-subtitle">Generate high-entropy session IDs and bearer tokens conforming to Contract §9.</div>
+
+          <div class="form-group">
+            <button id="btn-create-session" class="btn btn-primary">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Generate New Session
+            </button>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Active Session ID</label>
+            <input type="text" id="input-active-session-id" class="form-input" placeholder="Click 'Generate New Session' or enter session_id" readonly>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Active Session Token</label>
+            <input type="text" id="input-active-session-token" class="form-input" placeholder="Session auth token" readonly>
+          </div>
+
+          <hr style="border: 0; border-top: 1px solid var(--border-light); margin: 20px 0;">
+
+          <div class="card-title">
+            <span>Topic & Constraints Submission</span>
+            <span class="badge badge-gray">Contract §2 & §3</span>
+          </div>
+
+          <div class="preset-bar">
+            <span class="preset-label">Presets:</span>
+            <button class="preset-chip" onclick="setTopicPreset('Newton\'s Laws of Motion', 'beginner', 'en', 15)">Newton's Laws (Physics)</button>
+            <button class="preset-chip" onclick="setTopicPreset('Quadratic Equations & Roots', 'intermediate', 'en', 20)">Quadratics (Math)</button>
+            <button class="preset-chip" onclick="setTopicPreset('Photosynthesis & Calvin Cycle', 'beginner', 'hi', 15)">Photosynthesis (Bio)</button>
+            <button class="preset-chip" onclick="setTopicPreset('Binary Search Algorithms', 'intermediate', 'en', 10)">Binary Search (CS)</button>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Topic Title</label>
+            <input type="text" id="input-topic-title" class="form-input" value="Newton's Laws of Motion">
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label class="form-label">Learner Level</label>
+              <select id="select-learner-level" class="form-select">
+                <option value="beginner">Beginner</option>
+                <option value="intermediate">Intermediate</option>
+                <option value="advanced">Advanced</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Language</label>
+              <select id="select-language" class="form-select">
+                <option value="en">English (en)</option>
+                <option value="hi">Hindi (hi)</option>
+                <option value="bn">Bengali (bn)</option>
+                <option value="ta">Tamil (ta)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Time Budget (min)</label>
+              <input type="number" id="input-time-budget" class="form-input" value="15" min="5" max="60">
+            </div>
+          </div>
+
+          <button id="btn-submit-topic" class="btn btn-primary" style="width: 100%;">
+            Submit Topic & Constraints
+          </button>
+        </div>
+
+        <div class="card">
+          <div class="card-title">
+            <span>Session State & Telemetry Output</span>
+            <span id="session-latency-badge" class="badge badge-gray">Latency: 0 ms</span>
+          </div>
+          <div class="card-subtitle">Real-time JSON response and persistent state snapshot.</div>
+          <div class="response-box">
+            <pre id="json-session-output" class="json-display">{"status": "awaiting_session_creation"}</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 2: Document Ingestion & RAG -->
+    <section id="tab-upload" class="tab-panel">
+      <div class="studio-grid">
+        <div class="card">
+          <div class="card-title">
+            <span>Multipart Document Upload & Ingestion</span>
+            <span class="badge badge-blue">REST POST /upload</span>
+          </div>
+          <div class="card-subtitle">Streams PDF/textbook document to StorageAdapter and triggers RAG structure detection.</div>
+
+          <div class="form-group">
+            <label class="form-label">Target Session ID</label>
+            <input type="text" id="input-upload-session-id" class="form-input" placeholder="Current session_id">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Document Text Sample (Simulation or Real File)</label>
+            <textarea id="textarea-upload-sample" class="form-textarea" rows="6"># Chapter 3: Laws of Motion
+Newton's first law states that an object remains at rest unless acted upon by a net external force.
+Newton's second law defines force as the product of mass and acceleration (F = ma).
+Newton's third law states that for every action, there is an equal and opposite reaction.</textarea>
+          </div>
+
+          <button id="btn-simulate-upload" class="btn btn-primary" style="width: 100%;">
+            Upload & Ingest Document to RAG
+          </button>
+        </div>
+
+        <div class="card">
+          <div class="card-title">
+            <span>Detected Structure & Chunks</span>
+            <span id="upload-latency-badge" class="badge badge-gray">Latency: 0 ms</span>
+          </div>
+          <div class="card-subtitle">Parsed chapters, detected language, and key concept terms.</div>
+          <div class="response-box">
+            <pre id="json-upload-output" class="json-display">{"status": "awaiting_document_upload"}</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 3: Curriculum Planner & State -->
+    <section id="tab-planner" class="tab-panel">
+      <div class="studio-grid">
+        <div class="card">
+          <div class="card-title">
+            <span>Generate Curriculum Plan</span>
+            <span class="badge badge-blue">REST POST /sessions/{id}/plan</span>
+          </div>
+          <div class="card-subtitle">Executes SessionDriver to transition TeacherState: UNDERSTAND -> PLAN -> PLANNED.</div>
+
+          <div class="form-group">
+            <label class="form-label">Target Session ID</label>
+            <input type="text" id="input-plan-session-id" class="form-input" placeholder="Active session_id">
+          </div>
+
+          <button id="btn-generate-plan" class="btn btn-primary" style="width: 100%; margin-bottom: 20px;">
+            Generate Lesson Plan (Contract §5)
+          </button>
+
+          <hr style="border: 0; border-top: 1px solid var(--border-light); margin: 20px 0;">
+
+          <div class="card-title">
+            <span>Learner Profile Inspector</span>
+            <span class="badge badge-gray">Contract §13</span>
+          </div>
+          <div class="card-subtitle">Inspect historical mastery, weak areas, and persistent misconceptions.</div>
+
+          <div class="form-group">
+            <label class="form-label">Learner ID</label>
+            <input type="text" id="input-learner-id" class="form-input" value="learner_default_01">
+          </div>
+
+          <button id="btn-get-learner-profile" class="btn btn-secondary" style="width: 100%;">
+            Fetch Learner Profile
+          </button>
+        </div>
+
+        <div class="card">
+          <div class="card-title">
+            <span>Curriculum Plan Output</span>
+            <span id="plan-latency-badge" class="badge badge-gray">Latency: 0 ms</span>
+          </div>
+          <div class="card-subtitle">Hierarchical lesson nodes, estimated minutes, and pedagogical modalities.</div>
+          <div class="response-box">
+            <pre id="json-plan-output" class="json-display">{"status": "awaiting_plan_generation"}</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 4: Live WebSocket Simulator -->
+    <section id="tab-websocket" class="tab-panel">
+      <div class="studio-grid">
+        <div class="card">
+          <div class="card-title">
+            <span>WebSocket Live Relay Terminal</span>
+            <span id="ws-status-badge" class="badge badge-gray">Disconnected</span>
+          </div>
+          <div class="card-subtitle">Simulates bidirectional Contract §6–11 frame exchange over /api/test/ws/{session_id}.</div>
+
+          <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+            <button id="btn-ws-connect" class="btn btn-success" style="flex: 1;">Connect WS</button>
+            <button id="btn-ws-disconnect" class="btn btn-secondary" style="flex: 1;" disabled>Disconnect</button>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Session Actions</label>
+            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+              <button id="btn-ws-step" class="btn btn-secondary btn-sm" disabled>Send "step" Trigger</button>
+              <button id="btn-ws-answer-correct" class="btn btn-secondary btn-sm" disabled>Send Correct Answer</button>
+              <button id="btn-ws-answer-wrong" class="btn btn-secondary btn-sm" disabled>Send Wrong Answer</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Custom Client JSON Frame</label>
+            <textarea id="textarea-ws-custom" class="form-textarea" rows="3">{"action": "step", "message": "Proceed to next segment"}</textarea>
+            <button id="btn-ws-send-custom" class="btn btn-primary btn-sm" style="margin-top: 8px;" disabled>Send Custom Frame</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">
+            <span>Live Stream Terminal Feed</span>
+            <button id="btn-clear-ws-feed" class="btn btn-secondary btn-sm">Clear Terminal</button>
+          </div>
+          <div class="card-subtitle">Real-time transcript of frames relayed between Client and AI Teacher.</div>
+          <div id="ws-terminal" class="ws-terminal">
+            <div class="ws-message-item">
+              <div class="ws-header"><span>SYSTEM</span><span>Ready</span></div>
+              <div>Click "Connect WS" to initialize live bidirectional session relay.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 5: Structured Log Explorer -->
+    <section id="tab-logs" class="tab-panel">
+      <div class="card">
+        <div class="card-title">
+          <span>Hierarchical Execution & Hallucination Traceability Explorer</span>
+          <div style="display: flex; gap: 8px;">
+            <select id="select-log-category" class="form-select" style="width: 180px; padding: 6px 10px; font-size: 0.8rem;">
+              <option value="">All Categories</option>
+              <option value="sessions">sessions/</option>
+              <option value="websocket">websocket/</option>
+              <option value="orchestration">orchestration/</option>
+              <option value="rag_relay">rag_relay/</option>
+              <option value="avatar_relay">avatar_relay/</option>
+              <option value="telemetry">telemetry/</option>
+              <option value="errors">errors/</option>
+            </select>
+            <button id="btn-refresh-logs" class="btn btn-secondary btn-sm">Refresh Logs</button>
+          </div>
+        </div>
+        <div class="card-subtitle">Every operation generates a machine-readable JSON manifest and formatted text log tracing calling file and function.</div>
+
+        <div style="max-height: 280px; overflow-y: auto; border: 1px solid var(--border-light); border-radius: var(--radius-md); margin-bottom: 20px;">
+          <table class="log-table">
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Category</th>
+                <th>Operation</th>
+                <th>Source File & Function</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="log-table-body">
+              <tr>
+                <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">Click "Refresh Logs" to load recent execution traces.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="card-title">
+          <span>Log File Inspector</span>
+          <span id="active-log-badge" class="badge badge-gray">No log selected</span>
+        </div>
+        <div class="response-box">
+          <pre id="log-viewer-content" class="json-display">Select a log entry above to inspect its full trace and parameters.</pre>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
