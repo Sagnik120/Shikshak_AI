@@ -50,6 +50,8 @@ temp_audio/
 .pytest_cache/
 .coverage
 htmlcov/
+modules/ai_agent_orchestration/tests/web_test/logs/*/*.json
+!modules/ai_agent_orchestration/tests/web_test/logs/*/.gitkeep
 
 # IDE & OS
 .DS_Store

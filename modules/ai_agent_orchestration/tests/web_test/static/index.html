@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shikshak AI — AI Agent Orchestration Testbed</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Top Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="logo-mark">
+          <span class="logo-icon">🧠</span>
+        </div>
+        <div class="header-titles">
+          <h1>Shikshak AI <span class="badge badge-accent">Agent Orchestration</span></h1>
+          <p class="subtitle">Isolated Interactive Testing & Execution Trace Harness</p>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <div class="status-indicator">
+          <span class="status-dot online"></span>
+          <span class="status-text">Port 8001 (Isolated Server)</span>
+        </div>
+        
+        <div class="llm-toggle-container">
+          <label class="toggle-switch">
+            <input type="checkbox" id="llm-mode-toggle" checked>
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="toggle-label" id="llm-mode-label">Live Gemini API</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Navigation Tabs -->
+    <nav class="tab-nav">
+      <button class="nav-tab active" data-tab="tab-planner" id="tab-btn-planner">
+        <span class="tab-icon">🗺️</span>
+        <span class="tab-name">Planner Agent</span>
+      </button>
+      <button class="nav-tab" data-tab="tab-explainer" id="tab-btn-explainer">
+        <span class="tab-icon">🎙️</span>
+        <span class="tab-name">Explainer Agent</span>
+      </button>
+      <button class="nav-tab" data-tab="tab-questioner" id="tab-btn-questioner">
+        <span class="tab-icon">❓</span>
+        <span class="tab-name">Questioner Agent</span>
+      </button>
+      <button class="nav-tab" data-tab="tab-adaptation" id="tab-btn-adaptation">
+        <span class="tab-icon">⚖️</span>
+        <span class="tab-name">Adaptation Controller</span>
+      </button>
+      <button class="nav-tab" data-tab="tab-fsm" id="tab-btn-fsm">
+        <span class="tab-icon">🔄</span>
+        <span class="tab-name">FSM Step Simulator</span>
+      </button>
+      <button class="nav-tab" data-tab="tab-logs" id="tab-btn-logs">
+        <span class="tab-icon">📜</span>
+        <span class="tab-name">Log & Trace Explorer</span>
+      </button>
+    </nav>
+
+    <!-- Main Workspace -->
+    <main class="main-content">
+      
+      <!-- 1. PLANNER TAB -->
+      <section class="tab-panel active" id="tab-planner">
+        <div class="panel-grid">
+          <div class="card form-card">
+            <div class="card-header">
+              <h2>Curriculum Planner Inputs</h2>
+              <span class="badge">Contract §5 (LessonPlan)</span>
+            </div>
+            <div class="card-body">
+              <div class="form-group">
+                <label for="planner-topic">Lesson Topic</label>
+                <input type="text" id="planner-topic" value="Newton's Laws of Motion" placeholder="e.g., Photosynthesis, Rotational Dynamics, Binary Search">
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="planner-level">Learner Level</label>
+                  <select id="planner-level">
+                    <option value="beginner" selected>Beginner (Foundational)</option>
+                    <option value="intermediate">Intermediate (Application)</option>
+                    <option value="advanced">Advanced (Deep Rigor)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="planner-lang">Language</label>
+                  <select id="planner-lang">
+                    <option value="en" selected>English (en)</option>
+                    <option value="hi">Hindi (hi - देवनागरी)</option>
+                    <option value="bn">Bengali (bn - বাংলা)</option>
+                    <option value="ta">Tamil (ta)</option>
+                    <option value="te">Telugu (te)</option>
+                    <option value="mr">Marathi (mr)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="planner-budget">Time Budget</label>
+                  <select id="planner-budget">
+                    <option value="5">5 Minutes (Key Concepts)</option>
+                    <option value="15" selected>15 Minutes (Standard Lesson)</option>
+                    <option value="30">30 Minutes (Deep Dive)</option>
+                    <option value="60">60 Minutes (Mastery Class)</option>
+                    <option value="multi_day_plan">Multi-Day Plan (7 Sessions)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="planner-style">Teaching Style</label>
+                  <input type="text" id="planner-style" value="analogy-driven with physical intuition" placeholder="e.g., visual, Socratic">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="planner-doc">Optional Source Document Text</label>
+                <textarea id="planner-doc" rows="3" placeholder="Paste textbook excerpt or notes to ground curriculum planning..."></textarea>
+              </div>
+
+              <button class="btn btn-primary btn-block" id="btn-run-planner">
+                <span class="btn-text">Generate Lesson Plan DAG</span>
+                <span class="btn-spinner hidden"></span>
+              </button>
+            </div>
+          </div>
+
+          <div class="card result-card">
+            <div class="card-header">
+              <h2>Generated Curriculum DAG</h2>
+              <div class="card-actions" id="planner-meta"></div>
+            </div>
+            <div class="card-body" id="planner-output">
+              <div class="empty-state">
+                <span class="empty-icon">📐</span>
+                <p>Configure curriculum inputs on the left and click <strong>Generate Lesson Plan DAG</strong>.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. EXPLAINER TAB -->
+      <section class="tab-panel" id="tab-explainer">
+        <div class="panel-grid">
+          <div class="card form-card">
+            <div class="card-header">
+              <h2>Explainer Agent Inputs</h2>
+              <span class="badge">Contract §6 (TeachingSegment)</span>
+            </div>
+            <div class="card-body">
+              <div class="form-group">
+                <label for="explainer-concept">Target Concept</label>
+                <input type="text" id="explainer-concept" value="Newton's First Law (Law of Inertia)" placeholder="Concept to teach">
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="explainer-depth">Depth</label>
+                  <select id="explainer-depth">
+                    <option value="intro">Intro (Conceptual hooks)</option>
+                    <option value="core" selected>Core (Mechanics & derivations)</option>
+                    <option value="advanced">Advanced (Complex application)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="explainer-visual">Visual Specification Type</label>
+                  <select id="explainer-visual">
+                    <option value="diagram" selected>Diagram (Concept visual)</option>
+                    <option value="equation">Equation (Mathematical LaTeX)</option>
+                    <option value="graph">Graph (Coordinate plot)</option>
+                    <option value="code">Code (Syntax highlighted)</option>
+                    <option value="timeline">Timeline (Chronological)</option>
+                    <option value="map">Map (Geographic/spatial)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="explainer-feedback">Previous Feedback / Misconception (Simulate <code>MODIFY</code>)</label>
+                <input type="text" id="explainer-feedback" placeholder="e.g., Student confused velocity with force; use ice rink analogy">
+              </div>
+
+              <div class="form-group">
+                <label for="explainer-chunks">Grounding Chunks (Anti-Hallucination)</label>
+                <textarea id="explainer-chunks" rows="3" placeholder="Enter reference text chunks to ground the explanation..."></textarea>
+              </div>
+
+              <button class="btn btn-primary btn-block" id="btn-run-explainer">
+                <span class="btn-text">Generate Teaching Segment</span>
+                <span class="btn-spinner hidden"></span>
+              </button>
+            </div>
+          </div>
+
+          <div class="card result-card">
+            <div class="card-header">
+              <h2>Teaching Segment Preview</h2>
+              <div class="card-actions" id="explainer-meta"></div>
+            </div>
+            <div class="card-body" id="explainer-output">
+              <div class="empty-state">
+                <span class="empty-icon">🎙️</span>
+                <p>Provide concept details and click <strong>Generate Teaching Segment</strong>.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. QUESTIONER TAB -->
+      <section class="tab-panel" id="tab-questioner">
+        <div class="panel-grid">
+          <div class="card form-card">
+            <div class="card-header">
+              <h2>Questioner Agent Inputs</h2>
+              <span class="badge">Contract §8 (InteractionEvent)</span>
+            </div>
+            <div class="card-body">
+              <div class="form-group">
+                <label for="questioner-concept">Concept Tested</label>
+                <input type="text" id="questioner-concept" value="Conservation of Mechanical Energy" placeholder="Concept being checked">
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="questioner-depth">Node Depth</label>
+                  <select id="questioner-depth">
+                    <option value="intro">Introductory Check</option>
+                    <option value="core" selected>Core Understanding</option>
+                    <option value="advanced">Advanced Problem</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="questioner-visual">Visual Type Context</label>
+                  <select id="questioner-visual">
+                    <option value="equation" selected>Equation</option>
+                    <option value="diagram">Diagram</option>
+                    <option value="graph">Graph</option>
+                    <option value="code">Code</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="questioner-script">Recent Teacher Script Context</label>
+                <textarea id="questioner-script" rows="4" placeholder="Enter snippet of what teacher just taught..."></textarea>
+              </div>
+
+              <button class="btn btn-primary btn-block" id="btn-run-questioner">
+                <span class="btn-text">Generate Formative Question</span>
+                <span class="btn-spinner hidden"></span>
+              </button>
+            </div>
+          </div>
+
+          <div class="card result-card">
+            <div class="card-header">
+              <h2>Generated Interaction Event</h2>
+              <div class="card-actions" id="questioner-meta"></div>
+            </div>
+            <div class="card-body" id="questioner-output">
+              <div class="empty-state">
+                <span class="empty-icon">❓</span>
+                <p>Click <strong>Generate Formative Question</strong> to inspect modalities and distractors.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. ADAPTATION TAB -->
+      <section class="tab-panel" id="tab-adaptation">
+        <div class="panel-grid">
+          <div class="card form-card">
+            <div class="card-header">
+              <h2>Adaptation Rule Simulator</h2>
+              <span class="badge">Contract §11 (AdaptationDecision)</span>
+            </div>
+            <div class="card-body">
+              <div class="form-group">
+                <label for="adapt-node">Target Node ID</label>
+                <input type="text" id="adapt-node" value="node_conservation_laws">
+              </div>
+
+              <div class="form-row">
+                <div class="form-group checkbox-group">
+                  <label>
+                    <input type="checkbox" id="adapt-correct">
+                    <span>Student Answer Was Correct</span>
+                  </label>
+                </div>
+                <div class="form-group">
+                  <label for="adapt-failures">Consecutive Failures on this Node</label>
+                  <select id="adapt-failures">
+                    <option value="1" selected>1st Failure</option>
+                    <option value="2">2nd Failure (Should Trigger REGENERATE)</option>
+                    <option value="3">3rd Failure (Should Trigger HUMAN)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="adapt-partial">Partial Credit (0.0 to 1.0)</label>
+                  <input type="number" id="adapt-partial" min="0" max="1" step="0.1" value="0.0">
+                </div>
+                <div class="form-group">
+                  <label for="adapt-confidence">Confidence (0.0 to 1.0)</label>
+                  <input type="number" id="adapt-confidence" min="0" max="1" step="0.05" value="0.85">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="adapt-misconception">Misconception Tag</label>
+                <input type="text" id="adapt-misconception" value="force_velocity_confusion" placeholder="e.g. force_velocity_confusion, energy_loss_bias">
+              </div>
+
+              <div class="form-group">
+                <label for="adapt-feedback">Evaluation Feedback</label>
+                <input type="text" id="adapt-feedback" value="Student reasoned that an object requires continual force to maintain motion.">
+              </div>
+
+              <button class="btn btn-primary btn-block" id="btn-run-adaptation">
+                <span class="btn-text">Evaluate Adaptation Decision</span>
+                <span class="btn-spinner hidden"></span>
+              </button>
+            </div>
+          </div>
+
+          <div class="card result-card">
+            <div class="card-header">
+              <h2>Decision & Pedagogical Action</h2>
+              <div class="card-actions" id="adaptation-meta"></div>
+            </div>
+            <div class="card-body" id="adaptation-output">
+              <div class="empty-state">
+                <span class="empty-icon">⚖️</span>
+                <p>Simulate an evaluation state and click <strong>Evaluate Adaptation Decision</strong> to test the 4-tier rubric.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. FSM SIMULATOR TAB -->
+      <section class="tab-panel" id="tab-fsm">
+        <div class="card">
+          <div class="card-header">
+            <h2>Interactive FSM Step Runner</h2>
+            <span class="badge">TeacherOrchestrator 10-State Pipeline</span>
+          </div>
+          <div class="card-body">
+            <!-- Pipeline Flow Diagram -->
+            <div class="fsm-pipeline">
+              <div class="fsm-node" data-state="UNDERSTAND">UNDERSTAND</div>
+              <div class="fsm-arrow">→</div>
+              <div class="fsm-node" data-state="PLAN">PLAN</div>
+              <div class="fsm-arrow">→</div>
+              <div class="fsm-node" data-state="EXPLAIN">EXPLAIN</div>
+              <div class="fsm-arrow">→</div>
+              <div class="fsm-node" data-state="DEMONSTRATE">DEMONSTRATE</div>
+              <div class="fsm-arrow">→</div>
+              <div class="fsm-node" data-state="QUESTION">QUESTION</div>
+              <div class="fsm-arrow">→</div>
+              <div class="fsm-node" data-state="EVALUATE">EVALUATE</div>
+              <div class="fsm-arrow">→</div>
+              <div class="fsm-node" data-state="ADAPT">ADAPT</div>
+              <div class="fsm-arrow">→</div>
+              <div class="fsm-node" data-state="CONTINUE">CONTINUE</div>
+              <div class="fsm-arrow">→</div>
+              <div class="fsm-node" data-state="DONE">DONE</div>
+            </div>
+
+            <div class="fsm-controls-grid">
+              <div class="fsm-input-col">
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="fsm-session-id">Session ID</label>
+                    <input type="text" id="fsm-session-id" value="test_fsm_session_01">
+                  </div>
+                  <div class="form-group">
+                    <label for="fsm-current-state">Active State to Execute</label>
+                    <select id="fsm-current-state">
+                      <option value="UNDERSTAND" selected>UNDERSTAND</option>
+                      <option value="PLAN">PLAN</option>
+                      <option value="EXPLAIN">EXPLAIN</option>
+                      <option value="DEMONSTRATE">DEMONSTRATE</option>
+                      <option value="QUESTION">QUESTION</option>
+                      <option value="EVALUATE">EVALUATE</option>
+                      <option value="ADAPT">ADAPT</option>
+                      <option value="CONTINUE">CONTINUE</option>
+                      <option value="DONE">DONE</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="fsm-inputs-json">Inputs JSON Payload</label>
+                  <textarea id="fsm-inputs-json" rows="7">{
+  "topic": "Newton's First Law",
+  "constraints": {
+    "level": "beginner",
+    "language": "en",
+    "time_budget_min": 15
+  }
+}</textarea>
+                </div>
+
+                <div class="button-row">
+                  <button class="btn btn-primary" id="btn-step-fsm">
+                    <span class="btn-text">Execute Next Step</span>
+                    <span class="btn-spinner hidden"></span>
+                  </button>
+                  <button class="btn btn-secondary" id="btn-reset-fsm">Reset Session</button>
+                </div>
+              </div>
+
+              <div class="fsm-output-col">
+                <h3>Step Result & Transition Log</h3>
+                <div id="fsm-output-display" class="json-viewport">
+                  <p class="text-muted">Awaiting step execution...</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 6. LOGS TAB -->
+      <section class="tab-panel" id="tab-logs">
+        <div class="card">
+          <div class="card-header">
+            <h2>Execution Traces & Diagnostic Logs</h2>
+            <div class="filter-actions">
+              <select id="logs-filter-category">
+                <option value="">All Categories</option>
+                <option value="planner">Planner Logs</option>
+                <option value="explainer">Explainer Logs</option>
+                <option value="questioner">Questioner Logs</option>
+                <option value="adaptation">Adaptation Logs</option>
+                <option value="assessment">Assessment Logs</option>
+                <option value="fsm">FSM Logs</option>
+                <option value="errors">Error Logs</option>
+              </select>
+              <button class="btn btn-secondary" id="btn-refresh-logs">🔄 Refresh</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="logs-container">
+              <div class="logs-table-wrapper">
+                <table class="logs-table">
+                  <thead>
+                    <tr>
+                      <th>Status</th>
+                      <th>Category</th>
+                      <th>Action</th>
+                      <th>Duration</th>
+                      <th>Timestamp</th>
+                      <th>Details</th>
+                    </tr>
+                  </thead>
+                  <tbody id="logs-table-body">
+                    <tr>
+                      <td colspan="6" class="text-center text-muted">Loading logs...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="log-detail-viewer" id="log-detail-viewer">
+                <div class="log-detail-header">
+                  <h3>Log Trace Manifest</h3>
+                  <span id="log-detail-id" class="badge">Select a run</span>
+                </div>
+                <div class="json-viewport" id="log-detail-content">
+                  <p class="text-muted">Select an entry from the table to view the full execution trace, checkpoints, and error details.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
