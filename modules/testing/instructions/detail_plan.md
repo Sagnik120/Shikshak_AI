@@ -23,7 +23,7 @@ teacher" evaluation — directly protects the highest-weighted rubric area.
 5. **Load/perf smoke** (`tests/smoke/`): basic timing assertions so demo doesn't stall
    (e.g. plan generation < N seconds with mocked LLM).
 6. **Regression runner**: `scripts/run_all_diagnostics.py` wrapper that invokes all of the above
-   in one command and produces a pass/fail summary for `docs/progress.md`.
+   in one command and produces a pass/fail summary for `docs/spec/09_Progress_Tracker.md`.
 
 ## Fixtures
 `tests/fixtures/` holds: 1 sample PDF (short textbook chapter), 1 sample DOCX, 1 sample PPTX,

@@ -52,7 +52,7 @@ Simulates scripted multi-turn student sessions against the full state machine:
 - Asserts that `visual_type="code"` renders dark-themed code slides with line numbers.
 
 ### 5. Unified Diagnostic Runner (`scripts/run_all_diagnostics.py`)
-- Single-command CLI script that executes all unit, integration, smoke, and eval suites, generating a timestamped pass/fail report automatically recorded in `docs/progress.md`.
+- Single-command CLI script that executes all unit, integration, smoke, and eval suites, generating a timestamped pass/fail report automatically recorded in `docs/spec/09_Progress_Tracker.md`.
 
 ---
 
@@ -161,7 +161,7 @@ Runs fast schema, parser & audio tests         Mounts ScriptedStudent (Mock)
                                  |
                                  v
                  [Generates Diagnostics Report]
-                 Updates docs/progress.md with pass/fail summary
+                 Updates docs/spec/09_Progress_Tracker.md with pass/fail summary
 ```
 
 ---
