@@ -218,6 +218,7 @@ class GeminiLLMAdapter(LLMAdapter):
 
 def get_llm_adapter(api_key: Optional[str] = None) -> LLMAdapter:
     """Factory creating GeminiLLMAdapter if GEMINI_API_KEY is available, else SmartMockLLMAdapter."""
+    _load_env()
     key = api_key or os.environ.get("GEMINI_API_KEY", "")
     if key and key.strip():
         return GeminiLLMAdapter(api_key=key.strip())

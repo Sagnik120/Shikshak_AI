@@ -23,10 +23,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-# Ensure repository root is on sys.path
+# Ensure repository root is on sys.path and load environment variables
 REPO_ROOT = Path(__file__).resolve().parents[4]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv(REPO_ROOT / ".env")
+except ImportError:
+    pass
 
 from modules.ai_agent_orchestration.src.adapters.gemini_adapter import get_llm_adapter
 from modules.ai_agent_orchestration.src.schemas.interaction import StudentResponse
