@@ -41,6 +41,7 @@ data/storage/*
 output/
 rendered_videos/
 temp_audio/
+data/avatar_voice_test_media/
 *.mp4
 *.webm
 *.wav
@@ -51,9 +52,15 @@ temp_audio/
 .coverage
 htmlcov/
 modules/ai_agent_orchestration/tests/web_test/logs/*/*.json
+modules/ai_agent_orchestration/tests/web_test/logs/*/*.log
 !modules/ai_agent_orchestration/tests/web_test/logs/*/.gitkeep
 modules/rag/tests/web_test/logs/*/*.json
+modules/rag/tests/web_test/logs/*/*.log
 !modules/rag/tests/web_test/logs/*/.gitkeep
+modules/avatar_voice/tests/web_test/logs/*/*.json
+modules/avatar_voice/tests/web_test/logs/*/*.log
+!modules/avatar_voice/tests/web_test/logs/*/.gitkeep
+
 
 # IDE & OS
 .DS_Store

@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shikshak AI — Avatar & Voice Testbed</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <!-- App Header -->
+  <header class="app-header">
+    <div class="header-content">
+      <div class="brand">
+        <div class="brand-badge">PORT 8004</div>
+        <div class="brand-titles">
+          <h1>Shikshak AI <span class="brand-sub">Avatar & Voice Testbed</span></h1>
+          <p class="brand-desc">Isolated Studio for Neural TTS, Viseme & MuseTalk Avatars, Multi-Subject Slides, and 1080p Video Compositing</p>
+        </div>
+      </div>
+      <div class="header-status">
+        <div class="status-indicator">
+          <span class="status-dot ready"></span>
+          <span id="status-text">Connecting to Server...</span>
+        </div>
+        <div class="port-isolation-badge">
+          Backend (Port 8000) Untouched
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs">
+      <button class="nav-tab active" data-tab="tts-tab" id="tab-btn-tts">
+        <span class="tab-icon">🎙️</span> Speech Synthesis (TTS)
+      </button>
+      <button class="nav-tab" data-tab="avatar-tab" id="tab-btn-avatar">
+        <span class="tab-icon">👤</span> Avatar & Lip-Sync
+      </button>
+      <button class="nav-tab" data-tab="visuals-tab" id="tab-btn-visuals">
+        <span class="tab-icon">📊</span> Multi-Subject Visuals
+      </button>
+      <button class="nav-tab" data-tab="compositor-tab" id="tab-btn-compositor">
+        <span class="tab-icon">🎬</span> 1080p Full Video
+      </button>
+      <button class="nav-tab" data-tab="logs-tab" id="tab-btn-logs">
+        <span class="tab-icon">📋</span> Structured Log Explorer
+      </button>
+    </nav>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="main-container">
+
+    <!-- TAB 1: TTS STUDIO -->
+    <section class="tab-panel active" id="tts-tab">
+      <div class="panel-layout">
+        <div class="panel-card config-card">
+          <div class="card-header">
+            <h3>Speech Synthesis Parameters</h3>
+            <span class="badge info">Edge-TTS & Fallback</span>
+          </div>
+
+          <div class="form-group">
+            <label for="tts-text">Script Text to Narrate</label>
+            <textarea id="tts-text" rows="4" placeholder="Enter teacher narration text here...">In Ohm's Law, the electric current flowing through a conductor is directly proportional to the potential difference across its ends, provided temperature remains constant. The formula is V equals I times R.</textarea>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="tts-language">Language</label>
+              <select id="tts-language">
+                <option value="en" selected>English (en-IN-NeerjaNeural)</option>
+                <option value="hi">Hindi (hi-IN-SwaraNeural)</option>
+                <option value="hinglish">Hinglish (en/hi mixed 1.12x pacing)</option>
+                <option value="bn">Bengali (bn-IN-TanishaaNeural)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="tts-provider">TTS Provider Engine</label>
+              <select id="tts-provider">
+                <option value="resilient" selected>Resilient (Edge-TTS with Fallback)</option>
+                <option value="edge">Edge-TTS (Microsoft Neural Cloud)</option>
+                <option value="fallback">Fallback (Pure-Python Acoustic Wave)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="tts-cue">Pedagogical Avatar Cue (SSML Prosody)</label>
+              <select id="tts-cue">
+                <option value="neutral" selected>Neutral (Standard pace)</option>
+                <option value="emphasis">Emphasis (-5% rate, +5Hz pitch)</option>
+                <option value="questioning">Questioning (+15Hz pitch rising)</option>
+                <option value="encouraging">Encouraging (+5% rate, +8Hz pitch)</option>
+                <option value="celebratory">Celebratory (+10% rate, +15Hz pitch)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="tts-voice-id">Custom Voice ID (Optional)</label>
+              <input type="text" id="tts-voice-id" placeholder="e.g. en-IN-PrabhatNeural">
+            </div>
+          </div>
+
+          <button class="btn btn-primary" id="btn-synthesize-tts">
+            <span>Synthesize Speech</span>
+          </button>
+        </div>
+
+        <div class="panel-card results-card">
+          <div class="card-header">
+            <h3>Speech Synthesis Output</h3>
+            <span class="badge" id="tts-result-badge">Idle</span>
+          </div>
+
+          <div class="tts-results-body" id="tts-results-body">
+            <div class="empty-state">
+              <p>Configure narration text on the left and click <strong>Synthesize Speech</strong> to generate audio and WebVTT timestamps.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: AVATAR STUDIO -->
+    <section class="tab-panel" id="avatar-tab">
+      <div class="panel-layout">
+        <div class="panel-card config-card">
+          <div class="card-header">
+            <h3>Avatar Animation & Lip-Sync</h3>
+            <span class="badge info">Dual-Tier (Viseme + MuseTalk)</span>
+          </div>
+
+          <div class="form-group">
+            <label for="avatar-script-text">Script Context</label>
+            <textarea id="avatar-script-text" rows="3">Let us derive the quadratic formula step by step.</textarea>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="avatar-engine">Avatar Model Tier</label>
+              <select id="avatar-engine">
+                <option value="tier1" selected>Tier 1: Viseme 2D Avatar (Procedural 24 FPS)</option>
+                <option value="tier2">Tier 2: MuseTalk (Neural Diffusion)</option>
+                <option value="auto">Auto: Attempt Tier 2 -> Fallback to Tier 1</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="avatar-cue-select">Pedagogical Expression Cue</label>
+              <select id="avatar-cue-select">
+                <option value="neutral">Neutral (Balanced gaze)</option>
+                <option value="emphasis" selected>Emphasis (Alert gaze & forward tilt)</option>
+                <option value="questioning">Questioning (Curious brow raise)</option>
+                <option value="encouraging">Encouraging (Warm smile & nod)</option>
+                <option value="celebratory">Celebratory (Wide smile & energetic lift)</option>
+              </select>
+            </div>
+          </div>
+
+          <button class="btn btn-primary" id="btn-generate-avatar">
+            <span>Generate Synchronized Avatar</span>
+          </button>
+        </div>
+
+        <div class="panel-card results-card">
+          <div class="card-header">
+            <h3>Avatar Frame & Lip-Sync Output</h3>
+            <span class="badge" id="avatar-result-badge">Idle</span>
+          </div>
+
+          <div class="avatar-results-body" id="avatar-results-body">
+            <div class="empty-state">
+              <p>Click <strong>Generate Synchronized Avatar</strong> to produce 24 FPS transparent viseme frames, blink intervals, and mouth states.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: VISUALS STUDIO -->
+    <section class="tab-panel" id="visuals-tab">
+      <div class="panel-layout">
+        <div class="panel-card config-card">
+          <div class="card-header">
+            <h3>Multi-Subject Slide Generator</h3>
+            <span class="badge info">1344 x 1080 Split Viewport</span>
+          </div>
+
+          <div class="form-group">
+            <label for="visual-type-select">Visual Subject Type</label>
+            <select id="visual-type-select">
+              <option value="equation" selected>Math: LaTeX Equations (Step-by-Step Derivation)</option>
+              <option value="code">CS: Syntax-Highlighted Code & Terminal Flow</option>
+              <option value="graph">Science/Math: Function Curves & Coordinate Grids</option>
+              <option value="diagram">Engineering: Node-Link Flowcharts & Hierarchy</option>
+              <option value="timeline">History: Chronological Milestones & Dates</option>
+              <option value="map">Geography: Landmarks, Routes & Coordinates</option>
+              <option value="image">Media: External & Generated Diagram Slide</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="visual-content">Content (LaTeX, JSON or Code)</label>
+            <textarea id="visual-content" rows="4" class="code-font"></textarea>
+          </div>
+
+          <div class="form-group" id="group-visual-steps">
+            <label for="visual-steps">Progressive Reveal Steps (One per line)</label>
+            <textarea id="visual-steps" rows="4" class="code-font"></textarea>
+          </div>
+
+          <div class="form-group" id="group-visual-output" style="display: none;">
+            <label for="visual-execution-output">Terminal Execution Output</label>
+            <input type="text" id="visual-execution-output" class="code-font" placeholder="e.g. Target 7 found at index 3">
+          </div>
+
+          <button class="btn btn-primary" id="btn-render-visual">
+            <span>Render High-Resolution Slide</span>
+          </button>
+        </div>
+
+        <div class="panel-card results-card">
+          <div class="card-header">
+            <h3>Rendered Canvas Preview</h3>
+            <span class="badge" id="visual-result-badge">Idle</span>
+          </div>
+
+          <div class="visuals-results-body" id="visuals-results-body">
+            <div class="empty-state">
+              <p>Select a visual type, customize the content, and click <strong>Render High-Resolution Slide</strong> to preview.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: COMPOSITOR STUDIO -->
+    <section class="tab-panel" id="compositor-tab">
+      <div class="panel-layout">
+        <div class="panel-card config-card">
+          <div class="card-header">
+            <h3>Full 1080p Teaching Video Composition</h3>
+            <span class="badge success">Contract §6 & §7</span>
+          </div>
+
+          <div class="form-group">
+            <label for="comp-node-id">Lesson Node ID</label>
+            <input type="text" id="comp-node-id" value="node_math_quadratic_001">
+          </div>
+
+          <div class="form-group">
+            <label for="comp-script">Narration Script (Contract §6 script_text)</label>
+            <textarea id="comp-script" rows="3">In this lesson, we will solve the quadratic equation x squared minus 5x plus 6 equals 0 by factoring. First, we identify coefficients a equals 1, b equals minus 5, and c equals 6. Next, we factor the expression into x minus 2 times x minus 3 equals 0. Therefore, the solutions are x equals 2 or x equals 3.</textarea>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="comp-language">Language</label>
+              <select id="comp-language">
+                <option value="en" selected>English</option>
+                <option value="hi">Hindi</option>
+                <option value="hinglish">Hinglish</option>
+                <option value="bn">Bengali</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="comp-cue">Avatar Pedagogical Cue</label>
+              <select id="comp-cue">
+                <option value="neutral">Neutral</option>
+                <option value="emphasis" selected>Emphasis</option>
+                <option value="questioning">Questioning</option>
+                <option value="encouraging">Encouraging</option>
+                <option value="celebratory">Celebratory</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="comp-tts-provider">TTS Engine</label>
+              <select id="comp-tts-provider">
+                <option value="resilient" selected>Resilient</option>
+                <option value="edge">Edge-TTS</option>
+                <option value="fallback">Fallback</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="comp-avatar-engine">Avatar Engine</label>
+              <select id="comp-avatar-engine">
+                <option value="tier1" selected>Tier 1: Viseme 2D</option>
+                <option value="auto">Auto (MuseTalk -> Viseme)</option>
+              </select>
+            </div>
+          </div>
+
+          <button class="btn btn-primary" id="btn-render-full-video">
+            <span>Compose 1080p Full Video Segment</span>
+          </button>
+        </div>
+
+        <div class="panel-card results-card">
+          <div class="card-header">
+            <h3>Rendered Video Segment (1920 x 1080 @ 24 FPS)</h3>
+            <span class="badge" id="comp-result-badge">Idle</span>
+          </div>
+
+          <div class="comp-results-body" id="comp-results-body">
+            <div class="empty-state">
+              <p>Click <strong>Compose 1080p Full Video Segment</strong> to run the complete TTS $\rightarrow$ Multi-Subject Slides $\rightarrow$ 24 FPS Visemes $\rightarrow$ FFmpeg Split-Screen pipeline.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 5: LOG EXPLORER -->
+    <section class="tab-panel" id="logs-tab">
+      <div class="panel-card">
+        <div class="card-header">
+          <h3>Structured Log Explorer</h3>
+          <div class="log-controls">
+            <label for="log-category-filter">Category:</label>
+            <select id="log-category-filter">
+              <option value="">All Categories</option>
+              <option value="tts">TTS (Speech)</option>
+              <option value="avatar">Avatar (Lip-Sync)</option>
+              <option value="visuals">Visuals (Slides)</option>
+              <option value="compositor">Compositor (FFmpeg)</option>
+              <option value="service">Service (Pipeline)</option>
+              <option value="errors">Errors</option>
+            </select>
+            <button class="btn btn-secondary btn-sm" id="btn-refresh-logs">Refresh Logs</button>
+          </div>
+        </div>
+
+        <div class="log-explorer-layout">
+          <div class="log-list-pane">
+            <div class="log-list-header">
+              <span>Recent Test Runs (<span id="log-count">0</span>)</span>
+            </div>
+            <div class="log-list" id="log-list-container">
+              <div class="empty-state">No logs recorded yet.</div>
+            </div>
+          </div>
+
+          <div class="log-detail-pane">
+            <div class="log-detail-header">
+              <h4 id="selected-log-title">Select a log to view execution details</h4>
+              <span class="badge" id="selected-log-badge" style="display: none;">STATUS</span>
+            </div>
+            <div class="log-detail-meta" id="selected-log-meta" style="display: none;">
+              <div><strong>File:</strong> <code id="meta-file"></code></div>
+              <div><strong>Function:</strong> <code id="meta-func"></code></div>
+              <div><strong>Time:</strong> <span id="meta-time"></span></div>
+            </div>
+            <pre class="log-detail-content" id="log-content-display">Click any log on the left to inspect its input payload, execution checkpoints, and output manifest.</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
