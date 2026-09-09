@@ -241,3 +241,25 @@ No extra top-level keys added to this returned object — any extra internal dat
 3. **`simulation` visual_spec.type** is in the Contract's enum but not detailed in `detail_plan.md`'s renderer list — assumed out of scope for MVP, falls back to the diagram-renderer's malformed-content path.
 4. **`image` type sourcing mechanism** is unresolved and explicitly not assumed — see Proposed Contract Additions §9.2.
 5. **Async job-status mechanism** implemented internally to this module only; not proposed as a new Contract-wide standard without cross-team sign-off.
+
+---
+
+## 11. Isolated Web Testbed & Hierarchical Logging Architecture (Phase 4 Extension)
+
+### 11.1 Purpose & Port Isolation
+To provide rigorous human evaluation and live testing of every individual sub-engine (TTS, Visemes, MuseTalk, 7 Slide Renderers, FFmpeg Compositor) without risking or modifying the production backend, an isolated testbed is deployed:
+- **Production Backend (Port 8000):** 100% untouched. Zero lines changed in `modules/backend/src/`.
+- **Testbed Server (Port 8004):** Standalone FastAPI application in `modules/avatar_voice/tests/web_test/server.py`.
+- **Design System:** Strict Light Professional Theme (`#ffffff` canvas, `#f8fafc` background, subtle borders, Inter font, no dark mode).
+
+### 11.2 Structured Hierarchical Logging Engine
+All web testbed actions and error events are logged through `AvatarVoiceTestLogger` in `modules/avatar_voice/tests/web_test/logger.py`:
+- **Categorized Folders:**
+  - `logs/tts/`: Script text, language, neural voice, prosody cue, duration, sample rate, word token count, WebVTT output.
+  - `logs/avatar/`: Lip-sync engine, tier used (`tier1_viseme` vs `tier2_musetalk`), reason, frame count, FPS, detected mouth states.
+  - `logs/visuals/`: Visual type, raw LaTeX/code/JSON content, progressive derivation steps, generated image paths.
+  - `logs/compositor/`: Video duration, resolution, FFmpeg filtergraph flags, audio-video synchronization metrics.
+  - `logs/service/`: Lesson node ID, sync/async execution times, URLs for 1080p MP4 and WebVTT captions.
+  - `logs/errors/`: Full Python traceback, exception class, input payload, and exact source file and function name.
+- **Traceability Guarantee:** Every log manifest explicitly contains `"source_file"` and `"source_function"`, allowing instant identification of which `.py` file or function produced an unexpected result or hallucination.
+
