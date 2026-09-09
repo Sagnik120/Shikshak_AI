@@ -40,6 +40,19 @@ This document formalizes how the `ml_core` module consumes, implements, and prod
 - **Contract §6: `TeachingSegment.visual_spec`** (Informed by `ml_core` visual recommendations, consumed by `avatar_voice` multimedia renderer):
   - Guides visual specification parameters (`title`, `layout`, `syntax`, `equations`).
 
+### 1.3 Contract §14: `LLMAdapter` Interface & Dual-Mode Execution
+- **Interface**:
+  ```python
+  class LLMAdapter(ABC):
+      @abstractmethod
+      def complete(self, messages: List[Dict[str, str]], tools: Optional[List[Dict[str, Any]]] = None) -> str:
+          pass
+  ```
+- **Dual Implementations**:
+  1. **`GeminiLLMAdapter` (Live API)**: Selected when `GEMINI_API_KEY` is present. Connects to `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`.
+  2. **`SmartMockLLMAdapter` (Deterministic Fallback)**: Selected in offline test fixtures or when no API key is available. Emits zero-cost Contract-compliant JSON fixtures.
+- **Factory**: Instantiated via `get_llm_adapter()`, which automatically ingests `.env` before checking environment keys.
+
 ---
 
 ## 2. Module-Internal Data Models (`src/schemas/`)
@@ -80,7 +93,7 @@ The isolated diagnostic server exposes the following endpoints for validation:
 
 | Endpoint | Method | Input Model | Output Model | Description |
 |---|---|---|---|---|
-| `/api/test/status` | `GET` | None | `Dict[str, Any]` | Health, uptime, and subsystem status |
+| `/api/test/status` | `GET` | None | `Dict[str, Any]` | Health, uptime, active LLM adapter, and subsystem status |
 | `/api/test/evaluate` | `POST` | `EvaluateRequest` | `EvaluationResult` + telemetry | Runs MCQ or Freeform evaluation |
 | `/api/test/misconception` | `POST` | `MisconceptionRequest` | `Dict[str, Any]` | Classifies misconception tag |
 | `/api/test/concepts` | `POST` | `ConceptsRequest` | `List[ConceptChunk]` | Extracts key phrases and scores |

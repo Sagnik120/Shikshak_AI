@@ -63,6 +63,16 @@ Provide specialized Machine Learning building blocks and deterministic heuristic
     - `suggest_visual(concept: str, subject: str) -> VisualType`
   - Adheres strictly to Contract §9 (`StudentResponse`) and Contract §10 (`EvaluationResult`).
 
+### 1.6 LLM Adapter Architecture & Environment Auto-Loading (Real vs Mock)
+- **Adapter Factory Pattern**:
+  - Dispatched via `modules.ai_agent_orchestration.src.adapters.gemini_adapter.get_llm_adapter()`.
+  - **Live Production Mode (`GeminiLLMAdapter`)**: When `GEMINI_API_KEY` is present in the environment or `.env`, communicates with Google Gemini API (`gemini-2.0-flash` / `gemini-1.5-flash`) for real semantic judging and fallback misconception classification.
+  - **Deterministic Test Mode (`SmartMockLLMAdapter`)**: Operates when no API key is present or during offline unit testing, emitting deterministic, contract-compliant fixtures without network calls.
+- **Automatic Environment Ingestion**:
+  - `get_llm_adapter()` automatically executes `_load_env()` to parse the repository root `.env` before checking `os.environ["GEMINI_API_KEY"]`.
+  - `modules/ml_core/tests/web_test/server.py` executes `load_dotenv()` on startup.
+  - Eliminates manual terminal exports; the system seamlessly activates `GeminiLLMAdapter` in production and testbeds.
+
 ---
 
 ## 2. Interactive Web Testbed & Isolated Diagnostic Environment
@@ -71,7 +81,7 @@ Provide specialized Machine Learning building blocks and deterministic heuristic
 - **Port Allocation**: Runs on **Port 8003** (leaving Port 8000 production backend untouched).
 - **FastAPI Endpoints**:
   - `GET /`: Serves the light professional diagnostic studio.
-  - `GET /api/test/status`: Health check, uptime, module version, and active subsystem checklist.
+  - `GET /api/test/status`: Health check, uptime, module version, active LLM adapter (`GeminiLLMAdapter` vs `SmartMockLLMAdapter`), and active subsystem checklist.
   - `POST /api/test/evaluate`: Executes `MLCoreService.evaluate_answer` with timing, tracing, and logging.
   - `POST /api/test/misconception`: Executes `MisconceptionClassifier.classify` against subject taxonomies.
   - `POST /api/test/concepts`: Extracts key phrases from submitted educational text.

@@ -54,7 +54,21 @@ $$\text{Subject / Concept Type} \longrightarrow \text{visual\_type}$$
 - Biology / Chemistry $\longrightarrow$ `diagram` (Labeled anatomy / reaction flows).
 - History / Literature $\longrightarrow$ `timeline` (Chronological sequence) or `map` (Geographic routes).
 - Computer Science $\longrightarrow$ `code` (Syntax-highlighted terminal) or `diagram` (Architecture graphs).
-- Ambiguous Concepts $\longrightarrow$ Fallback to Gemini LLM with strict enum validation.
+### Dual Execution Architecture & Live Gemini Adapter Integration
+The module is designed for dual-mode execution without code modifications:
+- **Live Production Mode (`GeminiLLMAdapter`)**:
+  - Automatically activated when `GEMINI_API_KEY` is present in the root `.env` or system environment.
+  - Connects to Google Gemini API (`gemini-2.0-flash` with fallback to `gemini-1.5-flash`).
+  - Used for:
+    1. **Freeform Rubric Judge**: Zero-temperature JSON evaluation of ambiguous short answers.
+    2. **Misconception Classifier Fallback**: Few-shot classification when heuristic taxonomy match is uncertain.
+    3. **Visual Suggester Fallback**: Semantic modality resolution when concepts fall outside `rules.py`.
+- **Deterministic Offline / CI Mode (`SmartMockLLMAdapter`)**:
+  - Automatically engaged when no API key is provided or during headless unit testing.
+  - Generates Contract-compliant, deterministic JSON responses with zero network calls and zero cost.
+- **Auto-Environment Ingestion**:
+  - The factory function `get_llm_adapter()` automatically executes `_load_env()` to parse `.env` at the project root before checking environment variables.
+  - The standalone testbed server (`server.py`) additionally calls `load_dotenv()` on startup to ensure all model parameters are loaded.
 
 ---
 
@@ -310,3 +324,10 @@ To ensure complete debugging transparency and catch any hallucinating prompt or 
   - 5 dedicated workspaces: **Answer Evaluation**, **Misconception Classifier**, **Concept Extractor**, **Visual Suggester**, and **Structured Log Explorer**.
   - One-click subject presets for Physics, Mathematics, Computer Science, and Biology.
   - Live execution latency counters, confidence progress bars, and an interactive log inspector.
+
+### 10.5 Live Adapter Status & Diagnostic Verification
+The testbed dynamically verifies live production readiness vs offline test mode:
+- The endpoint `GET /api/test/status` inspects the active adapter class name and returns:
+  `{"status": "ready", "llm_adapter": "GeminiLLMAdapter", ...}` when `GEMINI_API_KEY` is loaded from `.env`.
+- The web UI header displays a status badge indicating whether evaluations are utilizing the live Gemini LLM API or the deterministic SmartMock fallback.
+

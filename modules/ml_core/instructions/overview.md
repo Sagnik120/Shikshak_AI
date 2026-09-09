@@ -12,6 +12,7 @@ The `ml_core` module provides dedicated, lightweight machine learning algorithms
 4. **Concept & Key-Term Extraction**: Extracts high-relevance domain entities and keyphrases from lesson text to index lesson graph nodes.
 5. **Visual-Type Recommendation**: Heuristic rule table with LLM fallback mapping concepts to optimal visual modalities (`equation`, `graph`, `diagram`, `code`, `timeline`, `map`).
 6. **Dedicated Web Testbed Studio**: Standalone FastAPI diagnostic service on **Port 8003** with an elegant, modern light professional UI and hierarchical execution logging.
+7. **Dual Execution Architecture**: Automatic environment loading enables live Google Gemini (`GeminiLLMAdapter`) inference when `GEMINI_API_KEY` is present, alongside deterministic offline fixtures (`SmartMockLLMAdapter`) for zero-cost CI/CD testing.
 
 ---
 
