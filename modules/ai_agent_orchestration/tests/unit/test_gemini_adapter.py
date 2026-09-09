@@ -87,9 +87,10 @@ def test_gemini_adapter_fallback_on_network_error():
 
 def test_get_llm_adapter_factory():
     # When api_key is None and env is empty
-    with patch.dict("os.environ", {}, clear=True):
-        adapter = get_llm_adapter()
-        assert isinstance(adapter, SmartMockLLMAdapter)
+    with patch("modules.ai_agent_orchestration.src.adapters.gemini_adapter._load_env"):
+        with patch.dict("os.environ", {}, clear=True):
+            adapter = get_llm_adapter()
+            assert isinstance(adapter, SmartMockLLMAdapter)
 
     # When api_key is provided explicitly
     adapter_with_key = get_llm_adapter(api_key="test_key_123")
