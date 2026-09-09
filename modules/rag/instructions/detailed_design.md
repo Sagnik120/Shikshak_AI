@@ -211,10 +211,57 @@ None of the above are treated as adopted — they require sign-off and a version
 
 ---
 
-## 10. Ambiguities / assumptions summary (all flagged inline above, collected here)
+## 10. Ambiguities / assumptions summary (Resolved Status)
 
-1. **Parsing ownership** assumed to belong to `rag`, not `ml_core` — needs cross-team confirmation.
-2. **`key_terms` extraction method** assumed to be TF-IDF top-N, not a trained keyphrase/NER model — flagged as a possible duplicate-effort point with `ml_core`.
-3. **Retrieval call shape between orchestration and rag** is assumed/invented at a reasonable interface but is **not yet in Contract.md** — listed formally under Proposed Contract Additions rather than silently built.
-4. **`grounded_on` citation field** does not exist in the current `TeachingSegment` schema — the design produces this data but flags it as a proposed addition rather than smuggling it into the existing schema.
-5. **OCR/parse-quality confidence** is not threaded anywhere in the current Contract — handled as log-only for MVP.
+1. **Parsing ownership**: **Resolved**. Confirmed owned exclusively by `rag` via `src/parsing/`. `ml_core` consumes `ParsedDocument` and does not duplicate raw file parsing.
+2. **`key_terms` extraction method**: **Resolved**. Implemented with `sklearn.feature_extraction.text.TfidfVectorizer` using multilingual Unicode token regex and stopword dictionaries across English, Hindi, and Bengali.
+3. **Retrieval call shape**: **Resolved**. Standardized in `modules/rag/src/models.py` as `RetrievalRequest` and `RetrievalResult`, fully supported by `RAGService.retrieve_context()`.
+4. **`grounded_on` citation field**: **Resolved**. Grounding prompt embeds `grounded_on: [<chunk_id>]` command; verified and audited by `modules/rag/src/grounding/extractor.py` and `verifier.py`.
+5. **OCR/parse-quality confidence**: **Resolved**. Tracked in internal `ParsedDocument.warnings` (excluded from serialization to preserve Contract §4 pure conformance).
+
+---
+
+## 11. Production Model Execution Architecture vs. Offline Fallback
+
+To guarantee high-precision retrieval without external API cost or latency, Shikshak AI enforces a multi-tier model execution hierarchy:
+
+```mermaid
+graph TD
+    A[Raw Query / Passage] --> B[BGEM3EmbeddingAdapter]
+    B -->|Attempt 1: FlagEmbedding| C[FlagEmbedding.BGEM3FlagModel]
+    B -->|Attempt 2: HuggingFace| D[sentence_transformers.SentenceTransformer 'BAAI/bge-m3']
+    B -->|Attempt 3: Offline CI Only| E[Mock Hash Fallback 128-dim]
+    
+    F[Candidate Chunks + Query] --> G[BGEReranker]
+    G -->|Attempt 1: FlagReranker| H[FlagEmbedding.FlagReranker]
+    G -->|Attempt 2: HuggingFace| I[sentence_transformers.CrossEncoder 'BAAI/bge-reranker-v2-m3']
+    G -->|Attempt 3: Offline CI Only| J[Lexical Overlap Fallback]
+```
+
+### Real Model Verification
+- In active execution on the host, the Hugging Face `sentence_transformers` models are downloaded, cached in `~/.cache/huggingface/`, and loaded into memory.
+- `SentenceTransformer("BAAI/bge-m3")` yields 1024-dimensional dense vectors with normalized cosine similarity.
+- `CrossEncoder("BAAI/bge-reranker-v2-m3")` yields normalized cross-attention relevance scores, thresholded against the calibrated baseline ($0.5001$) and high-confidence cutoff ($0.52$).
+- Mock fallbacks are strictly defensive safeguards for offline CI environments.
+
+---
+
+## 12. Isolated Visual Testbed & Hallucination Audit Architecture
+
+### A. Independent Server (`tests/web_test/server.py`)
+- Runs on **Port 8002**, leaving the primary application backend on **Port 8000** completely unaffected.
+- Exposes RESTful endpoints for document ingestion, token chunk inspection, embedding vector inspection, hybrid retrieval, and simulated teacher grounding audits.
+- Light professional UI theme (Inter font, clean white and slate palettes, explicit avoidance of dark mode).
+
+### B. Hierarchical Structured Logging (`tests/web_test/logger.py`)
+All test runs generate synchronized JSON manifests and text logs in `tests/web_test/logs/`:
+- `parsing/`: Raw file size, format detection, extracted sections, and chapter outlines.
+- `chunking/`: Chunks generated, token counts, and Indic subword multiplier checks.
+- `embedding/`: Vector dimension validation (1024-dim), sparse keys, and model type loaded.
+- `indexing/`: ChromaDB collection creation and upsert record counts.
+- `retrieval/`: Dense cosine scores, sparse lexical scores, RRF ranks, and cross-encoder scores.
+- `grounding/`: Injected prompt blocks, cited chunk IDs, and hallucination classification (`LOW_RISK`, `UNSUPPORTED`, `CONTRADICTED`).
+- `errors/`: Tracebacks and file/function locations for any failures.
+
+Every log entry records the exact source file and function (e.g. `modules/rag/src/grounding/verifier.py :: verify()`), enabling instantaneous pinpointing of hallucination causes.
+
