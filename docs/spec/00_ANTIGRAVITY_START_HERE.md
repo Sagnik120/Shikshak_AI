@@ -14,11 +14,11 @@ Paste this file's content as the FIRST message to any coding agent (fresh sessio
 7. Your assigned module's `instructions/overview.md`
 8. Your assigned module's `instructions/detail_plan.md`
 9. `instructions/Contract.md` (root) — READ FULLY before writing any function signature
-10. `docs/spec/06_Memory.md` — read last 3 entries only
+10. `docs/spec/06_Memory.md` — read Section 1 (Rules), Section 2 (Active Focus), and Section 3 (Module Index) for fast-path operational context
 
 ## Reading Order (resumed session)
-1. `docs/spec/06_Memory.md` (latest entries)
-2. `docs/spec/09_Progress_Tracker.md` / `docs/system/progress.md`
+1. `docs/spec/06_Memory.md` — Section 2 (Active Focus) & Section 5 (Latest Phase Log)
+2. `docs/spec/09_Progress_Tracker.md` (Authoritative Progress Dashboard)
 3. Your module's `instructions/detail_plan.md`
 4. `instructions/Contract.md` — re-verify nothing changed
 

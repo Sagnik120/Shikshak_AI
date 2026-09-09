@@ -168,4 +168,4 @@ pytest tests/
 - 📐 **[Inter-Module Contract](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/instructions/Contract.md)** — Canonical schema definitions.
 - 🔬 **[Technical Audit Brief](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/docs/system/technical_audit.md)** — Real vs. mocked code breakdown.
 - 🛠️ **[Issues & Postmortems](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/docs/system/issues_faced.md)** — In-depth architectural problem-solving records.
-- 🚀 **[Setup Commands Reference](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/docs/system/setup_commands.md)** — Detailed environment setup guide.
+- 📊 **[Progress Tracker Dashboard](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/docs/spec/09_Progress_Tracker.md)** — Milestones, live checklist, and deployment progress.

@@ -9,7 +9,7 @@ Welcome to the central documentation library for **Shikshak AI (शिक्ष�
 | Section | Description | Key Links |
 | :--- | :--- | :--- |
 | **[Specifications & Rules](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/docs/spec)** | Hackathon PRD, architectural blueprint, agent bootstrap, and rules | [`00_ANTIGRAVITY_START_HERE.md`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/docs/spec/00_ANTIGRAVITY_START_HERE.md), [`01_PRD.md`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/docs/spec/01_PRD.md), [`02_Architecture.md`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/docs/spec/02_Architecture.md) |
-| **[System & Operations](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/docs/system)** | Environment setup, run commands, technical audit, and postmortems | [`setup_commands.md`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/docs/system/setup_commands.md), [`technical_audit.md`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/docs/system/technical_audit.md), [`issues_faced.md`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/docs/system/issues_faced.md) |
+| **[System & Operations](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/docs/system)** | Technical audit, architectural postmortems, and repository structure | [`technical_audit.md`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/docs/system/technical_audit.md), [`issues_faced.md`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/docs/system/issues_faced.md) |
 | **[Inter-Module Contract](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/instructions/Contract.md)** | Canonical Pydantic schemas and interface boundaries (v1.0.0) | [`instructions/Contract.md`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/instructions/Contract.md) |
 
 ---
@@ -20,7 +20,7 @@ Welcome to the central documentation library for **Shikshak AI (शिक्ष�
 - [`01_PRD.md`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/docs/spec/01_PRD.md) — Product requirements document, user personas, and target outcomes.
 - [`02_Architecture.md`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/docs/spec/02_Architecture.md) — High-level system architecture, data flows, and subsystem boundaries.
 - [`03_Rules.md`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/docs/spec/03_Rules.md) — Engineering constraints, forbidden patterns, and dependency whitelists.
-- [`04_Phases.md`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/docs/spec/04_Phases.md) — Step-by-step implementation milestones (Phases 0–9).
+- [`04_Phases.md`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/docs/spec/04_Phases.md) — Sequential implementation and verification phases (Milestones 1 & 2).
 - [`05_Design.md`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/docs/spec/05_Design.md) — UX, visual design tokens, and avatar presentation aesthetics.
 - [`06_Memory.md`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/docs/spec/06_Memory.md) — Architectural decision log and session continuity memory.
 - [`07_Test.md`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/docs/spec/07_Test.md) — Test pyramid strategy (unit, integration, e2e, smoke, eval).
@@ -32,11 +32,9 @@ Welcome to the central documentation library for **Shikshak AI (शिक्ष�
 ---
 
 ## 2. System Operations & Diagnostics (`docs/system/`)
-- [`setup_commands.md`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/docs/system/setup_commands.md) — Environment setup, dependency installation, and server startup commands.
 - [`technical_audit.md`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/docs/system/technical_audit.md) — Literal code-level audit distinguishing 100% production algorithms from test doubles.
 - [`issues_faced.md`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/docs/system/issues_faced.md) — In-depth postmortems of technical hurdles and root-cause solutions.
 - [`repo_summary.md`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/docs/system/repo_summary.md) — Concise structural summary of packages, contracts, and scripts.
-- [`progress.md`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/docs/system/progress.md) — Automated test run timestamps, assertion counts, and verification records.
 
 ---
 
