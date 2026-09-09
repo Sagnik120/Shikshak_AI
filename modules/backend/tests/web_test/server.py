@@ -113,10 +113,15 @@ async def get_status() -> Dict[str, Any]:
     doc_count = len(getattr(document_repo, "documents", {}))
     profile_count = len(getattr(learner_repo, "profiles", {}))
 
+    from modules.ai_agent_orchestration.src.adapters.gemini_adapter import get_llm_adapter
+    active_adapter = get_llm_adapter()
+    adapter_name = type(active_adapter).__name__
+
     gateway_status = {
         "rag_service": "rag_service" in services,
         "avatar_voice_service": "avatar_voice_service" in services,
-        "teacher_orchestrator": "teacher_orchestrator" in services,
+        "ai_orchestrator": ("ai_service" in services or "teacher_orchestrator" in services),
+        "teacher_orchestrator": ("teacher_orchestrator" in services or "ai_service" in services),
         "ml_core_service": "ml_core_service" in services,
     }
 
@@ -124,6 +129,7 @@ async def get_status() -> Dict[str, Any]:
         "status": "ready",
         "port": 8005,
         "module": "backend",
+        "llm_adapter": adapter_name,
         "persistence": "in_memory",
         "active_sessions_count": session_count,
         "persisted_documents_count": doc_count,

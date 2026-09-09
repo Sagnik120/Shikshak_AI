@@ -34,15 +34,18 @@ Acts as the central coordination engine and communication bridge connecting the 
 ### 1.4 State Machine Driver (`src/state/driver.py`)
 - Coordinates transitions across `TeacherState`:
   `CREATED -> INGESTING -> PLANNED -> EXPLAINING -> AWAITING_ANSWER -> EVALUATING -> ADAPTING -> ASSESSING -> COMPLETE`.
-- Interfaces directly with `TeacherOrchestrator` in `ai_agent_orchestration`.
+- Interfaces directly with `TeacherOrchestrator` via `AIOperationService` in `ai_agent_orchestration`.
 
 ### 1.5 Microservice Container Gateway (`src/integrations/container.py`)
 - Decouples the backend from direct LLM, TTS, or vector DB calls.
 - Encapsulates instances of:
+  - `ai_service` (`AIOperationService` wrapping `TeacherOrchestrator`)
   - `rag_service` (`RAGService`)
   - `avatar_voice_service` (`AvatarVoiceService`)
-  - `teacher_orchestrator` (`TeacherOrchestrator`)
   - `ml_core_service` (`MLCoreService`)
+- **LLM Adapter Ingestion**: Automatically passes `get_llm_adapter()` to all agents (`PlannerAgent`, `ExplainerAgent`, `QuestionerAgent`, `AssessmentAgent`) and `MLCoreService`.
+  - **Live Production Mode (`GeminiLLMAdapter`)**: Activated when `GEMINI_API_KEY` is present in `.env` or system environment.
+  - **Deterministic Offline Mode (`SmartMockLLMAdapter`)**: Activated during offline unit tests or CI runs.
 
 ---
 
@@ -52,7 +55,7 @@ Acts as the central coordination engine and communication bridge connecting the 
 - **Port Allocation**: Runs on **Port 8005** (leaving Port 8000 production backend completely untouched).
 - **FastAPI Endpoints**:
   - `GET /`: Serves the light professional diagnostic studio.
-  - `GET /api/test/status`: Health check, active session count, persistence repository metrics, and gateway status.
+  - `GET /api/test/status`: Health check, active session count, persistence repository metrics, active LLM adapter, and gateway status.
   - `POST /api/test/sessions`: Tests session creation and token issuance.
   - `POST /api/test/topic`: Tests topic and learner constraints submission.
   - `POST /api/test/upload`: Tests multipart document upload and RAG structure detection.

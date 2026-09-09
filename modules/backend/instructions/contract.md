@@ -47,6 +47,11 @@ This document formalizes how the `backend` module consumes, implements, and prod
 - **Contract §12: `AssessmentReport`**: Emitted during ASSESS state.
 - **Contract §13: `LearnerProfile`**: Retrieved via `GET /learners/{id}/profile`.
 
+### 1.3 Contract §14: `LLMAdapter` Container Injection
+- In `src/integrations/container.py`, `get_llm_adapter()` automatically ingests the root `.env` and initializes:
+  - `GeminiLLMAdapter` when `GEMINI_API_KEY` is present, driving all generative tasks across Planner, Explainer, Questioner, Assessment, and ML Core.
+  - `SmartMockLLMAdapter` when offline or in automated test fixtures.
+
 ---
 
 ## 2. WebSocket Relay Frame Contract (`src/schemas/ws.py`)

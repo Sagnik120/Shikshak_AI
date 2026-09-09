@@ -23,7 +23,8 @@ async function checkServerStatus() {
     const res = await fetch("/api/test/status");
     if (res.ok) {
       const data = await res.json();
-      statusText.textContent = `FastAPI Ready (Sessions: ${data.active_sessions_count || 0})`;
+      const adapterLabel = data.llm_adapter === "GeminiLLMAdapter" ? "Gemini Live" : (data.llm_adapter || "Online");
+      statusText.textContent = `FastAPI Ready (${adapterLabel} | Sessions: ${data.active_sessions_count || 0})`;
     } else {
       statusText.textContent = "Status Check Failed";
     }

@@ -32,7 +32,9 @@ The backend is designed as an asynchronous, high-throughput service built on **F
   `CREATED -> INGESTING -> PLANNED -> EXPLAINING -> AWAITING_ANSWER -> EVALUATING -> ADAPTING -> ASSESSING -> COMPLETE`.
   Every state transition is persisted in `SessionRepository` alongside the active `session_id`, `lesson_id`, and `node_id`. If a student refreshes their browser or loses connection, the WebSocket reconnects and resumes mid-lesson seamlessly.
 - **Microservice Container Gateway (`src/integrations/container.py`)**:
-  The backend never directly invokes external LLMs, vector databases, or TTS APIs. It interacts exclusively with other modules via contract facades (`RAGService`, `AvatarVoiceService`, `TeacherOrchestrator`, `MLCoreService`).
+  The backend never directly invokes external LLMs, vector databases, or TTS APIs. It interacts exclusively with other modules via contract facades (`RAGService`, `AvatarVoiceService`, `TeacherOrchestrator`, `MLCoreService`). It automatically injects `get_llm_adapter()`:
+  - **Live Production Mode (`GeminiLLMAdapter`)**: Activated seamlessly whenever `GEMINI_API_KEY` is present in `.env`, providing real generative inference for lesson planning, explanations, question generation, and assessment.
+  - **Deterministic Offline Mode (`SmartMockLLMAdapter`)**: Activated when no key is present, emitting Contract-compliant mock fixtures for headless testing.
 - **Data Persistence Architecture (`src/persistence/in_memory.py`)**:
   - `SessionRepository`: Tracks session tokens, active topics, learner constraints, document contexts, and state checkpoints.
   - `DocumentRepository`: Tracks uploaded document metadata, filenames, MIME types, file sizes, and parsing status (`ready`/`failed`).
