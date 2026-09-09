@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shikshak AI — RAG Module Isolated Web Testbed</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <!-- App Header -->
+  <header class="app-header">
+    <div class="brand-wrapper">
+      <div class="brand-icon">📚</div>
+      <div>
+        <div class="brand-title">Shikshak AI — RAG Isolated Testbed</div>
+        <div class="brand-subtitle">Testing <code>modules.rag.src.*</code> on Port 8002 | Light Professional Theme</div>
+      </div>
+    </div>
+    <div class="status-badges">
+      <div class="status-badge live">
+        <span class="pulse-dot"></span>
+        <span>Server Port 8002 Live</span>
+      </div>
+      <div class="status-badge">
+        <span>Production Backend (8000) Untouched</span>
+      </div>
+      <div class="status-badge" id="adapter-badge">
+        <span>Adapter: BGE-M3 (Dense+Sparse)</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="main-container">
+
+    <!-- Tab Navigation -->
+    <nav class="tabs-nav">
+      <button class="tab-btn active" data-tab="tab-parse">
+        <span>📄</span> Document Ingestion
+      </button>
+      <button class="tab-btn" data-tab="tab-chunk">
+        <span>🧩</span> Semantic Chunker
+      </button>
+      <button class="tab-btn" data-tab="tab-embed">
+        <span>🧠</span> Embeddings & Store
+      </button>
+      <button class="tab-btn" data-tab="tab-retrieve">
+        <span>🔍</span> Hybrid Retrieval & RRF
+      </button>
+      <button class="tab-btn" data-tab="tab-grounding">
+        <span>🛡️</span> Grounding & Hallucination
+      </button>
+      <button class="tab-btn" data-tab="tab-logs">
+        <span>📋</span> Structured Logs
+      </button>
+    </nav>
+
+    <!-- TAB 1: Document Ingestion -->
+    <section id="tab-parse" class="tab-pane active">
+      <div class="grid-2col">
+        <!-- Input Form -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">Upload or Paste Learning Material</h3>
+              <p class="card-desc">Tests <code>parser.py</code>, <code>structure.py</code>, and format parsers.</p>
+            </div>
+            <div class="btn-group">
+              <button class="btn btn-secondary" onclick="loadSampleDoc('physics')">Load Physics</button>
+              <button class="btn btn-secondary" onclick="loadSampleDoc('hindi')">Load Hindi NCERT</button>
+            </div>
+          </div>
+
+          <!-- File Upload Dropzone -->
+          <div class="dropzone" id="file-dropzone" onclick="document.getElementById('file-input').click()">
+            <div class="dropzone-icon">📁</div>
+            <div class="dropzone-text" id="dropzone-label">Click or Drag & Drop .pdf, .docx, .pptx, or .txt file</div>
+            <div class="dropzone-hint">Scanned image PDFs trigger diagnostic warnings</div>
+            <input type="file" id="file-input" style="display: none;" accept=".pdf,.docx,.pptx,.txt,.md" onchange="handleFileSelected(this)">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Or Paste Document Text</label>
+            <textarea id="parse-text-input" class="form-textarea" placeholder="Paste textbook chapter, Markdown notes, or lecture content here..."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Simulated Filename</label>
+            <input type="text" id="parse-filename" class="form-input" value="custom_learning_material.txt">
+          </div>
+
+          <button class="btn btn-primary" onclick="runDocumentParse()">
+            <span>⚡</span> Ingest & Parse Document
+          </button>
+        </div>
+
+        <!-- Ingestion Results -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">Ingestion & Structure Output</h3>
+              <p class="card-desc">Conforms strictly to ROOT Contract §4 (<code>ParsedDocument</code>).</p>
+            </div>
+          </div>
+
+          <div id="parse-warning-container"></div>
+
+          <div class="form-group">
+            <label class="form-label">Document ID & Language</label>
+            <div id="parse-meta-tags">
+              <span class="chip chip-primary">Doc ID: None</span>
+              <span class="chip">Lang: —</span>
+              <span class="chip">Chunks: 0</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Detected Chapter Outline</label>
+            <div id="parse-chapters-box" class="code-box" style="max-height: 140px;">No chapters detected yet.</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Extracted Key Terms (TF-IDF)</label>
+            <div id="parse-keyterms-box">
+              <span class="chip">No terms extracted yet</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Generated Chunks Preview</label>
+            <div id="parse-chunks-box" class="code-box" style="max-height: 180px;">No chunks generated yet.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: Semantic Chunker -->
+    <section id="tab-chunk" class="tab-pane">
+      <div class="grid-2col">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">Token Budget & Subword Chunker</h3>
+              <p class="card-desc">Tests <code>chunker.py</code> with Indic script subword expansion ($2.4\times$).</p>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Text to Chunk</label>
+            <textarea id="chunk-text-input" class="form-textarea" style="min-height: 180px;" placeholder="Enter English, Hindi, or Bengali text..."></textarea>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label class="form-label">Target Tokens</label>
+              <input type="number" id="chunk-target" class="form-input" value="300">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Max Tokens</label>
+              <input type="number" id="chunk-max" class="form-input" value="500">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Overlap Ratio</label>
+              <input type="number" step="0.05" id="chunk-overlap" class="form-input" value="0.15">
+            </div>
+          </div>
+
+          <button class="btn btn-primary" onclick="runChunkTest()">
+            <span>🧩</span> Chunk Text
+          </button>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">Chunking Results & Token Budget Analysis</h3>
+              <p class="card-desc">Validates $\le 500$ token ceiling across conjunct-heavy Indic scripts.</p>
+            </div>
+          </div>
+
+          <div id="chunk-summary-chips" style="margin-bottom: 16px;">
+            <span class="chip chip-primary">Total Tokens: 0</span>
+            <span class="chip">Chunks Count: 0</span>
+          </div>
+
+          <div class="table-wrapper">
+            <table class="data-table" id="chunk-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Tokens</th>
+                  <th>Words</th>
+                  <th>Budget Status</th>
+                  <th>Content Preview</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td colspan="5" style="text-align: center; color: var(--text-muted);">Run chunking to view results</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: Embeddings & Vector Store -->
+    <section id="tab-embed" class="tab-pane">
+      <div class="grid-2col">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">Multilingual Embedding Generator</h3>
+              <p class="card-desc">Tests <code>bge_m3.py</code> (1024-dim dense + lexical sparse weights).</p>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Passages to Embed (One per line)</label>
+            <textarea id="embed-text-input" class="form-textarea" style="min-height: 180px;">An electric current is the rate of flow of electric charges.
+विद्युत धारा आवेश के प्रवाह की दर है।
+তড়িৎ প্রবাহ হল আধানের প্রবাহের হার।</textarea>
+          </div>
+
+          <button class="btn btn-primary" onclick="runEmbedTest()">
+            <span>🧠</span> Generate Embeddings
+          </button>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">Embedding Outputs</h3>
+              <p class="card-desc">Dense vector representation & sparse lexical term weights.</p>
+            </div>
+          </div>
+
+          <div id="embed-results-container" class="code-box" style="max-height: 440px;">Click 'Generate Embeddings' to inspect vectors.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: Hybrid Retrieval & RRF -->
+    <section id="tab-retrieve" class="tab-pane">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h3 class="card-title">Hybrid Retrieval, RRF & Cross-Encoder Reranking</h3>
+            <p class="card-desc">Tests <code>retriever.py</code>, <code>rrf.py</code>, and <code>reranker.py</code> with calibrated thresholds.</p>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px;">
+          <div>
+            <div class="form-group">
+              <label class="form-label">Query Text</label>
+              <input type="text" id="retrieve-query" class="form-input" placeholder="e.g. What is Ohm's Law and the formula V=IR?">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Target Document</label>
+              <select id="retrieve-doc-select" class="form-select">
+                <option value="doc_physics_ohm">Physics Electricity (doc_physics_ohm)</option>
+                <option value="doc_hindi_light">Hindi NCERT Light (doc_hindi_light)</option>
+                <option value="topic_only">⭐ Topic-Only Mode (document_id=None)</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <div class="form-group">
+              <label class="form-label">Top-K Candidates</label>
+              <input type="number" id="retrieve-topk" class="form-input" value="5">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <div class="form-group">
+                <label class="form-label">Floor (0.5001)</label>
+                <input type="number" step="0.0001" id="retrieve-floor" class="form-input" value="0.5001">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Confidence (0.52)</label>
+                <input type="number" step="0.01" id="retrieve-conf" class="form-input" value="0.52">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="btn-group" style="margin-top: 8px;">
+          <button class="btn btn-primary" onclick="runRetrievalTest()">
+            <span>🔍</span> Execute Hybrid Retrieval
+          </button>
+          <button class="btn btn-secondary" onclick="testOutOfScopeQuery()">
+            <span>🚫</span> Test Out-Of-Scope Query (Photosynthesis)
+          </button>
+        </div>
+      </div>
+
+      <!-- Retrieval Results Table -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h3 class="card-title">Retrieved Grounding Excerpts</h3>
+            <p class="card-desc">Candidates sorted by cross-encoder entailment score.</p>
+          </div>
+          <div id="retrieve-risk-badge">
+            <span class="chip">Risk: None</span>
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <table class="data-table" id="retrieve-table">
+            <thead>
+              <tr>
+                <th>Chunk ID</th>
+                <th>Section</th>
+                <th>Reranker Score</th>
+                <th>Dense Score</th>
+                <th>Sparse Score</th>
+                <th>Excerpt Text</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colspan="6" style="text-align: center; color: var(--text-muted);">Execute retrieval to view ranked candidate chunks</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 5: Grounding & Hallucination Auditor -->
+    <section id="tab-grounding" class="tab-pane">
+      <div class="grid-2col">
+        <!-- Input & Simulated Output -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">Anti-Hallucination Guardrails & Citation Audit</h3>
+              <p class="card-desc">Tests <code>prompt.py</code> and <code>extractor.py</code> for fake citations.</p>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Concept / Question</label>
+            <input type="text" id="grounding-query" class="form-input" value="Explain Ohm's Law and resistance">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Target Document</label>
+            <select id="grounding-doc-select" class="form-select">
+              <option value="doc_physics_ohm">Physics Electricity (doc_physics_ohm)</option>
+              <option value="doc_hindi_light">Hindi NCERT Light (doc_hindi_light)</option>
+              <option value="topic_only">Topic-Only Mode (document_id=None)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Simulate AI Teacher Response</label>
+            <textarea id="grounding-teacher-response" class="form-textarea" placeholder="Paste simulated LLM response containing 'grounded_on: [chunk_...]' to audit citations..."></textarea>
+          </div>
+
+          <div class="btn-group" style="margin-bottom: 14px;">
+            <button class="btn btn-secondary" onclick="prefillTeacherResponse('valid')">Valid Citation</button>
+            <button class="btn btn-secondary" onclick="prefillTeacherResponse('hallucinated')">Hallucinated Citation</button>
+            <button class="btn btn-secondary" onclick="prefillTeacherResponse('empty')">Empty Citation</button>
+          </div>
+
+          <button class="btn btn-primary" onclick="runGroundingAudit()">
+            <span>🛡️</span> Generate Prompt & Audit Response
+          </button>
+        </div>
+
+        <!-- Audit Results & Hallucination Callout -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">Citation Verification & Hallucination Diagnostic</h3>
+              <p class="card-desc">Traces exact source <code>.py</code> file and function when hallucination occurs.</p>
+            </div>
+          </div>
+
+          <!-- Hallucination Callout Banner (Dynamically shown) -->
+          <div id="hallucination-banner-container"></div>
+
+          <div class="form-group">
+            <label class="form-label">Cleaned Student-Facing Explanation</label>
+            <div id="clean-explanation-box" class="code-box" style="max-height: 120px;">No response audited yet.</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Cited Chunk IDs</label>
+            <div id="cited-ids-container">
+              <span class="chip">None</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Generated Grounding Prompt Block</label>
+            <div id="grounding-prompt-box" class="code-box" style="max-height: 200px;">Prompt will appear here.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 6: Structured Logs -->
+    <section id="tab-logs" class="tab-pane">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h3 class="card-title">Structured Log Explorer</h3>
+            <p class="card-desc">Hierarchical JSON & text logs in <code>modules/rag/tests/web_test/logs/</code>.</p>
+          </div>
+          <div class="btn-group">
+            <button class="btn btn-secondary" onclick="loadLogs('all')">All</button>
+            <button class="btn btn-secondary" onclick="loadLogs('parsing')">Parsing</button>
+            <button class="btn btn-secondary" onclick="loadLogs('retrieval')">Retrieval</button>
+            <button class="btn btn-secondary" onclick="loadLogs('grounding')">Grounding</button>
+            <button class="btn btn-secondary" onclick="loadLogs('errors')">Errors</button>
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <table class="data-table" id="logs-table">
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Category</th>
+                <th>Run ID</th>
+                <th>Source File</th>
+                <th>Function</th>
+                <th>Duration</th>
+                <th>Hallucination</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colspan="8" style="text-align: center; color: var(--text-muted);">Loading logs...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Log Detail Modal -->
+  <div class="modal-overlay" id="log-modal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <div class="modal-title" id="modal-log-title">Diagnostic Log Detail</div>
+        <button class="modal-close" onclick="closeLogModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="code-box" id="modal-log-content" style="max-height: 60vh;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeLogModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>

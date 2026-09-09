@@ -52,6 +52,8 @@ temp_audio/
 htmlcov/
 modules/ai_agent_orchestration/tests/web_test/logs/*/*.json
 !modules/ai_agent_orchestration/tests/web_test/logs/*/.gitkeep
+modules/rag/tests/web_test/logs/*/*.json
+!modules/rag/tests/web_test/logs/*/.gitkeep
 
 # IDE & OS
 .DS_Store
