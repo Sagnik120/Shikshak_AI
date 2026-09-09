@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shikshak AI — ML Core Testbed</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <!-- App Header -->
+  <header class="app-header">
+    <div class="header-content">
+      <div class="brand">
+        <div class="brand-badge">PORT 8003</div>
+        <div class="brand-titles">
+          <h1>Shikshak AI <span class="brand-sub">ML Core Testbed</span></h1>
+          <p class="brand-desc">Isolated Studio for Hybrid Answer Evaluation, Misconception Diagnostics, Concept Extraction & Visual Suggestions</p>
+        </div>
+      </div>
+      <div class="header-status">
+        <div class="status-indicator">
+          <span class="status-dot ready"></span>
+          <span id="status-text">Connecting to Server...</span>
+        </div>
+        <div class="port-isolation-badge">
+          Backend (Port 8000) Untouched
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs">
+      <button class="nav-tab active" data-tab="eval-tab" id="tab-btn-eval">
+        <span class="tab-icon">📝</span> Answer Evaluation
+      </button>
+      <button class="nav-tab" data-tab="misconception-tab" id="tab-btn-misconception">
+        <span class="tab-icon">🔍</span> Misconception Classifier
+      </button>
+      <button class="nav-tab" data-tab="concepts-tab" id="tab-btn-concepts">
+        <span class="tab-icon">💡</span> Concept Extractor
+      </button>
+      <button class="nav-tab" data-tab="visuals-tab" id="tab-btn-visuals">
+        <span class="tab-icon">📊</span> Visual Suggester
+      </button>
+      <button class="nav-tab" data-tab="logs-tab" id="tab-btn-logs">
+        <span class="tab-icon">📋</span> Structured Log Explorer
+      </button>
+    </nav>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="main-container">
+
+    <!-- TAB 1: ANSWER EVALUATION STUDIO -->
+    <section class="tab-panel active" id="eval-tab">
+      <div class="panel-layout">
+        <div class="panel-card config-card">
+          <div class="card-header">
+            <h3>Student Answer Evaluation Parameters</h3>
+            <span class="badge info">Contract §9 & §10</span>
+          </div>
+
+          <div class="form-group">
+            <label for="eval-preset-select">Load Evaluation Preset</label>
+            <select id="eval-preset-select">
+              <option value="physics_ohm_correct" selected>Physics: Ohm's Law (Accurate freeform explanation)</option>
+              <option value="physics_ohm_partial">Physics: Ohm's Law (Partial credit with missing condition)</option>
+              <option value="physics_ohm_incorrect">Physics: Ohm's Law (Incorrect misconception)</option>
+              <option value="math_derivative_mcq">Math: Power Rule (MCQ exact match option B)</option>
+              <option value="cs_recursion_freeform">CS: Base Case in Recursion (Freeform explanation)</option>
+            </select>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="eval-node-id">Lesson Node ID</label>
+              <input type="text" id="eval-node-id" value="node_phys_ohm_001">
+            </div>
+
+            <div class="form-group">
+              <label for="eval-response-type">Response Type</label>
+              <select id="eval-response-type">
+                <option value="freeform" selected>Freeform (Embedding + LLM Judge)</option>
+                <option value="mcq">MCQ (Deterministic Exact Match)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="eval-expected-concept">Target Expected Concept / Correct Answer</label>
+            <input type="text" id="eval-expected-concept" value="Current is directly proportional to voltage across a conductor provided temperature remains constant (V = IR).">
+          </div>
+
+          <div class="form-group">
+            <label for="eval-raw-answer">Student's Raw Response</label>
+            <textarea id="eval-raw-answer" rows="3">Current increases when voltage increases across a resistor if temperature is constant.</textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="eval-grounding-text">Grounding Reference (Optional Textbook Snippet)</label>
+            <textarea id="eval-grounding-text" rows="2">Ohm's law states that the electric current through a conductor between two points is directly proportional to the voltage across the two points, under constant temperature conditions.</textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="eval-subject">Subject Domain (for Misconception Classification)</label>
+            <select id="eval-subject">
+              <option value="physics" selected>Physics</option>
+              <option value="math">Mathematics</option>
+              <option value="cs">Computer Science</option>
+            </select>
+          </div>
+
+          <button class="btn btn-primary" id="btn-run-evaluation">
+            <span>Evaluate Student Answer</span>
+          </button>
+        </div>
+
+        <div class="panel-card results-card">
+          <div class="card-header">
+            <h3>Evaluation Diagnostic Output</h3>
+            <span class="badge" id="eval-result-badge">Idle</span>
+          </div>
+
+          <div class="eval-results-body" id="eval-results-body">
+            <div class="empty-state">
+              <p>Configure a student response on the left and click <strong>Evaluate Student Answer</strong> to view correctness, partial credit, and confidence metrics.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: MISCONCEPTION CLASSIFIER STUDIO -->
+    <section class="tab-panel" id="misconception-tab">
+      <div class="panel-layout">
+        <div class="panel-card config-card">
+          <div class="card-header">
+            <h3>Curated Misconception Diagnosis</h3>
+            <span class="badge info">Subject Taxonomies</span>
+          </div>
+
+          <div class="form-group">
+            <label for="misc-preset-select">Load Misconception Scenario</label>
+            <select id="misc-preset-select">
+              <option value="gravity_fall" selected>Physics: Heavier objects fall faster (Mass vs Acceleration)</option>
+              <option value="current_consumed">Physics: Lightbulbs consume current (Conservation of Charge)</option>
+              <option value="negative_squaring">Math: Negative numbers squared (-3^2 vs (-3)^2)</option>
+              <option value="loop_off_by_one">CS: Loop index out of bounds (0-indexed array)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="misc-subject">Subject Taxonomy</label>
+            <select id="misc-subject">
+              <option value="physics" selected>Physics (Mechanics & Electromagnetism)</option>
+              <option value="math">Mathematics (Algebra & Arithmetic)</option>
+              <option value="cs">Computer Science (Algorithms & Control Flow)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="misc-expected-concept">Target Concept</label>
+            <input type="text" id="misc-expected-concept" value="All objects in free fall experience equal gravitational acceleration g = 9.8 m/s^2 regardless of mass.">
+          </div>
+
+          <div class="form-group">
+            <label for="misc-raw-answer">Student's Incorrect Answer</label>
+            <textarea id="misc-raw-answer" rows="3">A boulder falls much faster than a small pebble because the earth pulls heavier objects with much more gravitational force.</textarea>
+          </div>
+
+          <button class="btn btn-primary" id="btn-diagnose-misconception">
+            <span>Classify Misconception</span>
+          </button>
+        </div>
+
+        <div class="panel-card results-card">
+          <div class="card-header">
+            <h3>Misconception Classification Report</h3>
+            <span class="badge" id="misc-result-badge">Idle</span>
+          </div>
+
+          <div class="misc-results-body" id="misc-results-body">
+            <div class="empty-state">
+              <p>Select a subject and enter an incorrect student answer to diagnose the underlying pedagogical trap.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: CONCEPT EXTRACTION STUDIO -->
+    <section class="tab-panel" id="concepts-tab">
+      <div class="panel-layout">
+        <div class="panel-card config-card">
+          <div class="card-header">
+            <h3>Key-Term & Concept Extractor</h3>
+            <span class="badge info">Zero-LLM TF Heuristic</span>
+          </div>
+
+          <div class="form-group">
+            <label for="concepts-preset-select">Load Document Chunks Preset</label>
+            <select id="concepts-preset-select">
+              <option value="quantum_mechanics" selected>Physics: Quantum Mechanics & Wave-Particle Duality</option>
+              <option value="binary_search">Computer Science: Binary Search & Divide and Conquer</option>
+              <option value="organic_chemistry">Chemistry: Hydrocarbons & Functional Groups</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="concepts-chunk-text">Textbook Chunks (Separated by three dashes '---')</label>
+            <textarea id="concepts-chunk-text" rows="6" class="code-font"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="concepts-top-k">Top K Concepts to Extract</label>
+            <input type="number" id="concepts-top-k" value="8" min="1" max="25">
+          </div>
+
+          <button class="btn btn-primary" id="btn-extract-concepts">
+            <span>Extract Key Concepts</span>
+          </button>
+        </div>
+
+        <div class="panel-card results-card">
+          <div class="card-header">
+            <h3>Extracted Key Terms</h3>
+            <span class="badge" id="concepts-result-badge">Idle</span>
+          </div>
+
+          <div class="concepts-results-body" id="concepts-results-body">
+            <div class="empty-state">
+              <p>Click <strong>Extract Key Concepts</strong> to identify the dominant educational terms from the provided chunks.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: VISUAL SUGGESTER STUDIO -->
+    <section class="tab-panel" id="visuals-tab">
+      <div class="panel-layout">
+        <div class="panel-card config-card">
+          <div class="card-header">
+            <h3>Subject-Aware Visual Type Suggester</h3>
+            <span class="badge info">Contract §5 & §6</span>
+          </div>
+
+          <div class="form-group">
+            <label for="visuals-preset-select">Load Concept Preset</label>
+            <select id="visuals-preset-select">
+              <option value="math_quadratic" selected>Mathematics: Quadratic Equation Formula</option>
+              <option value="physics_trajectory">Physics: Projectile Motion Parabolic Trajectory</option>
+              <option value="cs_binary_search">Computer Science: Binary Search Algorithm</option>
+              <option value="history_silk_road">History: Ancient Silk Road Trade Routes</option>
+              <option value="biology_cell">Biology: Eukaryotic Cell Organelle Diagram</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="visuals-subject">Subject Domain</label>
+            <input type="text" id="visuals-subject" value="mathematics">
+          </div>
+
+          <div class="form-group">
+            <label for="visuals-concept">Concept Topic / Keyword</label>
+            <input type="text" id="visuals-concept" value="quadratic formula derivation">
+          </div>
+
+          <button class="btn btn-primary" id="btn-suggest-visual">
+            <span>Suggest Visual Modality</span>
+          </button>
+        </div>
+
+        <div class="panel-card results-card">
+          <div class="card-header">
+            <h3>Recommended Visual Modality</h3>
+            <span class="badge" id="visuals-result-badge">Idle</span>
+          </div>
+
+          <div class="visuals-results-body" id="visuals-results-body">
+            <div class="empty-state">
+              <p>Enter a subject and concept to test whether it routes via the 0ms deterministic rule table or the constrained LLM classifier.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 5: LOG EXPLORER -->
+    <section class="tab-panel" id="logs-tab">
+      <div class="panel-card">
+        <div class="card-header">
+          <h3>Structured Hierarchical Log Explorer</h3>
+          <div class="log-controls">
+            <label for="log-category-filter">Category:</label>
+            <select id="log-category-filter">
+              <option value="">All Categories</option>
+              <option value="evaluation">Evaluation</option>
+              <option value="misconception">Misconception</option>
+              <option value="concepts">Concepts</option>
+              <option value="visuals">Visuals</option>
+              <option value="service">Service</option>
+              <option value="errors">Errors</option>
+            </select>
+            <button class="btn btn-secondary btn-sm" id="btn-refresh-logs">Refresh Logs</button>
+          </div>
+        </div>
+
+        <div class="log-explorer-layout">
+          <div class="log-list-pane">
+            <div class="log-list-header">
+              <span>Recent Test Runs (<span id="log-count">0</span>)</span>
+            </div>
+            <div class="log-list" id="log-list-container">
+              <div class="empty-state">No logs recorded yet.</div>
+            </div>
+          </div>
+
+          <div class="log-detail-pane">
+            <div class="log-detail-header">
+              <h4 id="selected-log-title">Select a log to view execution details</h4>
+              <span class="badge" id="selected-log-badge" style="display: none;">STATUS</span>
+            </div>
+            <div class="log-detail-meta" id="selected-log-meta" style="display: none;">
+              <div><strong>Source File:</strong> <code id="meta-file"></code></div>
+              <div><strong>Function:</strong> <code id="meta-func"></code></div>
+              <div><strong>Recorded At:</strong> <span id="meta-time"></span></div>
+            </div>
+            <pre class="log-detail-content" id="log-content-display">Click any log on the left to inspect its input payload, execution checkpoints, and output manifest.</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
