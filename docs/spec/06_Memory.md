@@ -64,7 +64,7 @@ Before completing your response, verify:
 
 | Module | Core Source Files | Primary Classes | Contract (§) | Test / Diagnostic Command |
 | :--- | :--- | :--- | :--- | :--- |
-| **RAG** | `modules/rag/src/services/rag_service.py`<br>`modules/rag/src/parsers/document_parser.py`<br>`modules/rag/src/retrieval/hybrid_retriever.py` | `RAGService`<br>`DocumentParser`<br>`HybridRetriever` | §1, §2, §3, §4 | `./.venv/bin/python scripts/run_rag_diagnostics.py`<br>`pytest modules/rag/tests/` |
+| **RAG** | `modules/rag/src/service.py`<br>`modules/rag/src/parsing/parser.py`<br>`modules/rag/src/retrieval/retriever.py` | `RAGService`<br>`parse_document`<br>`HybridRetriever` | §4, §14 | `pytest modules/rag/tests/` |
 | **Avatar & Voice** | `modules/avatar_voice/src/services/avatar_voice_service.py`<br>`modules/avatar_voice/src/tts/edge_tts_adapter.py`<br>`modules/avatar_voice/src/avatar/viseme_generator.py`<br>`modules/avatar_voice/src/compositor/ffmpeg_compositor.py` | `AvatarVoiceService`<br>`TTSAdapter`<br>`VisemeGenerator`<br>`FFmpegCompositor` | §6, §7, §14 | `./.venv/bin/python scripts/run_avatar_voice_diagnostics.py`<br>`pytest modules/avatar_voice/tests/` |
 | **Agent Orchestration** | `modules/ai_agent_orchestration/src/orchestration/teacher_orchestrator.py`<br>`modules/ai_agent_orchestration/src/agents/planner.py`<br>`modules/ai_agent_orchestration/src/agents/explainer.py`<br>`modules/ai_agent_orchestration/src/agents/questioner.py`<br>`modules/ai_agent_orchestration/src/agents/assessment.py` | `TeacherOrchestrator`<br>`PlannerAgent`<br>`ExplainerAgent`<br>`QuestionerAgent`<br>`AssessmentAgent` | §5, §8, §9, §10 | `./.venv/bin/python scripts/verify_live_gemini_quality.py`<br>`pytest modules/ai_agent_orchestration/tests/` |
 | **ML Core** | `modules/ml_core/src/services/evaluation_service.py`<br>`modules/ml_core/src/evaluators/mcq_evaluator.py`<br>`modules/ml_core/src/evaluators/freeform_evaluator.py`<br>`modules/ml_core/src/taxonomy/misconception_classifier.py` | `EvaluationEngine`<br>`MCQEvaluator`<br>`FreeformEvaluator`<br>`MisconceptionClassifier` | §8, §9, §11 | `./.venv/bin/python scripts/run_ml_core_diagnostics.py`<br>`pytest modules/ml_core/tests/` |
@@ -136,17 +136,24 @@ Before completing your response, verify:
 - **Tested**: `preflight_check.py` passes 100% green. 87 pytest unit tests passing.
 - **Next Immediate Step**: Complete `scripts/run_ml_core_diagnostics.py` and `scripts/run_backend_diagnostics.py`.
 
-### [Phase 11] Interactive Module Web Testbed (Playground UI) — 2026-09-09
-- **Status**: IN PROGRESS
+### [Phase 11] Interactive Module Web Testbeds (Playground UIs & Loggers) — 2026-09-09
+- **Status**: IN PROGRESS (Orchestration & RAG Complete)
 - **Built/Modified**:
-  - `modules/ai_agent_orchestration/tests/web_test/server.py` (Dedicated isolated FastAPI test server on port 8001; zero changes to `modules/backend/`).
-  - `modules/ai_agent_orchestration/tests/web_test/logger.py` (Structured execution trace logger writing to `logs/planner/`, `logs/explainer/`, `logs/questioner/`, `logs/adaptation/`, `logs/fsm/`, `logs/errors/`).
-  - `modules/ai_agent_orchestration/tests/web_test/static/` (`index.html`, `style.css`, `app.js` with 6 interactive tabs and live log explorer).
-  - `modules/ai_agent_orchestration/instructions/detail_plan.md` (Updated with Milestone 1 architecture completion and Milestone 2 testing & logging specifications).
-  - `modules/ai_agent_orchestration/tests/unit/test_web_test_server.py` (7/7 unit tests verifying testbed server and logging engine).
-- **Tested**: 41/41 orchestrator tests passing (0.97s). Preflight check 100% green.
-- **Next Immediate Step**: Proceed to other module testbeds (RAG, ML Core, Avatar/Voice).
-
+  - **Orchestration Module (Port 8001)**:
+    - `modules/ai_agent_orchestration/tests/web_test/server.py` (FastAPI testbed on port 8001; 0 changes to `modules/backend/`).
+    - `modules/ai_agent_orchestration/tests/web_test/logger.py` (Structured logger with `planner/`, `explainer/`, `questioner/`, `adaptation/`, `fsm/`, `errors/`).
+    - `modules/ai_agent_orchestration/tests/web_test/static/` (Interactive UI & live log explorer).
+    - `modules/ai_agent_orchestration/tests/unit/test_web_test_server.py` (7/7 unit tests passing; 41/41 suite green).
+  - **RAG Module (Port 8002)**:
+    - `modules/rag/docs/rag_detail.md` (Fully updated with complete structural file guide of all 21 Python source files and explicit Rule-Based vs Dynamic logic classifications).
+    - `modules/rag/instructions/detail_plan.md` (Updated with Milestone 1 deliverables and Milestone 2 isolated testing architecture).
+    - `modules/rag/instructions/overview.md` & `contract.md` (Updated reading sequences, schemas, and invariants).
+    - `modules/rag/tests/web_test/server.py` (Isolated FastAPI test server on port 8002 directly importing `modules.rag.src.*`).
+    - `modules/rag/tests/web_test/logger.py` (Hierarchical logger with `parsing/`, `chunking/`, `embedding/`, `indexing/`, `retrieval/`, `grounding/`, `errors/`).
+    - `modules/rag/tests/web_test/static/` (`index.html`, `style.css`, `app.js` with **Light Professional theme** [no dark mode], drag & drop ingestion, Indic chunker analysis, hybrid retrieval, hallucination detection, and real-time log viewer).
+    - `modules/rag/tests/unit/test_rag_web_test_server.py` (8/8 unit tests passing; full suite 26/26 green in 25.49s).
+- **Tested**: 41/41 orchestrator tests + 26/26 RAG tests passing. Working tree clean.
+- **Next Immediate Step**: Proceed to `modules/ml_core/` audit and testbed (Port 8003).
 ### [Phase 12] Deployment Stress Testing & Bug Resolution — PLANNED
 - **Status**: PLANNED
 - **Next Immediate Step**: Multi-page PDF stress testing, rate limit handling, and memory leak audit.
