@@ -6,7 +6,7 @@
 ## 2. Current Architecture
 The system follows a highly modular design built around clear data contracts:
 ```text
-[Frontend (React)] <--> [Backend (FastAPI) API/WS]
+[Frontend (Vanilla JS/HTML/CSS)] <--> [Backend (FastAPI) API/WS]
                                |
              +-----------------+------------------+
              |                 |                  |
@@ -29,7 +29,8 @@ The system follows a highly modular design built around clear data contracts:
 8. **Adaptation Controller** decides next steps (ALLOW/MODIFY/REGENERATE).
 
 **Actual Implemented Flow**:
-Currently, the **RAG**, **Avatar/Voice**, **AI Agent Orchestration**, and **ML Core** pipelines are fully implemented and tested in isolation. The full end-to-end flow is not yet runnable because the Backend and Frontend modules are missing.
+Currently, the **Frontend**, **Backend**, **RAG**, **Avatar/Voice**, **AI Agent Orchestration**, and **ML Core** pipelines are implemented. 
+However, the **full end-to-end flow is NOT yet runnable** as a single integrated system. The individual modules are verified in isolation (mostly mocked at integration boundaries). The frontend heavily relies on local mock data (`api.js`) for the "happy paths", and the Orchestration module uses stubbed RAG/ML dependencies during tests.
 
 ## 4. Repository Structure
 - `modules/rag/`: Implemented. Contains document parsing, embedding generation, ChromaDB vector store adapter, and hybrid retrieval.
@@ -37,7 +38,7 @@ Currently, the **RAG**, **Avatar/Voice**, **AI Agent Orchestration**, and **ML C
 - `modules/ai_agent_orchestration/`: **IMPLEMENTED**. Contains core FSM, teaching agents, and adaptation controller.
 - `modules/ml_core/`: **IMPLEMENTED**. Contains evaluators, concept extraction, misconception classification, and visual rule mappings.
 - `modules/backend/`: **IMPLEMENTED**. Contains FastAPI server, websockets, state driver, and in-memory persistence.
-- `modules/frontend/`: **MISSING** (only `.gitkeep` and planned instructions).
+- `modules/frontend/`: **IMPLEMENTED**. (Documentation Drift: Originally planned as React, actually implemented using Vanilla HTML/CSS/JS. Served statically via Backend `main.py`). Contains UI components and API fallback mocks.
 - `docs/` & `*.md` files (root): Extensive PRDs, architectural constraints, and design specs.
 
 ## 5. AI Agent Orchestration
@@ -76,31 +77,38 @@ The ML Core handles specific NLP tasks cheaper/more reliably than raw LLM calls.
 
 | Component | Status | Relevant Files | Main Gap |
 |---|---|---|---|
-| **RAG** | IMPLEMENTED | `modules/rag/src/service.py` | Integration with Planner/Explainer |
-| **Avatar & Voice** | IMPLEMENTED | `modules/avatar_voice/src/service.py` | External API integrations (HeyGen/D-ID) |
-| **AI Orchestration** | IMPLEMENTED | `modules/ai_agent_orchestration/src/` | Integration with real ML Core |
-| **ML Core** | IMPLEMENTED | `modules/ml_core/src/` | Testing complete |
-| **Backend API** | IMPLEMENTED | `modules/backend/src/` | FastAPI server, websockets, tested P0 MVP |
-| **Frontend App** | MISSING | `modules/frontend/src/` | React UI, video player, Q&A interaction |
+| **RAG** | IMPLEMENTED | `modules/rag/src/service.py` | Integration with live Orchestrator loop |
+| **Avatar & Voice** | IMPLEMENTED | `modules/avatar_voice/src/service.py` | Final payload delivery via WebSocket unverified |
+| **AI Orchestration** | IMPLEMENTED | `modules/ai_agent_orchestration/src/` | Mocks RAG/ML dependencies; untested with real responses |
+| **ML Core** | IMPLEMENTED | `modules/ml_core/src/` | Evaluator outputs not yet consumed by live Controller |
+| **Backend API** | IMPLEMENTED | `modules/backend/src/` | End-to-end integration with Frontend and modules not validated |
+| **Frontend App** | IMPLEMENTED | `modules/frontend/src/` | Vanilla JS (not React). Relies heavily on mock fallbacks (`api.js`) |
 
-## 10. Tests / Known Issues
-- **Implemented**: RAG, Avatar/Voice, AI Orchestration (27 tests), and ML Core (20 tests) have isolated test suites. Total 47 passing tests for core teaching engines.
-- **Missing**: Cross-module E2E teaching session simulations and regression tests are non-existent due to missing backend/frontend modules.
-- **Risks**: The integration boundary between Backend/Frontend and the newly built Orchestration/ML engines remains untested.
+## 10. Tests / Known Issues & Web Testbeds
+- **Web Testbeds Available**: A comprehensive suite of isolated web testbeds is available for manual verification (See `docs/system/web_test_details.md`).
+  - Orchestration: `http://localhost:8001`
+  - RAG: `http://localhost:8002`
+  - ML Core: `http://localhost:8003`
+  - Avatar/Voice: `http://localhost:8004`
+  - Backend API: `http://localhost:8005`
+  - Full Frontend: `http://localhost:8000` (Served via main backend)
+- **Implemented Tests**: RAG, Avatar/Voice, AI Orchestration, and ML Core have isolated offline test suites passing.
+- **Risks & Mismatches (P0 Blockers)**: The gap between isolated, mocked web tests and true End-to-End behavior is the primary risk. The frontend (`api.js`) heavily relies on mock logic for "happy paths". It remains unverified if the mocked integrations align perfectly with the actual production cross-module responses.
 
-## 11. Remaining Work
+## 11. Remaining Work (Integration Priority)
 - **[DONE]**: Build the `backend` FastAPI server to orchestrate requests (P0 flow).
 - **[DONE]**: Implement the `ai_agent_orchestration` state machine (Planner, Explainer, Controller).
 - **[DONE]**: Implement `ml_core` Answer Evaluator to support the teaching loop.
-- **P0**: Build the `frontend` React UI (video player, interaction widgets).
-- **P0**: Connect `frontend` to `backend` via WebSockets for real-time interaction.
-- **P2**: Refine UI aesthetics, add advanced misconception tagging.
+- **[DONE]**: Build the `frontend` Vanilla JS UI (video player, interaction widgets).
+- **P0**: Validate that frontend `api.js` can successfully hit the actual Backend endpoints without falling back to mock data.
+- **P0**: Connect the Backend's FastAPI endpoints to the actual AI Agent Orchestration FSM instead of stubs.
+- **P0**: Ensure real-time messaging between the Frontend and the Backend's `ws_router` is functioning properly.
 
 ## 12. Developer Quick Start
 - Review `instructions/Contract.md` for schemas.
 - Examine `modules/ai_agent_orchestration/src/` and `modules/ml_core/src/` to understand the currently implemented agent workflows and evaluation mechanics.
 - Examine `modules/backend/src/` for the FastAPI/WebSocket integration routes.
-- Next priority is scaffolding the frontend UI in `modules/frontend/src/`.
+- Next priority is testing the Frontend-to-Backend integration and replacing mock endpoints in `modules/frontend/src/js/api.js`.
 
 ## 13. Critical Context
 - **Contract Enforcement**: Cross-module communication must strictly adhere to the schemas defined in `instructions/Contract.md`. Do not bypass them.
