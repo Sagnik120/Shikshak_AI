@@ -12,6 +12,10 @@
     {
       "tag": "misunderstands_action_reaction",
       "description": "Student believes Newton's third law forces act on the same object and cancel each other out."
+    },
+    {
+      "tag": "gravity-mass-dependence",
+      "description": "Student believes heavier objects fall faster than lighter objects in a vacuum due to mass."
     }
   ]
 }
