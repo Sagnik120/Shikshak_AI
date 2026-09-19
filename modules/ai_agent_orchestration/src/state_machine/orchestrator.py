@@ -44,12 +44,23 @@ class TeacherOrchestrator:
         
         if current_state == TeacherState.UNDERSTAND:
             # Inputs: constraints, topic, document_id
-            session.constraints = inputs.get("constraints")
-            session.topic = inputs.get("topic")
+            from modules.ai_agent_orchestration.src.schemas.lesson import LearnerConstraints
+            c_input = inputs.get("constraints")
+            if isinstance(c_input, dict):
+                session.constraints = LearnerConstraints(**c_input)
+            elif c_input:
+                session.constraints = c_input
+            else:
+                session.constraints = LearnerConstraints()
+                
+            session.topic = inputs.get("topic") or "Newton's First Law"
             session.document_id = inputs.get("document_id")
             return self._transition(session, current_state, TeacherState.PLAN, "Context initialized")
 
         elif current_state == TeacherState.PLAN:
+            if not getattr(session, "constraints", None):
+                raise ValueError("Session is missing LearnerConstraints. You must run the UNDERSTAND state first to initialize the session context.")
+            
             source_type = "document" if session.document_id else "topic"
             plan = self.planner.plan_lesson(
                 constraints=session.constraints,
@@ -61,6 +72,9 @@ class TeacherOrchestrator:
             return self._transition(session, current_state, TeacherState.EXPLAIN, "Lesson plan generated", plan)
 
         elif current_state == TeacherState.EXPLAIN:
+            if not getattr(session, "lesson_plan", None) or not session.lesson_plan.nodes:
+                raise ValueError("Session is missing a LessonPlan. You must run the PLAN state first.")
+                
             node = session.lesson_plan.nodes[session.current_node_index]
             
             chunks = None
@@ -106,7 +120,17 @@ class TeacherOrchestrator:
             return self._transition(session, current_state, TeacherState.ADAPT, "Answer evaluated", eval_result)
 
         elif current_state == TeacherState.ADAPT:
-            eval_result = inputs.get("eval_result")
+            from modules.ai_agent_orchestration.src.schemas.evaluation import EvaluationResult
+            er_input = inputs.get("eval_result")
+            if isinstance(er_input, dict):
+                eval_result = EvaluationResult(**er_input)
+            elif er_input:
+                eval_result = er_input
+            elif session.evaluation_history:
+                eval_result = session.evaluation_history[-1]
+            else:
+                raise ValueError("No evaluation result available for adaptation. Run EVALUATE first or provide 'eval_result' in inputs.")
+                
             decision = self.controller.decide(eval_result, session.evaluation_history)
             
             if decision.action == "ALLOW":

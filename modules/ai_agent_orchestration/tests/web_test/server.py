@@ -167,8 +167,8 @@ fsm_sessions: Dict[str, SessionState] = {}
 
 
 def _get_adapter(use_live: bool):
-    if use_live and os.environ.get("GEMINI_API_KEY"):
-        return GeminiLLMAdapter()
+    if use_live:
+        return GeminiLLMAdapter(raise_on_failure=True)
     return SmartMockLLMAdapter()
 
 

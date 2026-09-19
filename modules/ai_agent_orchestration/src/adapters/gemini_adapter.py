@@ -117,7 +117,12 @@ class SmartMockLLMAdapter(LLMAdapter):
             })
 
         # 5. ML Core Evaluation / Misconceptions
-        if "evaluation" in full_lower or "misconception" in full_lower:
+        if "misconception" in full_lower:
+            return json.dumps({
+                "misconception_tag": "gravity-mass-dependence"
+            })
+            
+        if "grading a student" in full_lower or "evaluation" in full_lower:
             return json.dumps({
                 "correct": True,
                 "confidence": 1.0,
@@ -156,14 +161,17 @@ class GeminiLLMAdapter(LLMAdapter):
     Gracefully falls back to SmartMockLLMAdapter if network/key issues occur.
     """
 
-    def __init__(self, api_key: Optional[str] = None, model: str = "gemini-2.0-flash"):
+    def __init__(self, api_key: Optional[str] = None, model: str = "gemini-3.5-flash-lite", raise_on_failure: bool = False):
         _load_env()
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY", "")
         self.model = os.environ.get("GEMINI_MODEL", model)
+        self.raise_on_failure = raise_on_failure
         self.fallback = SmartMockLLMAdapter()
 
     def complete(self, messages: List[Dict[str, str]], tools: Optional[List[Dict[str, Any]]] = None) -> str:
         if not self.api_key:
+            if self.raise_on_failure:
+                raise ValueError("LIVE GEMINI mode selected but GEMINI_API_KEY is not set.")
             logger.info("No GEMINI_API_KEY set; using SmartMockLLMAdapter.")
             return self.fallback.complete(messages, tools)
 
@@ -195,8 +203,6 @@ class GeminiLLMAdapter(LLMAdapter):
             payload["systemInstruction"] = system_instruction
 
         models_to_try = [self.model]
-        if "1.5-flash" not in self.model:
-            models_to_try.append("gemini-1.5-flash")
 
         for m in models_to_try:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent"
@@ -212,7 +218,10 @@ class GeminiLLMAdapter(LLMAdapter):
                             return parts[0]["text"]
             except Exception as e:
                 logger.warning(f"Live Gemini call for '{m}' failed ({e}).")
+                last_error = e
 
+        if self.raise_on_failure:
+            raise RuntimeError(f"LIVE GEMINI failure: All models failed. Last error: {last_error}")
         return self.fallback.complete(messages, tools)
 
 
