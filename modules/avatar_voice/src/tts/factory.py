@@ -44,7 +44,7 @@ class TTSFactory:
 
     @staticmethod
     def get_adapter(engine: str = "resilient", output_dir: Optional[str] = None) -> TTSAdapter:
-        if engine == "edge-tts":
+        if engine in ("edge-tts", "edge"):
             return EdgeTTSAdapter(output_dir=output_dir)
         elif engine == "fallback":
             return FallbackTTSAdapter(output_dir=output_dir)

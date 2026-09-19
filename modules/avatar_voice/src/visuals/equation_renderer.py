@@ -126,11 +126,25 @@ class EquationRenderer(BaseRenderer):
                 is_active = (idx == active_idx)
 
                 formatted = step_text
+                import re
+                # Strip redundant 'Step X:' prefix if the user included it, since we add it ourselves
+                formatted = re.sub(r'^Step\s*\d+\s*:\s*', '', formatted, flags=re.IGNORECASE)
+                
                 if not formatted.startswith("$"):
+                    # Preserve spaces between English words/punctuation before wrapping in math mode
+                    formatted = re.sub(r'([a-zA-Z0-9.,;:!\]})])\s+([a-zA-Z0-9(\[{])', r'\1\\ \2', formatted)
                     formatted = f"${formatted}$"
 
+                # Dynamically adjust font size for very long equations to prevent overflow
+                base_fontsize = 28 if is_active else 22
+                if len(formatted) > 80:
+                    fontsize = base_fontsize - 6
+                elif len(formatted) > 55:
+                    fontsize = base_fontsize - 4
+                else:
+                    fontsize = base_fontsize
+                    
                 color = "#06b6d4" if is_active else "#94a3b8"
-                fontsize = 28 if is_active else 22
 
                 # Prefix label
                 step_label = f"Step {idx + 1}: "
@@ -155,6 +169,7 @@ class EquationRenderer(BaseRenderer):
                     ha="left",
                     va="center",
                     transform=ax.transAxes,
+                    wrap=True,
                 )
 
             fig.savefig(output_path, dpi=100, facecolor=fig.get_facecolor(), edgecolor="none")

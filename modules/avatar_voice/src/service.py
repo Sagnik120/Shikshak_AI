@@ -34,11 +34,13 @@ class AvatarVoiceService:
         avatar_adapter: Optional[AvatarAdapter] = None,
         output_dir: Optional[str] = None,
         max_workers: int = 4,
+        compositor: Optional[FFmpegCompositor] = None,
+        visuals: Optional[VisualRendererFactory] = None,
     ):
         self.tts = tts_adapter or TTSFactory.get_adapter("resilient", output_dir=output_dir)
         self.avatar = avatar_adapter or AvatarFactory.get_adapter("auto", output_dir=output_dir)
-        self.visuals = VisualRendererFactory(output_dir=output_dir)
-        self.compositor = FFmpegCompositor(output_dir=output_dir)
+        self.visuals = visuals or VisualRendererFactory(output_dir=output_dir)
+        self.compositor = compositor or FFmpegCompositor(output_dir=output_dir)
 
         self._jobs: Dict[str, RenderJobStatus] = {}
         self._lock = threading.Lock()

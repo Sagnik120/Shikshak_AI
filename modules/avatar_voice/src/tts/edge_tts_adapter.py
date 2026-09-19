@@ -154,19 +154,29 @@ class EdgeTTSAdapter:
     ) -> TTSResult:
         """Synchronous wrapper for synthesize with cue-driven prosody."""
         chosen_voice = voice_id or resolve_voice_id(language)
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        if loop.is_running():
-            import nest_asyncio
-            nest_asyncio.apply()
-            return loop.run_until_complete(
-                self._synthesize_async(text, chosen_voice, avatar_cue=avatar_cue)
-            )
-        else:
-            return loop.run_until_complete(
-                self._synthesize_async(text, chosen_voice, avatar_cue=avatar_cue)
-            )
+        
+        import threading
+        
+        result = []
+        error = []
+        
+        def _runner():
+            try:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                res = loop.run_until_complete(
+                    self._synthesize_async(text, chosen_voice, avatar_cue=avatar_cue)
+                )
+                result.append(res)
+            except Exception as e:
+                error.append(e)
+            finally:
+                loop.close()
+                
+        t = threading.Thread(target=_runner)
+        t.start()
+        t.join()
+        
+        if error:
+            raise error[0]
+        return result[0]
