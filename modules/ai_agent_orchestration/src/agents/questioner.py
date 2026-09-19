@@ -1,4 +1,5 @@
 import json
+from typing import Optional
 from modules.ai_agent_orchestration.src.agents.base import BaseAgent
 from modules.ai_agent_orchestration.src.schemas.lesson import LessonNode
 from modules.ai_agent_orchestration.src.schemas.teaching import TeachingSegment
