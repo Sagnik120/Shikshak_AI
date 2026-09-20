@@ -14,12 +14,12 @@ class AdaptationController:
     ) -> AdaptationDecision:
         node_id = current_eval.node_id
         
-        # Count consecutive failures for this node
+        # Count consecutive failures globally (since we can't advance without passing)
         failures = 0
         for ev in reversed(session_history):
-            if ev.node_id == node_id and not ev.correct:
+            if not ev.correct:
                 failures += 1
-            elif ev.node_id == node_id and ev.correct:
+            elif ev.correct:
                 break
                 
         # Include current eval if not already in session_history (by identity)
