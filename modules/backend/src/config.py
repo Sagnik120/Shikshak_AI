@@ -109,6 +109,13 @@ class Settings:
     smtp_from: str = os.getenv("SMTP_FROM", "").strip()
     smtp_from_name: str = os.getenv("SMTP_FROM_NAME", "Shikshak AI")
     smtp_starttls: bool = _bool("SMTP_STARTTLS", True)
+
+    # --- Email (Resend HTTP API) ---
+    # Render (and several other PaaS hosts) block outbound SMTP entirely, so raw
+    # smtplib to smtp.gmail.com fails with "Network is unreachable" no matter
+    # how correct the credentials are. Resend sends over plain HTTPS instead,
+    # which those hosts do allow, and is tried first when a key is present.
+    resend_api_key: str = os.getenv("RESEND_API_KEY", "").strip()
     # When SMTP is unconfigured, write the email to data/outbox/ instead of failing.
     email_dev_fallback: bool = _bool("EMAIL_DEV_FALLBACK", True)
 
@@ -134,16 +141,24 @@ class Settings:
         return bool(self.smtp_user and self.smtp_password)
 
     @property
+    def resend_configured(self) -> bool:
+        return bool(self.resend_api_key)
+
+    @property
+    def email_transport_configured(self) -> bool:
+        return self.resend_configured or self.smtp_configured
+
+    @property
     def expose_dev_otp(self) -> bool:
         if self._expose_dev_otp_override:
             return self._expose_dev_otp_override.lower() in ("1", "true", "yes", "on")
-        return not self.smtp_configured
+        return not self.email_transport_configured
 
     @property
     def enable_smtp_send(self) -> bool:
         if self._smtp_send_override:
             return self._smtp_send_override.lower() in ("1", "true", "yes", "on")
-        return self.smtp_configured
+        return self.email_transport_configured
 
     @property
     def sender_address(self) -> str:

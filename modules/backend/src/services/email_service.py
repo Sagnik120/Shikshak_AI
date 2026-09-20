@@ -8,6 +8,8 @@ from email.message import EmailMessage
 from email.utils import formataddr, make_msgid
 from pathlib import Path
 
+import httpx
+
 from modules.backend.src.config import settings
 
 logger = logging.getLogger(__name__)
@@ -63,9 +65,62 @@ def _otp_block(code: str) -> str:
 
 
 class EmailService:
-    """Sends real email over SMTP; falls back to data/outbox/ when unconfigured."""
+    """Sends real email over Resend's HTTPS API (preferred) or SMTP; falls back
+    to data/outbox/ when neither is configured or delivery fails.
+
+    Render — and several other PaaS hosts — block outbound SMTP entirely, so
+    smtplib to smtp.gmail.com fails with "Network is unreachable" no matter how
+    correct the credentials are. Resend sends over plain HTTPS, which those
+    hosts do allow, so it is tried first whenever a key is present.
+    """
 
     def send(self, to_email: str, subject: str, html: str, text: str) -> bool:
+        if not settings.enable_smtp_send or not settings.email_transport_configured:
+            return self._write_to_outbox(to_email, subject, html, text)
+
+        if settings.resend_configured:
+            ok, error = self._send_via_resend(to_email, subject, html, text)
+            if ok:
+                return True
+            logger.error("Resend delivery to %s failed: %s", to_email, error)
+            if settings.smtp_configured:
+                ok, error = self._send_via_smtp(to_email, subject, html, text)
+                if ok:
+                    return True
+                logger.error("SMTP delivery to %s failed: %s", to_email, error)
+            if settings.email_dev_fallback:
+                return self._write_to_outbox(to_email, subject, html, text, error=str(error))
+            return False
+
+        ok, error = self._send_via_smtp(to_email, subject, html, text)
+        if ok:
+            return True
+        logger.error("SMTP delivery to %s failed: %s", to_email, error)
+        if settings.email_dev_fallback:
+            return self._write_to_outbox(to_email, subject, html, text, error=str(error))
+        return False
+
+    def _send_via_resend(self, to_email: str, subject: str, html: str, text: str) -> tuple[bool, str]:
+        try:
+            resp = httpx.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {settings.resend_api_key}"},
+                json={
+                    "from": formataddr((settings.smtp_from_name, settings.sender_address)),
+                    "to": [to_email],
+                    "subject": subject,
+                    "html": html,
+                    "text": text,
+                },
+                timeout=20.0,
+            )
+            resp.raise_for_status()
+            logger.info("Sent %r to %s via Resend", subject, to_email)
+            return True, ""
+        except Exception as exc:
+            return False, str(exc)
+
+    def _send_via_smtp(self, to_email: str, subject: str, html: str, text: str) -> tuple[bool, str]:
         msg = EmailMessage()
         msg["Subject"] = subject
         msg["From"] = formataddr((settings.smtp_from_name, settings.sender_address))
@@ -73,9 +128,6 @@ class EmailService:
         msg["Message-ID"] = make_msgid(domain="shikshak.ai")
         msg.set_content(text)
         msg.add_alternative(html, subtype="html")
-
-        if not settings.enable_smtp_send or not settings.smtp_configured:
-            return self._write_to_outbox(to_email, subject, html, text)
 
         try:
             context = ssl.create_default_context()
@@ -94,12 +146,9 @@ class EmailService:
                     server.login(settings.smtp_user, settings.smtp_password)
                     server.send_message(msg)
             logger.info("Sent %r to %s via SMTP", subject, to_email)
-            return True
+            return True, ""
         except Exception as exc:
-            logger.error("SMTP delivery to %s failed: %s", to_email, exc)
-            if settings.email_dev_fallback:
-                return self._write_to_outbox(to_email, subject, html, text, error=str(exc))
-            return False
+            return False, str(exc)
 
     def _write_to_outbox(
         self, to_email: str, subject: str, html: str, text: str, error: str = ""
