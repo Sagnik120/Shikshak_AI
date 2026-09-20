@@ -4,7 +4,7 @@ import {
   $, showAlert, hideAlert, setLoading, fieldError, clearFieldErrors,
   validatePassword, passwordScore, redirectIfSignedIn, wirePasswordToggle, toast,
 } from "../ui.js";
-import { wireOtpInputs, startCooldown } from "../otp.js";
+import { wireOtpInputs, startCooldown, showDevOtp } from "../otp.js";
 
 if (!redirectIfSignedIn()) {
   const params = new URLSearchParams(window.location.search);
@@ -28,7 +28,7 @@ if (!redirectIfSignedIn()) {
 
     const devOtp = sessionStorage.getItem("shikshak.devOtp");
     if (devOtp && devNotice) {
-      devNotice.textContent = `Your reset code is: ${devOtp}`;
+      showDevOtp(devNotice, devOtp);
       devNotice.hidden = false;
     }
 
@@ -86,7 +86,7 @@ if (!redirectIfSignedIn()) {
         const response = await api.resendOtp(email, "reset_password");
         toast("A new reset code is on its way.", "success");
         if (response.dev_otp && devNotice) {
-          devNotice.textContent = `Your reset code is: ${response.dev_otp}`;
+          showDevOtp(devNotice, response.dev_otp);
           devNotice.hidden = false;
         }
         otp.clear();

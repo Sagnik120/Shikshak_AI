@@ -150,15 +150,21 @@ class Settings:
 
     @property
     def expose_dev_otp(self) -> bool:
+        # Email delivery (SMTP/Resend) is deliberately not wired up for this
+        # demo, so the OTP is always shown on-screen unless someone explicitly
+        # turns this off with EXPOSE_DEV_OTP=false.
         if self._expose_dev_otp_override:
             return self._expose_dev_otp_override.lower() in ("1", "true", "yes", "on")
-        return not self.email_transport_configured
+        return True
 
     @property
     def enable_smtp_send(self) -> bool:
+        # Sending real email is opt-in now that the demo shows the OTP directly
+        # on-screen instead. ENABLE_SMTP_SEND=true still turns real delivery on
+        # for anyone who does configure SMTP/Resend later.
         if self._smtp_send_override:
             return self._smtp_send_override.lower() in ("1", "true", "yes", "on")
-        return self.email_transport_configured
+        return False
 
     @property
     def sender_address(self) -> str:

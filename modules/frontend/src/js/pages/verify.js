@@ -1,7 +1,7 @@
 /** Email verification: submit the OTP, then sign the learner straight in. */
 import { api, tokens, ApiError } from "../api.js";
 import { $, showAlert, hideAlert, setLoading, toast, redirectIfSignedIn } from "../ui.js";
-import { wireOtpInputs, startCooldown } from "../otp.js";
+import { wireOtpInputs, startCooldown, showDevOtp } from "../otp.js";
 
 if (!redirectIfSignedIn()) {
   const params = new URLSearchParams(window.location.search);
@@ -20,8 +20,7 @@ if (!redirectIfSignedIn()) {
 
     const devOtp = sessionStorage.getItem("shikshak.devOtp");
     if (devOtp && devNotice) {
-      devNotice.textContent = `Your verification code is: ${devOtp}`;
-      devNotice.hidden = false;
+      showDevOtp(devNotice, devOtp);
     }
 
     const otp = wireOtpInputs($("#otp-inputs"), () => submit());
@@ -65,8 +64,7 @@ if (!redirectIfSignedIn()) {
         const response = await api.resendOtp(email, "verify_email");
         toast("A new code is on its way.", "success");
         if (response.dev_otp && devNotice) {
-          devNotice.textContent = `Your verification code is: ${response.dev_otp}`;
-          devNotice.hidden = false;
+          showDevOtp(devNotice, response.dev_otp);
         }
         otp.clear();
         startCooldown(resendBtn, resendTimer, 60);

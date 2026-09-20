@@ -63,6 +63,27 @@ export function wireOtpInputs(container, onComplete) {
   };
 }
 
+/**
+ * Show a code directly on the page, clearly labelled as a demo shortcut.
+ *
+ * Real email delivery is intentionally not wired up for this deployment,
+ * so the account flow stays usable without an inbox: the code that would
+ * normally be emailed is shown here instead.
+ */
+export function showDevOtp(el, code) {
+  el.innerHTML = `
+    <strong>Demo mode — no email is actually sent.</strong>
+    <span style="display:block;margin-top:4px">
+      In a production deployment this code would arrive by email.
+      For this demo, here it is directly:
+    </span>
+    <span style="display:block;margin-top:8px;font-size:1.4rem;font-weight:700;
+                 letter-spacing:0.3em;font-family:'SF Mono',Menlo,Consolas,monospace">
+      ${code}
+    </span>`;
+  el.hidden = false;
+}
+
 /** Countdown that disables a resend button until the cooldown elapses. */
 export function startCooldown(button, label, seconds, onTick) {
   let remaining = seconds;
