@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Entrypoint for Hugging Face Spaces (Gradio SDK).
 
-Mounts the full Shikshak AI FastAPI platform and serves it on port 7860.
-The complete SPA (Landing, Auth, Dashboard, Classroom, etc.) runs on the root '/'.
-A companion Gradio interface is mounted on '/gradio'.
+Launches the Shikshak AI FastAPI platform on port 7860 with socket reuse
+and graceful port retry to avoid [Errno 98] address collision during container starts.
 """
 import os
 import sys
+import time
+import socket
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -19,33 +20,35 @@ for folder in ["data/storage", "data/media", "data/outbox", "chroma_db"]:
 import uvicorn
 from modules.backend.src.main import app
 
-try:
-    import gradio as gr
-
-    with gr.Blocks(title="Shikshak AI (शिक्षक AI)") as demo:
-        gr.Markdown(
-            """
-            # 🎓 Shikshak AI (शिक्षक AI)
-            **Autonomous, Multimodal AI Educator with Real-Time Pedagogical Adaptation & Viseme Lip-Synced Video Instruction**
-
-            The full interactive platform is running on the main interface:
-            👉 [**Open Shikshak AI Full Application**](/)
-            """
-        )
-
-    # Mount Gradio at /gradio so root '/' remains our custom Vanilla JS SPA
-    app = gr.mount_gradio_app(app, demo, path="/gradio")
-except Exception as err:
-    print(f"Notice: Gradio wrapper skipped ({err}). Serving raw FastAPI application.")
+def wait_for_port(port: int = 7860, max_retries: int = 6) -> int:
+    """Wait for socket to be free from TIME_WAIT states before launching."""
+    for i in range(max_retries):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            s.bind(("0.0.0.0", port))
+            s.close()
+            return port
+        except OSError as e:
+            s.close()
+            print(f"Port {port} busy ({e}), waiting for socket release (attempt {i+1}/{max_retries})...")
+            time.sleep(2)
+    return port
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 7860))
+    target_port = int(os.getenv("PORT", os.getenv("GRADIO_SERVER_PORT", 7860)))
+    port = wait_for_port(target_port)
+
     print(f"\n========================================================")
-    print(f"  Shikshak AI — Launching on Hugging Face Spaces (Port {port})")
+    print(f"  Shikshak AI — Binding server to 0.0.0.0:{port}")
     print(f"========================================================\n")
-    uvicorn.run(
-        app,
+
+    config = uvicorn.Config(
+        app=app,
         host="0.0.0.0",
         port=port,
         timeout_keep_alive=75,
+        log_level="info",
     )
+    server = uvicorn.Server(config)
+    server.run()
