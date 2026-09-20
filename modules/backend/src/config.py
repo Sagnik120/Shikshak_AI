@@ -150,11 +150,8 @@ class Settings:
 
     @property
     def expose_dev_otp(self) -> bool:
-        # Email delivery (SMTP/Resend) is deliberately not wired up for this
-        # demo, so the OTP is always shown on-screen unless someone explicitly
-        # turns this off with EXPOSE_DEV_OTP=false.
-        if self._expose_dev_otp_override:
-            return self._expose_dev_otp_override.lower() in ("1", "true", "yes", "on")
+        # The OTP is always shown directly on-screen in the web portal for this
+        # demo, so dev_otp is always returned regardless of environment flags.
         return True
 
     @property

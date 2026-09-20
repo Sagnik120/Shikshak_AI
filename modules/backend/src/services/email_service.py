@@ -196,7 +196,9 @@ class EmailService:
             f"It expires in {settings.otp_ttl_min} minutes.\n\n"
             "If you did not sign up, ignore this email."
         )
-        return self.send(to_email, f"{code} is your Shikshak AI verification code", html, text)
+        # OTP is displayed directly in the web portal for the demo.
+        # Do not send real email/Gmail; record in dev outbox/logs only.
+        return self._write_to_outbox(to_email, f"{code} is your Shikshak AI verification code", html, text)
 
     def send_password_reset_otp(self, to_email: str, full_name: str, code: str) -> bool:
         first = (full_name or "there").split()[0]
@@ -213,7 +215,9 @@ class EmailService:
             f"It expires in {settings.otp_ttl_min} minutes.\n\n"
             "If you did not request this, ignore this email."
         )
-        return self.send(to_email, f"{code} is your Shikshak AI password reset code", html, text)
+        # OTP is displayed directly in the web portal for the demo.
+        # Do not send real email/Gmail; record in dev outbox/logs only.
+        return self._write_to_outbox(to_email, f"{code} is your Shikshak AI password reset code", html, text)
 
     def send_password_changed_notice(self, to_email: str, full_name: str) -> bool:
         first = (full_name or "there").split()[0]
