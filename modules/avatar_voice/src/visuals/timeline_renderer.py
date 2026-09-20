@@ -4,6 +4,7 @@ Renders sequential progression steps, chronological milestones, and stage tracke
 """
 
 import json
+import logging
 import os
 import uuid
 from typing import Any, Dict, List, Union
@@ -11,12 +12,22 @@ from PIL import Image, ImageDraw
 from modules.avatar_voice.src.models import VisualRenderResult
 from modules.avatar_voice.src.visuals.base import BaseRenderer, THEME
 
+logger = logging.getLogger(__name__)
+
 
 class TimelineRenderer(BaseRenderer):
     """Renders horizontal milestone sequences and chronological progressions."""
 
     def render(self, visual_spec: Union[Dict[str, Any], Any]) -> VisualRenderResult:
-        content = visual_spec.get("content") if isinstance(visual_spec, dict) else visual_spec
+        content = (
+            visual_spec.get("content")
+            if isinstance(visual_spec, dict)
+            # A VisualSpec model arrives here, not a dict: without the
+            # attribute lookup the whole object became "content", no
+            # branch below matched it, and every board fell through to
+            # placeholder labels.
+            else getattr(visual_spec, "content", visual_spec)
+        )
         session_id = uuid.uuid4().hex[:8]
         output_path = os.path.join(self.output_dir, f"timeline_{session_id}.png")
 
@@ -36,13 +47,24 @@ class TimelineRenderer(BaseRenderer):
             except Exception:
                 events = [{"step": f"Stage {i+1}", "label": l.strip()} for i, l in enumerate(content.split("\n")) if l.strip()]
 
+        # The dict branch above passes `events` through exactly as supplied, so a
+        # plain list of strings used to reach the drawing loop and crash on
+        # event.get(). Normalise every shape to a dict here, once.
+        events = [
+            e if isinstance(e, dict) else {"label": str(e), "step": f"Step {i + 1}"}
+            for i, e in enumerate(events)
+            if (e if not isinstance(e, str) else e.strip())
+        ]
+
         if not events:
-            events = [
-                {"step": "Step 1", "label": "Problem Formulation"},
-                {"step": "Step 2", "label": "Feature Extraction"},
-                {"step": "Step 3", "label": "Model Optimization"},
-                {"step": "Step 4", "label": "Evaluation & Deployment"},
-            ]
+            # Sample milestones ("Problem Formulation", "Feature Extraction")
+            # rendered whenever the spec was unusable, putting content from
+            # another subject on the board. The concept title is always topical.
+            logger.warning(
+                "Timeline spec had no usable events; falling back to a title-only card for %r",
+                title,
+            )
+            events = [{"step": "", "label": title}]
 
         img, draw = self.create_canvas(title=title, subtitle="Sequential Milestone Roadmap")
 

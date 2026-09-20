@@ -16,7 +16,15 @@ class MapRenderer(BaseRenderer):
     """Renders geographical schematics, spatial regions, and coordinate point maps."""
 
     def render(self, visual_spec: Union[Dict[str, Any], Any]) -> VisualRenderResult:
-        content = visual_spec.get("content") if isinstance(visual_spec, dict) else visual_spec
+        content = (
+            visual_spec.get("content")
+            if isinstance(visual_spec, dict)
+            # A VisualSpec model arrives here, not a dict: without the
+            # attribute lookup the whole object became "content", no
+            # branch below matched it, and every board fell through to
+            # placeholder labels.
+            else getattr(visual_spec, "content", visual_spec)
+        )
         session_id = uuid.uuid4().hex[:8]
         output_path = os.path.join(self.output_dir, f"map_{session_id}.png")
 

@@ -201,7 +201,10 @@ class GeminiLLMAdapter(LLMAdapter):
                     "parts": [{"text": content}]
                 })
 
-        params = {"key": self.api_key}
+        # The key goes in a header, never the query string: httpx logs the full
+        # request URL at INFO, so ?key=... wrote the secret into the server log
+        # (and into Render's retained logs) on every single call.
+        headers = {"x-goog-api-key": self.api_key}
         payload: Dict[str, Any] = {
             "contents": contents,
             "generationConfig": {
@@ -223,7 +226,7 @@ class GeminiLLMAdapter(LLMAdapter):
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent"
             try:
                 with httpx.Client(timeout=REQUEST_TIMEOUT_SEC) as client:
-                    resp = client.post(url, params=params, json=payload)
+                    resp = client.post(url, headers=headers, json=payload)
                     resp.raise_for_status()
                     data = resp.json()
                     candidates = data.get("candidates", [])
