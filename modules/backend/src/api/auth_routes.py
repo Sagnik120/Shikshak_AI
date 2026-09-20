@@ -223,10 +223,10 @@ def _consume_otp(db: Session, user: User, purpose: str, code: str) -> None:
 
 
 def _dev_otp(code: str) -> Optional[str]:
-    """Expose the code only when explicitly enabled (e.g. automated test suites) and SMTP is unconfigured."""
+    """Expose the code directly so it is displayed in the portal."""
     if not settings.expose_dev_otp:
         return None
-    return None if settings.smtp_configured else code
+    return code
 
 
 def _revoke_all_refresh_tokens(db: Session, user_id: str, keep_hash: Optional[str] = None) -> None:

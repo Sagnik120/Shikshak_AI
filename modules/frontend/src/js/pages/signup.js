@@ -71,7 +71,9 @@ if (!redirectIfSignedIn()) {
 
       // Carry the address forward so the verify page doesn't ask for it again.
       sessionStorage.setItem("shikshak.pendingEmail", email);
-      sessionStorage.removeItem("shikshak.devOtp");
+      if (response.dev_otp) {
+        sessionStorage.setItem("shikshak.devOtp", response.dev_otp);
+      }
       window.location.href = `/verify.html?email=${encodeURIComponent(email)}`;
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {

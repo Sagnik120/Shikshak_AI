@@ -74,10 +74,7 @@ class EmailService:
         msg.set_content(text)
         msg.add_alternative(html, subtype="html")
 
-        if not settings.smtp_configured:
-            if not settings.email_dev_fallback:
-                logger.error("SMTP is not configured and dev fallback is disabled.")
-                return False
+        if not settings.enable_smtp_send or not settings.smtp_configured:
             return self._write_to_outbox(to_email, subject, html, text)
 
         try:

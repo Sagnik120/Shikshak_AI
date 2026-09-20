@@ -73,8 +73,8 @@ if (!redirectIfSignedIn()) {
         sessionStorage.setItem("shikshak.pendingEmail", email);
         showAlert(alertBox, `${error.message} Taking you there now…`, "warning");
         try {
-          await api.resendOtp(email, "verify_email");
-          sessionStorage.removeItem("shikshak.devOtp");
+          const resent = await api.resendOtp(email, "verify_email");
+          if (resent.dev_otp) sessionStorage.setItem("shikshak.devOtp", resent.dev_otp);
         } catch {
           /* the verify page offers a resend button anyway */
         }

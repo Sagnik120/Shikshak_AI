@@ -12,6 +12,7 @@ if (!redirectIfSignedIn()) {
 
   const form = $("#reset-form");
   const alertBox = $("#form-alert");
+  const devNotice = $("#dev-notice");
   const submitBtn = $("#submit-btn");
   const passwordInput = $("#password");
   const confirmInput = $("#confirm");
@@ -24,7 +25,12 @@ if (!redirectIfSignedIn()) {
   } else {
     $("#target-email").textContent = email;
     wirePasswordToggle($("#toggle-password"), passwordInput);
-    sessionStorage.removeItem("shikshak.devOtp");
+
+    const devOtp = sessionStorage.getItem("shikshak.devOtp");
+    if (devOtp && devNotice) {
+      devNotice.textContent = `Your reset code is: ${devOtp}`;
+      devNotice.hidden = false;
+    }
 
     const otp = wireOtpInputs($("#otp-inputs"), () => passwordInput.focus());
     otp.focus();
@@ -79,6 +85,10 @@ if (!redirectIfSignedIn()) {
       try {
         const response = await api.resendOtp(email, "reset_password");
         toast("A new reset code is on its way.", "success");
+        if (response.dev_otp && devNotice) {
+          devNotice.textContent = `Your reset code is: ${response.dev_otp}`;
+          devNotice.hidden = false;
+        }
         otp.clear();
         startCooldown(resendBtn, resendTimer, 60);
       } catch (error) {

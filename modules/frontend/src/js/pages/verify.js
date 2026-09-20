@@ -8,6 +8,7 @@ if (!redirectIfSignedIn()) {
   const email = params.get("email") || sessionStorage.getItem("shikshak.pendingEmail") || "";
 
   const alertBox = $("#form-alert");
+  const devNotice = $("#dev-notice");
   const submitBtn = $("#submit-btn");
   const resendBtn = $("#resend-btn");
   const resendTimer = $("#resend-timer");
@@ -17,7 +18,12 @@ if (!redirectIfSignedIn()) {
   } else {
     $("#target-email").textContent = email;
 
-    sessionStorage.removeItem("shikshak.devOtp");
+    const devOtp = sessionStorage.getItem("shikshak.devOtp");
+    if (devOtp && devNotice) {
+      devNotice.textContent = `Your verification code is: ${devOtp}`;
+      devNotice.hidden = false;
+    }
+
     const otp = wireOtpInputs($("#otp-inputs"), () => submit());
     otp.focus();
     startCooldown(resendBtn, resendTimer, 60);
@@ -58,6 +64,10 @@ if (!redirectIfSignedIn()) {
       try {
         const response = await api.resendOtp(email, "verify_email");
         toast("A new code is on its way.", "success");
+        if (response.dev_otp && devNotice) {
+          devNotice.textContent = `Your verification code is: ${response.dev_otp}`;
+          devNotice.hidden = false;
+        }
         otp.clear();
         startCooldown(resendBtn, resendTimer, 60);
       } catch (error) {
