@@ -567,19 +567,22 @@
   #lesson-title { display: none; }
 }
 
-.stage-caption {
-  padding: var(--sp-4) var(--sp-5);
-  background: var(--bg-elevated);
-  border-bottom: 1px solid var(--border);
-  font-size: var(--text-base);
-  line-height: 1.65;
-  color: var(--text-muted);
-  max-height: 168px;
-  overflow-y: auto;
-}
-.stage-caption strong { color: var(--text); }
-
 .stage-panels { padding: var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-4); }
+
+/* Chapter + class notes. The transcript stays collapsed so the notes read as
+   notes, not as a wall of the script that is already being spoken. */
+#chapter-notes h3 { line-height: 1.3; word-break: break-word; }
+#notes-formula { font-family: var(--font-mono, ui-monospace, Menlo, monospace); overflow-x: auto; }
+#notes-points li, #notes-example { font-size: var(--text-sm); }
+#notes-transcript, #lesson-notes-list { max-height: 40vh; overflow-y: auto; }
+
+@media (max-width: 640px) {
+  .stage-panels { padding: var(--sp-4); gap: var(--sp-3); }
+  #chapter-notes h3 { font-size: var(--text-md); }
+  #notes-formula { font-size: 1.05rem; padding: var(--sp-2); }
+  #lesson-notes .row-between { align-items: flex-start; }
+  #download-notes { width: 100%; }
+}
 
 /* Checkpoint question */
 .checkpoint {

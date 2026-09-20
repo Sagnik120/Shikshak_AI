@@ -66,12 +66,10 @@
       </div>
     </div>
 
-    <div class="stage-caption" id="caption">
-      <span class="subtle">The teacher's script will appear here as each concept is taught.</span>
-    </div>
+    <div class="stage-panels">
 
     <!-- Chapter notes for the concept being taught -->
-    <section class="card card-pad" id="chapter-notes" hidden style="margin-top:var(--sp-4)">
+    <section class="card card-pad" id="chapter-notes" hidden>
       <div class="row-between row-wrap" style="align-items:baseline;gap:var(--sp-2)">
         <h3 id="notes-concept" style="margin:0;font-size:var(--text-lg)"></h3>
         <span>
@@ -93,8 +91,6 @@
         <p id="notes-transcript" style="margin-top:var(--sp-3);line-height:1.7;font-size:var(--text-sm)"></p>
       </details>
     </section>
-
-    <div class="stage-panels">
 
       <!-- Checkpoint question -->
       <section class="checkpoint" id="checkpoint" hidden aria-live="polite">
@@ -123,6 +119,15 @@
       <section class="card card-pad" id="citation" hidden>
         <div class="section-label" style="margin-bottom:6px">From your material</div>
         <p id="citation-text" style="font-size:var(--text-sm);line-height:1.6"></p>
+      </section>
+
+      <!-- Notes collected across the whole lesson -->
+      <section class="card card-pad" id="lesson-notes" hidden>
+        <div class="row-between row-wrap" style="gap:var(--sp-3)">
+          <div class="section-label" style="margin:0">Your notes for this class</div>
+          <button class="btn btn-ghost btn-sm" id="download-notes" type="button">Download notes</button>
+        </div>
+        <div id="lesson-notes-list" style="margin-top:var(--sp-3)"></div>
       </section>
 
       <!-- Live event log -->

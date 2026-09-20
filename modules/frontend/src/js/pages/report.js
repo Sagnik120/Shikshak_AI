@@ -46,13 +46,31 @@ if (user && !lessonId) {
           ${lesson.completed_at ? `completed ${escapeHtml(formatDate(lesson.completed_at))}` : "in progress"}
         </p>
       </div>
-      ${
-        lesson.status !== "completed"
-          ? `<a class="btn btn-primary" href="/classroom.html?lesson=${encodeURIComponent(
-              lesson.id
-            )}">Resume lesson</a>`
-          : `<a class="btn btn-secondary" href="/new-lesson.html">Study something new</a>`
-      }`;
+      <div class="row row-wrap" style="gap:var(--sp-2)">
+        <button class="btn btn-secondary" type="button" data-action="download-notes">Download notes</button>
+        ${
+          lesson.status !== "completed"
+            ? `<a class="btn btn-primary" href="/classroom.html?lesson=${encodeURIComponent(
+                lesson.id
+              )}">Resume lesson</a>`
+            : `<a class="btn btn-secondary" href="/new-lesson.html">Study something new</a>`
+        }
+      </div>`;
+
+    // The notes are built server-side from what was actually taught, so the
+    // learner keeps the class even after the lesson is closed.
+    node.querySelector('[data-action="download-notes"]').addEventListener("click", async (event) => {
+      const button = event.currentTarget;
+      button.disabled = true;
+      try {
+        await api.downloadNotes(lesson.id, lesson.title);
+        toast("Notes saved to your downloads.", "success");
+      } catch (error) {
+        toast(`Couldn't download your notes: ${error.message}`, "error");
+      } finally {
+        button.disabled = false;
+      }
+    });
     return node;
   }
 

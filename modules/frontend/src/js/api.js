@@ -288,6 +288,29 @@ export const api = {
    * Authenticated media needs its Authorization header, so it can't go
    * straight into a <video src>. Fetch it and hand back an object URL.
    */
+  /** Download the lesson's notes as a Markdown file the learner can keep. */
+  async downloadNotes(lessonId, title) {
+    const response = await fetch(
+      `${API_BASE}/lessons/${encodeURIComponent(lessonId)}/notes?format=markdown&download=true`,
+      { headers: { Authorization: `Bearer ${tokens.access}` } },
+    );
+    if (!response.ok) throw new ApiError("Could not build your notes.", response.status, null);
+    const blob = await response.blob();
+    const href = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = href;
+    link.download = `${(title || "lesson").replace(/[^\w \-]/g, "").slice(0, 80)} - notes.md`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    // Revoked on the next tick so the download has already started.
+    setTimeout(() => URL.revokeObjectURL(href), 1000);
+  },
+
+  lessonNotes(lessonId) {
+    return request(`/lessons/${encodeURIComponent(lessonId)}/notes`);
+  },
+
   async mediaObjectUrl(url) {
     const response = await fetch(url.startsWith("http") ? url : `${window.location.origin}${url}`, {
       headers: { Authorization: `Bearer ${tokens.access}` },

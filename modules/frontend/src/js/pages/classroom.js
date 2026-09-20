@@ -21,7 +21,6 @@ if (user && !lessonId) {
     overlayTitle: $("#overlay-title"),
     overlayBody: $("#overlay-body"),
     video: $("#video"),
-    caption: $("#caption"),
     nodeList: $("#node-list"),
     progressBar: $("#progress-bar"),
     progressLabel: $("#progress-label"),
@@ -45,6 +44,9 @@ if (user && !lessonId) {
     notesExampleWrap: $("#notes-example-wrap"),
     notesExample: $("#notes-example"),
     notesTranscript: $("#notes-transcript"),
+    lessonNotes: $("#lesson-notes"),
+    lessonNotesList: $("#lesson-notes-list"),
+    downloadNotes: $("#download-notes"),
     log: $("#event-log"),
   };
 
@@ -57,6 +59,8 @@ if (user && !lessonId) {
     questionShownAt: 0,
     objectUrls: [],
     closedByUs: false,
+    // One entry per concept taught, in order, for the class notes panel.
+    collectedNotes: [],
   };
 
   const QUESTION_KIND = {
@@ -345,15 +349,77 @@ if (user && !lessonId) {
     dom.notes.hidden = false;
   }
 
+  /** Keep one entry per concept so the class notes build up as it is taught. */
+  function collectNotes(payload) {
+    const points = (payload.notes?.key_points || []).filter(Boolean);
+    const entry = {
+      node_id: payload.node_id,
+      concept: payload.concept || payload.title || "Concept",
+      key_points: points.length ? points : sentenceFallback(payload.script_text).slice(0, 3),
+      example: payload.notes?.example || "",
+    };
+    // A re-taught concept replaces its earlier notes rather than duplicating it.
+    const at = state.collectedNotes.findIndex((n) => n.node_id === entry.node_id);
+    if (at >= 0) state.collectedNotes[at] = entry;
+    else state.collectedNotes.push(entry);
+    renderLessonNotes();
+  }
+
+  function renderLessonNotes() {
+    clear(dom.lessonNotesList);
+    state.collectedNotes.forEach((entry, index) => {
+      const block = el("div", { style: index ? "margin-top:var(--sp-4)" : "" });
+      block.append(
+        el("div", { style: "font-weight:650;font-size:var(--text-sm)" }, `${index + 1}. ${entry.concept}`)
+      );
+      const list = el("ul", { style: "margin:4px 0 0;padding-left:1.1rem;line-height:1.6;font-size:var(--text-sm)" });
+      entry.key_points.forEach((point) => list.append(el("li", {}, point)));
+      block.append(list);
+      if (entry.example) {
+        block.append(
+          el("p", { class: "subtle", style: "margin:6px 0 0;font-size:var(--text-sm)" }, `Example: ${entry.example}`)
+        );
+      }
+      dom.lessonNotesList.append(block);
+    });
+    dom.lessonNotes.hidden = state.collectedNotes.length === 0;
+  }
+
+  /** After a reload, the notes already taught come back from the server. */
+  async function restoreNotes() {
+    try {
+      const saved = await api.lessonNotes(lessonId);
+      state.collectedNotes = (saved.notes || []).map((n) => ({
+        node_id: n.node_id,
+        concept: n.concept,
+        key_points: (n.key_points || []).length
+          ? n.key_points
+          : sentenceFallback(n.script_text).slice(0, 3),
+        example: n.example || "",
+      }));
+      renderLessonNotes();
+    } catch {
+      // Notes are a convenience; a failed restore must not stop the lesson.
+    }
+  }
+
+  dom.downloadNotes.addEventListener("click", async () => {
+    dom.downloadNotes.disabled = true;
+    try {
+      await api.downloadNotes(lessonId, dom.title.textContent);
+      toast("Notes saved to your downloads.", "success");
+    } catch (error) {
+      toast(`Couldn't download your notes: ${error.message}`, "error");
+    } finally {
+      dom.downloadNotes.disabled = false;
+    }
+  });
+
   /* ---------------------------------------------------------------------
      Video
      --------------------------------------------------------------------- */
 
   async function playSegment(payload) {
-    dom.caption.innerHTML = `<strong>${escapeHtml(payload.title || "")}</strong><br>${escapeHtml(
-      payload.script_text || ""
-    )}`;
-
     if (!payload.video_url) {
       showOverlay(payload.title || "Concept", payload.script_text || "");
       return;
@@ -397,7 +463,10 @@ if (user && !lessonId) {
       dom.title.textContent = payload.title;
       document.title = `${payload.title} — Shikshak AI`;
       log(payload.resumed ? "Resumed your lesson where you left off" : "Lesson started");
-      if (payload.resumed) toast("Resuming from where you left off.", "info");
+      if (payload.resumed) {
+        toast("Resuming from where you left off.", "info");
+        restoreNotes();
+      }
     },
 
     curriculum_loaded(payload) {
@@ -436,10 +505,8 @@ if (user && !lessonId) {
     explanation_chunk(payload) {
       dismissCheckpoint();
       state.currentNodeId = payload.node_id;
-      dom.caption.innerHTML = `<strong>${escapeHtml(payload.title || "")}</strong><br>${escapeHtml(
-        payload.script_text || ""
-      )}`;
       showChapterNotes(payload);
+      collectNotes(payload);
       showOverlay(payload.concept || "", "Rendering the video for this concept…");
       log(`Explaining: ${payload.concept}`);
     },
@@ -464,7 +531,36 @@ if (user && !lessonId) {
     },
 
     citation_updated(payload) {
-      dom.citationText.textContent = payload.excerpt || "";
+      // Provenance comes from retrieval metadata, so it names the file, the
+      // page or section, and how well grounded this concept actually was.
+      if (!payload.excerpt) {
+        dom.citationText.innerHTML =
+          '<span class="subtle">No matching document context — teaching this concept from general knowledge.</span>';
+        dom.citation.hidden = false;
+        return;
+      }
+
+      const where = [
+        payload.section_title,
+        payload.page_or_slide ? `page ${payload.page_or_slide}` : "",
+      ].filter(Boolean).join(" · ");
+
+      const weak = payload.risk_level && payload.risk_level !== "low";
+      dom.citationText.innerHTML = `
+        <span class="badge ${weak ? "badge-amber" : "badge-green"}" style="margin-bottom:6px">
+          ${weak ? "Loosely grounded" : "Grounded in your material"}
+        </span>
+        <span style="display:block;font-weight:600;margin-top:6px">${escapeHtml(
+          payload.source_title || "Your document"
+        )}${where ? ` — ${escapeHtml(where)}` : ""}</span>
+        <span style="display:block;margin-top:6px">${escapeHtml(payload.excerpt)}</span>
+        ${
+          payload.chunk_count
+            ? `<span class="subtle" style="display:block;margin-top:6px">${payload.chunk_count} passage${
+                payload.chunk_count === 1 ? "" : "s"
+              } used for this concept</span>`
+            : ""
+        }`;
       dom.citation.hidden = false;
     },
 
