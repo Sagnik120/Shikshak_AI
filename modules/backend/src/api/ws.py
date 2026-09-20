@@ -158,6 +158,9 @@ class LiveSession:
                 "script_text": script_text,
                 "visual_spec": _as_dict(getattr(segment, "visual_spec", None)),
                 "avatar_cue": getattr(segment, "avatar_cue", "neutral"),
+                "notes": _as_dict(getattr(segment, "notes", None)) or None,
+                "depth": getattr(node, "depth", None),
+                "est_minutes": getattr(node, "est_minutes", None),
             },
         )
 

@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Union
 from PIL import Image, ImageDraw
 from modules.avatar_voice.src.models import VisualRenderResult
 from modules.avatar_voice.src.visuals.base import BaseRenderer, THEME
+from modules.avatar_voice.src.visuals.latex_sanitizer import sanitize_latex, to_plain_text
 
 
 class EquationRenderer(BaseRenderer):
@@ -19,13 +20,13 @@ class EquationRenderer(BaseRenderer):
         content = visual_spec.get("content") if isinstance(visual_spec, dict) else getattr(visual_spec, "content", str(visual_spec))
         steps = visual_spec.get("steps") if isinstance(visual_spec, dict) else getattr(visual_spec, "steps", None)
 
-        latex_str = str(content).strip() if content else "E = mc^2"
+        latex_str = sanitize_latex(content) or "E = mc^2"
         session_id = uuid.uuid4().hex[:8]
 
         # Check for progressive steps
         step_list = []
         if steps and isinstance(steps, list) and len(steps) > 0:
-            step_list = [str(s).strip() for s in steps if str(s).strip()]
+            step_list = [sanitize_latex(s) for s in steps if sanitize_latex(s)]
         elif "\n" in latex_str and len([l for l in latex_str.split("\n") if l.strip()]) > 1:
             # Multi-line derivation provided in content
             step_list = [l.strip() for l in latex_str.split("\n") if l.strip()]
@@ -240,7 +241,8 @@ class EquationRenderer(BaseRenderer):
             if not formatted_latex.startswith("$"):
                 formatted_latex = f"${formatted_latex}$"
 
-            fontsize = 36 if len(latex_str) < 30 else (26 if len(latex_str) < 70 else 20)
+            # The board is 1344px wide and read at video scale; 36pt was unreadable.
+            fontsize = 72 if len(latex_str) < 30 else (52 if len(latex_str) < 70 else 34)
 
             ax.text(
                 0.5,
@@ -261,11 +263,15 @@ class EquationRenderer(BaseRenderer):
             rendered = False
 
         if not rendered:
-            img, draw = self.create_canvas(title="Mathematical Formula", subtitle="Equation Specification")
-            font = self._get_font(32, bold=True)
+            # mathtext could not parse it. Show a Unicode rendering rather than
+            # putting backslashes on the board.
+            plain = to_plain_text(latex_str) or latex_str
+            img, draw = self.create_canvas(title=title or "Mathematical Formula", subtitle="")
+            font = self._get_font(96 if len(plain) < 24 else (72 if len(plain) < 40 else 48), bold=True)
             cx, cy = self.width // 2, (self.height + 140) // 2
-            draw.rounded_rectangle([cx - 350, cy - 80, cx + 350, cy + 80], radius=12, fill=(15, 23, 42, 255), outline=THEME["accent_cyan"], width=3)
-            draw.text((cx, cy), latex_str, fill=THEME["accent_cyan"], font=font, anchor="mm")
-            font_note = self._get_font(16)
-            draw.text((cx, cy + 110), "(Formal mathematical expression)", fill=THEME["text_muted"], font=font_note, anchor="mm")
+            draw.rounded_rectangle(
+                [100, cy - 150, self.width - 100, cy + 150],
+                radius=16, fill=(15, 23, 42, 255), outline=THEME["accent_cyan"], width=3,
+            )
+            draw.text((cx, cy), plain, fill=THEME["accent_cyan"], font=font, anchor="mm")
             img.save(output_path, "PNG")

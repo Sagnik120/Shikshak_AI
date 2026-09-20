@@ -161,3 +161,10 @@ Before completing your response, verify:
 ### [Phase 13] Production Certification & Official Demo Recording — PLANNED
 - **Status**: PLANNED
 - **Next Immediate Step**: 3–7 minute end-to-end classroom recording and submission sign-off.
+
+### [Task Phase 1+2] Lesson length, chapter notes, board relevance — IMPLEMENTED
+- **CCR-1 used**: `TeachingSegment.notes {key_points, example}` added as an *optional* field, so old payloads and the mock adapter stay valid. Contract otherwise untouched.
+- **CCR-2 not needed**: a citation carrier already exists (`citation_updated` over WS, `lesson_service.record_citation`).
+- **Already implemented before this pass, so skipped**: 1.D assessment (backend emits `assessment_report`, frontend redirects to `report.html` with real data), checkpoint gating (the question is only sent after the render completes), the hardcoded-biology-chip and AI-Inspector defects (they live in the old `tests/web_test` UI, not the production frontend).
+- **Deferred**: 1.A richer provenance (page/section/risk badge) — retrieval returns plain strings, so chunk metadata would need a `rag_client` change; 2.D avatar PiP framing and the blue-badge hunt.
+- **Needs live run**: video duration vs. target words, and the rendered boards in a real lesson — `HUMAN LIVE TEST REQUIRED`.

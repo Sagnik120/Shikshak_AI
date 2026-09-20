@@ -45,17 +45,20 @@ class BaseRenderer:
         img = Image.new("RGBA", (self.width, self.height), THEME["bg"])
         draw = ImageDraw.Draw(img)
 
-        draw.rectangle([40, 30, self.width - 40, 120], fill=THEME["card_bg"], outline=THEME["card_border"], width=2)
-        draw.rounded_rectangle([45, 35, 55, 115], radius=4, fill=THEME["accent_cyan"])
+        # The header used to be a 90px strip of 28px text, illegible at video
+        # scale. Title >=44px, subtitle only when it says something.
+        header_bottom = 160 if subtitle else 130
+        draw.rectangle([40, 30, self.width - 40, header_bottom], fill=THEME["card_bg"], outline=THEME["card_border"], width=2)
+        draw.rounded_rectangle([45, 35, 59, header_bottom - 5], radius=6, fill=THEME["accent_cyan"])
 
-        font_title = self._get_font(28, bold=True)
-        draw.text((70, 48), title or "Concept Explanation", fill=THEME["text_main"], font=font_title)
+        font_title = self._get_font(46, bold=True)
+        draw.text((80, 52), title or "Concept Explanation", fill=THEME["text_main"], font=font_title)
 
         if subtitle:
-            font_sub = self._get_font(18)
-            draw.text((70, 84), subtitle, fill=THEME["text_muted"], font=font_sub)
+            font_sub = self._get_font(28)
+            draw.text((80, 112), subtitle, fill=THEME["text_muted"], font=font_sub)
 
-        draw.rectangle([40, 140, self.width - 40, self.height - 40], fill=THEME["card_bg"], outline=THEME["card_border"], width=2)
+        draw.rectangle([40, header_bottom + 20, self.width - 40, self.height - 40], fill=THEME["card_bg"], outline=THEME["card_border"], width=2)
 
         return img, draw
 

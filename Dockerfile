@@ -22,14 +22,10 @@ COPY . .
 # SQLite, uploads and rendered media all live here — mount a volume to persist.
 RUN mkdir -p data/storage data/media data/outbox chroma_db
 
-EXPOSE 8000
+EXPOSE 8000 7860
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=3 \
-  CMD curl -fsS http://localhost:8000/health || exit 1
+  CMD curl -fsS http://localhost:${PORT:-8000}/health || exit 1
 
-# One worker: the teaching FSM keeps per-lesson state in process memory, and a
-# second worker would not see it. Scale by running more instances behind a
-# session-affine proxy rather than by adding workers here.
-CMD ["uvicorn", "modules.backend.src.main:app", \
-     "--host", "0.0.0.0", "--port", "8000", \
-     "--workers", "1", "--timeout-keep-alive", "75"]
+# Launch using the preflight server script which reads $PORT dynamically (HF Spaces uses 7860, Render uses $PORT)
+CMD ["python", "scripts/run_server.py"]

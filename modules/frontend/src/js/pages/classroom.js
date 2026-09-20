@@ -36,6 +36,15 @@ if (user && !lessonId) {
     feedback: $("#feedback"),
     citation: $("#citation"),
     citationText: $("#citation-text"),
+    notes: $("#chapter-notes"),
+    notesConcept: $("#notes-concept"),
+    notesDepth: $("#notes-depth"),
+    notesMinutes: $("#notes-minutes"),
+    notesFormula: $("#notes-formula"),
+    notesPoints: $("#notes-points"),
+    notesExampleWrap: $("#notes-example-wrap"),
+    notesExample: $("#notes-example"),
+    notesTranscript: $("#notes-transcript"),
     log: $("#event-log"),
   };
 
@@ -274,6 +283,69 @@ if (user && !lessonId) {
   }
 
   /* ---------------------------------------------------------------------
+     Chapter notes
+     --------------------------------------------------------------------- */
+
+  const GREEK = {
+    "\\Sigma": "Σ", "\\sum": "Σ", "\\Delta": "Δ", "\\delta": "δ", "\\alpha": "α",
+    "\\beta": "β", "\\theta": "θ", "\\pi": "π", "\\mu": "μ", "\\omega": "ω",
+    "\\cdot": "·", "\\times": "×", "\\div": "÷", "\\pm": "±", "\\approx": "≈",
+    "\\leq": "≤", "\\geq": "≥", "\\neq": "≠", "\\rightarrow": "→", "\\infty": "∞",
+  };
+
+  /** Turn LaTeX into readable plain text — a backslash must never reach the page. */
+  function plainMath(raw) {
+    let s = String(raw || "").trim();
+    s = s.replace(/```[a-z]*|```/g, "").replace(/^latex:\s*/i, "");
+    s = s.replace(/\\\\/g, "\\");
+    s = s.replace(/^\$\$|\$\$$/g, "").replace(/^\$|\$$/g, "");
+    s = s.replace(/\\\((.*?)\\\)/gs, "$1").replace(/\\\[(.*?)\\\]/gs, "$1");
+    s = s.replace(/\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, "($1)/($2)");
+    s = s.replace(/\\vec\s*\{([^{}]*)\}/g, "$1⃗").replace(/\\(?:text|mathrm)\s*\{([^{}]*)\}/g, "$1");
+    for (const [tex, glyph] of Object.entries(GREEK)) s = s.split(tex).join(glyph);
+    s = s.replace(/\\[a-zA-Z]+/g, "").replace(/[{}]/g, "");
+    return s.replace(/\s+/g, " ").trim();
+  }
+
+  /** First sentences of the script, used when the model returned no notes. */
+  function sentenceFallback(script) {
+    return String(script || "")
+      .split(/(?<=[.!?])\s+/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 4);
+  }
+
+  function showChapterNotes(payload) {
+    const notes = payload.notes || {};
+    dom.notesConcept.textContent = payload.concept || payload.title || "This concept";
+
+    dom.notesDepth.textContent = payload.depth || "";
+    dom.notesDepth.hidden = !payload.depth;
+    dom.notesMinutes.textContent = payload.est_minutes ? `${payload.est_minutes} min` : "";
+    dom.notesMinutes.hidden = !payload.est_minutes;
+
+    const visual = payload.visual_spec || {};
+    const formula =
+      visual.type === "equation" && typeof visual.content === "string"
+        ? plainMath(visual.content)
+        : "";
+    dom.notesFormula.textContent = formula;
+    dom.notesFormula.hidden = !formula;
+
+    const points = (notes.key_points || []).filter(Boolean);
+    const bullets = points.length ? points : sentenceFallback(payload.script_text);
+    clear(dom.notesPoints);
+    bullets.forEach((point) => dom.notesPoints.appendChild(el("li", {}, point)));
+
+    dom.notesExample.textContent = notes.example || "";
+    dom.notesExampleWrap.hidden = !notes.example;
+
+    dom.notesTranscript.textContent = payload.script_text || "";
+    dom.notes.hidden = false;
+  }
+
+  /* ---------------------------------------------------------------------
      Video
      --------------------------------------------------------------------- */
 
@@ -367,6 +439,7 @@ if (user && !lessonId) {
       dom.caption.innerHTML = `<strong>${escapeHtml(payload.title || "")}</strong><br>${escapeHtml(
         payload.script_text || ""
       )}`;
+      showChapterNotes(payload);
       showOverlay(payload.concept || "", "Rendering the video for this concept…");
       log(`Explaining: ${payload.concept}`);
     },

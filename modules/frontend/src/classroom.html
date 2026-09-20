@@ -70,6 +70,30 @@
       <span class="subtle">The teacher's script will appear here as each concept is taught.</span>
     </div>
 
+    <!-- Chapter notes for the concept being taught -->
+    <section class="card card-pad" id="chapter-notes" hidden style="margin-top:var(--sp-4)">
+      <div class="row-between row-wrap" style="align-items:baseline;gap:var(--sp-2)">
+        <h3 id="notes-concept" style="margin:0;font-size:var(--text-lg)"></h3>
+        <span>
+          <span class="badge" id="notes-depth" hidden></span>
+          <span class="badge" id="notes-minutes" hidden></span>
+        </span>
+      </div>
+      <div id="notes-formula" hidden
+           style="margin-top:var(--sp-3);padding:var(--sp-3);border-radius:8px;
+                  background:var(--panel-alt,#1A2540);text-align:center;font-size:1.25rem"></div>
+      <div class="section-label" style="margin-top:var(--sp-4)">Key points</div>
+      <ul id="notes-points" style="margin:6px 0 0;padding-left:1.1rem;line-height:1.7"></ul>
+      <div id="notes-example-wrap" hidden>
+        <div class="section-label" style="margin-top:var(--sp-4)">Example</div>
+        <p id="notes-example" style="margin:6px 0 0;line-height:1.7"></p>
+      </div>
+      <details style="margin-top:var(--sp-4)">
+        <summary style="cursor:pointer;font-size:var(--text-sm);font-weight:600">Full transcript</summary>
+        <p id="notes-transcript" style="margin-top:var(--sp-3);line-height:1.7;font-size:var(--text-sm)"></p>
+      </details>
+    </section>
+
     <div class="stage-panels">
 
       <!-- Checkpoint question -->
