@@ -16,6 +16,16 @@ sys.path.insert(0, str(ROOT))
 for folder in ["data/storage", "data/media", "data/outbox", "chroma_db"]:
     (ROOT / folder).mkdir(parents=True, exist_ok=True)
 
+# Satisfy Hugging Face ZeroGPU startup probe if hardware has ZeroGPU enabled
+try:
+    import spaces
+
+    @spaces.GPU(duration=1)
+    def _hf_zerogpu_probe():
+        return None
+except Exception:
+    pass
+
 import uvicorn
 
 if __name__ == "__main__":
