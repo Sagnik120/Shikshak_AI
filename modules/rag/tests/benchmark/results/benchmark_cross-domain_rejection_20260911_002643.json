@@ -1,0 +1,102 @@
+{
+  "suite_name": "Cross-Domain Rejection",
+  "config": {
+    "top_k": 5,
+    "relevance_threshold": 0.5001,
+    "confidence_threshold": 0.52
+  },
+  "num_queries": 4,
+  "metrics": {
+    "precision_at_k": 0.0,
+    "recall_at_k": 1.0,
+    "mrr": 0.0,
+    "ndcg_at_k": 1.0,
+    "risk_accuracy": 0.75
+  },
+  "latency": {
+    "p50_ms": 578.32,
+    "p95_ms": 5582.3,
+    "p99_ms": 6288.7,
+    "mean_ms": 2047.99,
+    "throughput_qps": 0.49
+  },
+  "stage_breakdown": {},
+  "per_query": [
+    {
+      "query_text": "What were the main causes of World War 2?",
+      "expected_chunk_ids": [],
+      "retrieved_chunk_ids": [],
+      "retrieved_scores": [],
+      "latency_ms": 6465.3,
+      "risk_level": "high_hallucination_risk",
+      "expected_risk_level": "high_hallucination_risk",
+      "has_sufficient_context": false,
+      "precision_at_k": 0.0,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 0.0,
+      "ndcg_at_k": 1.0,
+      "risk_match": true,
+      "perf_stages": {}
+    },
+    {
+      "query_text": "How to make pasta carbonara recipe",
+      "expected_chunk_ids": [],
+      "retrieved_chunk_ids": [],
+      "retrieved_scores": [],
+      "latency_ms": 569.99,
+      "risk_level": "high_hallucination_risk",
+      "expected_risk_level": "high_hallucination_risk",
+      "has_sufficient_context": false,
+      "precision_at_k": 0.0,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 0.0,
+      "ndcg_at_k": 1.0,
+      "risk_match": true,
+      "perf_stages": {}
+    },
+    {
+      "query_text": "Python programming loops and functions tutorial",
+      "expected_chunk_ids": [],
+      "retrieved_chunk_ids": [
+        "chunk_bench_ph_0004",
+        "chunk_bench_ph_0005",
+        "chunk_bench_ph_0001",
+        "chunk_bench_ph_0008",
+        "chunk_bench_ph_0003"
+      ],
+      "retrieved_scores": [
+        0.5002,
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "latency_ms": 578.64,
+      "risk_level": "moderate_relevance",
+      "expected_risk_level": "high_hallucination_risk",
+      "has_sufficient_context": true,
+      "precision_at_k": 0.0,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 0.0,
+      "ndcg_at_k": 1.0,
+      "risk_match": false,
+      "perf_stages": {}
+    },
+    {
+      "query_text": "Best investment strategies for 2024 stock market",
+      "expected_chunk_ids": [],
+      "retrieved_chunk_ids": [],
+      "retrieved_scores": [],
+      "latency_ms": 578.01,
+      "risk_level": "high_hallucination_risk",
+      "expected_risk_level": "high_hallucination_risk",
+      "has_sufficient_context": false,
+      "precision_at_k": 0.0,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 0.0,
+      "ndcg_at_k": 1.0,
+      "risk_match": true,
+      "perf_stages": {}
+    }
+  ]
+}
