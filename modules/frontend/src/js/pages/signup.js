@@ -71,10 +71,7 @@ if (!redirectIfSignedIn()) {
 
       // Carry the address forward so the verify page doesn't ask for it again.
       sessionStorage.setItem("shikshak.pendingEmail", email);
-      if (response.dev_otp) {
-        // Only present while SMTP is unconfigured, so a local demo isn't blocked.
-        sessionStorage.setItem("shikshak.devOtp", response.dev_otp);
-      }
+      sessionStorage.removeItem("shikshak.devOtp");
       window.location.href = `/verify.html?email=${encodeURIComponent(email)}`;
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {

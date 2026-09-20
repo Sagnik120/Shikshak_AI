@@ -12,7 +12,6 @@ if (!redirectIfSignedIn()) {
 
   const form = $("#reset-form");
   const alertBox = $("#form-alert");
-  const devNotice = $("#dev-notice");
   const submitBtn = $("#submit-btn");
   const passwordInput = $("#password");
   const confirmInput = $("#confirm");
@@ -25,12 +24,7 @@ if (!redirectIfSignedIn()) {
   } else {
     $("#target-email").textContent = email;
     wirePasswordToggle($("#toggle-password"), passwordInput);
-
-    const devOtp = sessionStorage.getItem("shikshak.devOtp");
-    if (devOtp) {
-      devNotice.textContent = `Email delivery isn't configured on this server, so here is your code: ${devOtp}`;
-      devNotice.hidden = false;
-    }
+    sessionStorage.removeItem("shikshak.devOtp");
 
     const otp = wireOtpInputs($("#otp-inputs"), () => passwordInput.focus());
     otp.focus();
@@ -85,10 +79,6 @@ if (!redirectIfSignedIn()) {
       try {
         const response = await api.resendOtp(email, "reset_password");
         toast("A new reset code is on its way.", "success");
-        if (response.dev_otp) {
-          devNotice.textContent = `Email delivery isn't configured on this server, so here is your code: ${response.dev_otp}`;
-          devNotice.hidden = false;
-        }
         otp.clear();
         startCooldown(resendBtn, resendTimer, 60);
       } catch (error) {

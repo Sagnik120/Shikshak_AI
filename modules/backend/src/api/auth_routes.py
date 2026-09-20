@@ -223,7 +223,9 @@ def _consume_otp(db: Session, user: User, purpose: str, code: str) -> None:
 
 
 def _dev_otp(code: str) -> Optional[str]:
-    """Expose the code only when SMTP is unconfigured, so demos aren't blocked."""
+    """Expose the code only when explicitly enabled (e.g. automated test suites) and SMTP is unconfigured."""
+    if not settings.expose_dev_otp:
+        return None
     return None if settings.smtp_configured else code
 
 

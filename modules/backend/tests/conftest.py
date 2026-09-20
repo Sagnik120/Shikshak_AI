@@ -12,6 +12,7 @@ os.environ["SECRET_KEY"] = "test-secret-key-not-used-in-production"
 os.environ["MEDIA_ROOT"] = str(_TMP / "media")
 os.environ["UPLOAD_ROOT"] = str(_TMP / "uploads")
 os.environ["EMAIL_DEV_FALLBACK"] = "true"
+os.environ["EXPOSE_DEV_OTP"] = "true"
 os.environ["SMTP_USER"] = ""
 os.environ["SMTP_PASSWORD"] = ""
 os.environ["OTP_RESEND_COOLDOWN_SEC"] = "0"

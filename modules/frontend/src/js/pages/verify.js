@@ -8,7 +8,6 @@ if (!redirectIfSignedIn()) {
   const email = params.get("email") || sessionStorage.getItem("shikshak.pendingEmail") || "";
 
   const alertBox = $("#form-alert");
-  const devNotice = $("#dev-notice");
   const submitBtn = $("#submit-btn");
   const resendBtn = $("#resend-btn");
   const resendTimer = $("#resend-timer");
@@ -18,14 +17,7 @@ if (!redirectIfSignedIn()) {
   } else {
     $("#target-email").textContent = email;
 
-    // With SMTP unconfigured the server hands back the code so the flow is
-    // still completable; surface it rather than leaving the learner stuck.
-    const devOtp = sessionStorage.getItem("shikshak.devOtp");
-    if (devOtp) {
-      devNotice.textContent = `Email delivery isn't configured on this server, so here is your code: ${devOtp}`;
-      devNotice.hidden = false;
-    }
-
+    sessionStorage.removeItem("shikshak.devOtp");
     const otp = wireOtpInputs($("#otp-inputs"), () => submit());
     otp.focus();
     startCooldown(resendBtn, resendTimer, 60);
@@ -66,10 +58,6 @@ if (!redirectIfSignedIn()) {
       try {
         const response = await api.resendOtp(email, "verify_email");
         toast("A new code is on its way.", "success");
-        if (response.dev_otp) {
-          devNotice.textContent = `Email delivery isn't configured on this server, so here is your code: ${response.dev_otp}`;
-          devNotice.hidden = false;
-        }
         otp.clear();
         startCooldown(resendBtn, resendTimer, 60);
       } catch (error) {

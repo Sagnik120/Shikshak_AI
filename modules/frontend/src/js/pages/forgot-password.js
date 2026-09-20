@@ -29,7 +29,7 @@ if (!redirectIfSignedIn()) {
     try {
       const response = await api.forgotPassword(email);
       sessionStorage.setItem("shikshak.pendingEmail", email);
-      if (response.dev_otp) sessionStorage.setItem("shikshak.devOtp", response.dev_otp);
+      sessionStorage.removeItem("shikshak.devOtp");
 
       showAlert(alertBox, `${response.message} Taking you to the next step…`, "success");
       setTimeout(

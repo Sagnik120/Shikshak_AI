@@ -83,6 +83,7 @@ class Settings:
     otp_ttl_min: int = _int("OTP_TTL_MIN", 10)
     otp_max_attempts: int = _int("OTP_MAX_ATTEMPTS", 5)
     otp_resend_cooldown_sec: int = _int("OTP_RESEND_COOLDOWN_SEC", 60)
+    expose_dev_otp: bool = _bool("EXPOSE_DEV_OTP", False)
 
     # --- Account lockout ---
     max_failed_logins: int = _int("MAX_FAILED_LOGINS", 8)
