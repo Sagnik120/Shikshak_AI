@@ -3,7 +3,7 @@ import { api, tokens } from "../api.js";
 import {
   $, $$, el, clear, escapeHtml, icon, toast, requireAuth, mountHeader,
   showAlert, hideAlert, setLoading, fieldError, clearFieldErrors,
-  validatePassword, passwordScore, wirePasswordToggle, confirmDialog,
+  validatePassword, validateEmail, passwordScore, wirePasswordToggle, confirmDialog,
   formatRelative, formatDate,
 } from "../ui.js";
 
@@ -75,6 +75,8 @@ if (user) {
   $("#email-display").value = profile.email;
   $("#grade").value = profile.grade || "";
   $("#board").value = profile.board || "";
+  $("#mentor_name").value = profile.mentor_name || "";
+  $("#mentor_email").value = profile.mentor_email || "";
   paintAvatar();
 
   $("#profile-form").addEventListener("submit", async (event) => {
@@ -90,13 +92,27 @@ if (user) {
       return;
     }
 
+    const mentorEmail = $("#mentor_email").value.trim();
+    if (mentorEmail) {
+      const mentorEmailError = validateEmail(mentorEmail);
+      if (mentorEmailError) {
+        fieldError($("#mentor_email"), mentorEmailError);
+        return;
+      }
+    }
+
     setLoading(button, true);
     try {
-      const updated = await api.updateProfile({
+      const payload = {
         full_name: fullName,
         grade: $("#grade").value || null,
         board: $("#board").value || null,
-      });
+        mentor_name: $("#mentor_name").value.trim() || null,
+      };
+      // The backend drops null fields on update, so a mentor email can only be
+      // set here, not cleared — acceptable for this demo's scope.
+      if (mentorEmail) payload.mentor_email = mentorEmail;
+      const updated = await api.updateProfile(payload);
       profile = updated;
       tokens.saveUser(updated);
       paintAvatar();

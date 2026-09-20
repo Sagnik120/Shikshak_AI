@@ -675,3 +675,36 @@ button, input, select, textarea {
 .brand:hover { text-decoration: none; }
 .brand-mark { width: 28px; height: 28px; flex-shrink: 0; }
 .brand .ai { color: var(--teal-600); }
+
+/* -------------------------------------------------------------------------
+   Page loader — a brand-consistent overlay shown on every navigation/reload
+   so first paint never feels like a blank flash. Hidden by an inline script
+   right after this markup, independent of module-script timing.
+   ------------------------------------------------------------------------- */
+
+.page-loader {
+  position: fixed; inset: 0; z-index: 9999;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: var(--sp-4);
+  background: var(--bg);
+  transition: opacity 0.4s var(--ease), visibility 0.4s var(--ease);
+}
+.page-loader[data-hide] { opacity: 0; visibility: hidden; pointer-events: none; }
+
+.page-loader-mark {
+  width: 56px; height: 56px;
+  animation: loader-spin 1.6s linear infinite;
+}
+.page-loader-mark circle:last-child { animation: loader-blink 1.6s ease-in-out infinite; transform-origin: center; }
+@keyframes loader-spin { to { transform: rotate(360deg); } }
+@keyframes loader-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+.page-loader-label {
+  font-size: var(--text-sm); font-weight: 700; letter-spacing: -0.02em;
+  color: var(--text-subtle);
+}
+.page-loader-label .ai { color: var(--teal-600); }
+
+@media (prefers-reduced-motion: reduce) {
+  .page-loader-mark, .page-loader-mark circle:last-child { animation: none; }
+}

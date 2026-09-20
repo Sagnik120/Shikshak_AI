@@ -102,6 +102,8 @@ def _user_out(user: User) -> UserOut:
         grade=user.grade,
         board=user.board,
         avatar_color=user.avatar_color,
+        mentor_name=user.mentor_name,
+        mentor_email=user.mentor_email,
         created_at=user.created_at,
         last_login_at=user.last_login_at,
     )
@@ -275,6 +277,8 @@ def signup(
         existing.board = payload.board
         existing.preferred_language = payload.preferred_language
         existing.preferred_level = payload.preferred_level
+        existing.mentor_name = payload.mentor_name
+        existing.mentor_email = payload.mentor_email
         user = existing
     else:
         user = User(
@@ -285,6 +289,8 @@ def signup(
             board=payload.board,
             preferred_language=payload.preferred_language,
             preferred_level=payload.preferred_level,
+            mentor_name=payload.mentor_name,
+            mentor_email=payload.mentor_email,
         )
         db.add(user)
         db.flush()

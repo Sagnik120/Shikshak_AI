@@ -134,7 +134,11 @@
 }
 @media (min-width: 640px) { .auth-panel { padding: var(--sp-10) var(--sp-8); } }
 
-.auth-card { width: 100%; max-width: 400px; margin-inline: auto; }
+.auth-card {
+  width: 100%; max-width: 400px; margin-inline: auto;
+  animation: hero-rise 0.5s var(--ease) both;
+}
+@media (prefers-reduced-motion: reduce) { .auth-card { animation: none; } }
 .auth-card > header { margin-bottom: var(--sp-6); }
 .auth-card h1 { font-size: var(--text-2xl); margin-bottom: 6px; }
 .auth-card header p { color: var(--text-muted); font-size: var(--text-base); }
@@ -194,6 +198,23 @@
     radial-gradient(ellipse 70% 50% at 50% -8%, var(--accent-soft), transparent),
     radial-gradient(ellipse 50% 40% at 88% 12%, var(--teal-100), transparent);
   opacity: 0.85;
+}
+
+/* Landing content eases in once the page loader clears, so the hero never
+   just "pops" into a static page — it reads as one continuous entrance. */
+.hero-eyebrow, .hero h1, .hero-lede, .hero-cta, .hero-trust {
+  animation: hero-rise 0.7s var(--ease) both;
+}
+.hero h1 { animation-delay: 0.06s; }
+.hero-lede { animation-delay: 0.12s; }
+.hero-cta { animation-delay: 0.18s; }
+.hero-trust { animation-delay: 0.24s; }
+@keyframes hero-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-eyebrow, .hero h1, .hero-lede, .hero-cta, .hero-trust { animation: none; }
 }
 
 .hero-eyebrow {
@@ -583,6 +604,33 @@
   #lesson-notes .row-between { align-items: flex-start; }
   #download-notes { width: 100%; }
 }
+
+/* Adaptation status banner — one component for MODIFY/REGENERATE/HUMAN so the
+   copy and state can never drift from what the backend actually decided. */
+.adaptation-banner {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-5);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  animation: modal-in 0.25s var(--ease);
+}
+.adaptation-banner[hidden] { display: none; }
+.adaptation-banner[data-kind="modify"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.adaptation-banner[data-kind="regenerate"] { border-color: var(--amber-500); background: var(--amber-100); color: var(--amber-600); }
+.adaptation-banner[data-kind="human"] { border-color: var(--rose-500); background: var(--rose-100); color: var(--rose-600); }
+
+.adaptation-spinner {
+  width: 18px; height: 18px; flex-shrink: 0;
+  border-radius: 50%;
+  border: 2.5px solid currentColor;
+  border-top-color: transparent;
+  opacity: 0.85;
+  animation: spin 0.7s linear infinite;
+}
+.adaptation-icon { flex-shrink: 0; font-size: 18px; line-height: 1; }
 
 /* Checkpoint question */
 .checkpoint {

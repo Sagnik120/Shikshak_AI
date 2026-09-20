@@ -7,12 +7,14 @@ from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 
 from modules.ai_agent_orchestration.src.state_machine.states import TeacherState
+from modules.backend.src.config import settings
 from modules.backend.src.db.base import SessionLocal
 from modules.backend.src.db.models import Interaction, Lesson, User, utcnow
 from modules.backend.src.schemas.contract import StudentResponse
 from modules.backend.src.schemas.ws import WSMessage
 from modules.backend.src.security import decode_token
 from modules.backend.src.services import lesson_service
+from modules.backend.src.services.email_service import email_service
 from modules.backend.src.services.session_manager import session_manager
 
 logger = logging.getLogger(__name__)
@@ -377,17 +379,73 @@ class LiveSession:
     async def _do_escalation(self) -> None:
         self.lesson.status = "escalated"
         self.lesson.fsm_state = "HUMAN_ESCALATION"
-        lesson_service.log_event(self.db, self.lesson, "human_escalation")
+        node = session_manager.current_node(self.lesson)
+        node_id = getattr(node, "node_id", None) or ""
+        reason = (
+            "This concept needs a human teacher — the same misconception "
+            "persisted across several attempts."
+        )
+
+        lesson_service.log_event(self.db, self.lesson, "human_escalation", node_id=node_id)
         lesson_service.refresh_learner_profile(self.db, self.user_id)
         self.commit()
+
+        mentor_notified = await self._run(self._notify_mentor, node_id, reason)
+
         await self.send(
             "human_escalation",
             {
-                "reason": "This concept needs a human teacher — the same misconception "
-                "persisted across several attempts.",
+                "reason": reason,
                 "lesson_id": self.lesson.id,
+                "mentor_notified": mentor_notified,
             },
         )
+
+    def _notify_mentor(self, node_id: str, reason: str) -> bool:
+        """Best-effort mentor email. Never allowed to break the escalation itself.
+
+        Runs on the executor thread (blocking SMTP/HTTPS call), guarded by an
+        idempotency check so a reconnect never sends a second email for the
+        same node.
+        """
+        user = self.db.get(User, self.user_id)
+        if not user or not user.mentor_email:
+            logger.info("HUMAN escalation on lesson %s has no mentor on file; email skipped.", self.lesson.id)
+            return False
+
+        if lesson_service.already_notified_mentor(self.db, self.lesson, node_id):
+            logger.info("Mentor already notified for lesson %s node %s; skipping duplicate.", self.lesson.id, node_id)
+            return True
+
+        interaction = lesson_service.latest_interaction(self.db, self.lesson, node_id)
+        node = session_manager.current_node(self.lesson)
+        concept = getattr(node, "concept", None) or node_id or "this concept"
+
+        try:
+            sent = email_service.send_mentor_escalation(
+                to_email=user.mentor_email,
+                mentor_name=user.mentor_name or "there",
+                student_name=user.full_name,
+                lesson_title=self.lesson.title,
+                concept=concept,
+                question_text=getattr(interaction, "question_text", "") or "",
+                student_answer=getattr(interaction, "raw_answer", "") or "",
+                misconception=getattr(interaction, "misconception_tag", "") or "",
+                failure_count=lesson_service.failure_count(self.db, self.lesson, node_id),
+                reason=reason,
+                report_url=f"{settings.public_base_url}/report.html?lesson={self.lesson.id}",
+            )
+        except Exception:
+            # Escalation must never fail because the mailer did. The student
+            # still sees "your mentor has been notified" is handled by the
+            # False return, not by raising here.
+            logger.exception("Mentor escalation email failed for lesson %s", self.lesson.id)
+            sent = False
+
+        if sent:
+            lesson_service.log_event(self.db, self.lesson, "mentor_notified", node_id=node_id)
+            self.commit()
+        return sent
 
     # -- helpers -------------------------------------------------------------
 

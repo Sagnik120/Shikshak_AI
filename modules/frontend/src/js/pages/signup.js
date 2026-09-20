@@ -48,6 +48,15 @@ if (!redirectIfSignedIn()) {
       fieldError(passwordInput, passwordError);
       firstInvalid ??= passwordInput;
     }
+
+    const mentorEmail = $("#mentor_email").value.trim();
+    if (mentorEmail) {
+      const mentorEmailError = validateEmail(mentorEmail);
+      if (mentorEmailError) {
+        fieldError($("#mentor_email"), mentorEmailError);
+        firstInvalid ??= $("#mentor_email");
+      }
+    }
     if (!$("#terms").checked) {
       showAlert(alertBox, "Please accept the storage notice to continue.", "warning");
       firstInvalid ??= $("#terms");
@@ -67,6 +76,8 @@ if (!redirectIfSignedIn()) {
         grade: $("#grade").value || null,
         board: $("#board").value || null,
         preferred_language: $("#preferred_language").value,
+        mentor_name: $("#mentor_name").value.trim() || null,
+        mentor_email: mentorEmail || null,
       });
 
       // Carry the address forward so the verify page doesn't ask for it again.

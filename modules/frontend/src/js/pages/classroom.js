@@ -44,6 +44,10 @@ if (user && !lessonId) {
     notesExampleWrap: $("#notes-example-wrap"),
     notesExample: $("#notes-example"),
     notesTranscript: $("#notes-transcript"),
+    adaptationBanner: $("#adaptation-banner"),
+    adaptationSpinner: $("#adaptation-spinner"),
+    adaptationIcon: $("#adaptation-icon"),
+    adaptationText: $("#adaptation-text"),
     lessonNotes: $("#lesson-notes"),
     lessonNotesList: $("#lesson-notes-list"),
     downloadNotes: $("#download-notes"),
@@ -61,6 +65,8 @@ if (user && !lessonId) {
     closedByUs: false,
     // One entry per concept taught, in order, for the class notes panel.
     collectedNotes: [],
+    // Dedupe key for the adaptation banner so a reconnect/resend can't stack it.
+    lastAdaptationKey: null,
   };
 
   const QUESTION_KIND = {
@@ -349,6 +355,65 @@ if (user && !lessonId) {
     dom.notes.hidden = false;
   }
 
+  /* ---------------------------------------------------------------------
+     Adaptation status — one banner mapped 1:1 to the backend's own decision.
+     --------------------------------------------------------------------- */
+
+  const ADAPTATION_COPY = {
+    MODIFY: {
+      kind: "modify",
+      text: "Let's try another explanation.",
+      spinning: true,
+    },
+    REGENERATE: {
+      kind: "regenerate",
+      text: "Let's rethink this topic and create a new explanation.",
+      spinning: true,
+    },
+    HUMAN: {
+      kind: "human",
+      text: "Your mentor has been notified.",
+      spinning: false,
+      icon: "🧑‍🏫",
+    },
+  };
+
+  function showAdaptationBanner(action, key) {
+    const copy = ADAPTATION_COPY[action];
+    if (!copy) {
+      hideAdaptationBanner();
+      return;
+    }
+    // Keyed by node + action so a WS reconnect or resend can't stack a second
+    // identical banner on top of the one already shown.
+    if (state.lastAdaptationKey === key) return;
+    state.lastAdaptationKey = key;
+
+    dom.adaptationBanner.dataset.kind = copy.kind;
+    dom.adaptationText.textContent = copy.text;
+    dom.adaptationSpinner.hidden = !copy.spinning;
+    dom.adaptationIcon.hidden = !copy.icon;
+    dom.adaptationIcon.textContent = copy.icon || "";
+    dom.adaptationBanner.hidden = false;
+
+    clearTimeout(state.adaptationTimeout);
+    // A MODIFY/REGENERATE reply that never arrives must not leave the student
+    // staring at "Let's try another explanation" forever with no signal.
+    if (copy.spinning) {
+      state.adaptationTimeout = setTimeout(() => {
+        if (state.lastAdaptationKey === key) {
+          dom.adaptationText.textContent = "Still working on this — hang tight…";
+        }
+      }, 20000);
+    }
+  }
+
+  function hideAdaptationBanner() {
+    state.lastAdaptationKey = null;
+    clearTimeout(state.adaptationTimeout);
+    dom.adaptationBanner.hidden = true;
+  }
+
   /** Keep one entry per concept so the class notes build up as it is taught. */
   function collectNotes(payload) {
     const points = (payload.notes?.key_points || []).filter(Boolean);
@@ -504,6 +569,7 @@ if (user && !lessonId) {
 
     explanation_chunk(payload) {
       dismissCheckpoint();
+      hideAdaptationBanner();
       state.currentNodeId = payload.node_id;
       showChapterNotes(payload);
       collectNotes(payload);
@@ -577,14 +643,12 @@ if (user && !lessonId) {
     },
 
     adaptation_decision(payload) {
-      const messages = {
-        ALLOW: "Moving on to the next concept.",
-        MODIFY: "Re-teaching this concept a different way.",
-        REGENERATE: "Rebuilding the rest of the lesson plan.",
-        HUMAN: "Flagging this for a human teacher.",
-      };
       log(`Adaptation: ${payload.action} — ${payload.reason}`);
-      if (payload.action !== "ALLOW") toast(messages[payload.action], "info", 5000);
+      if (payload.action === "ALLOW") {
+        hideAdaptationBanner();
+        return;
+      }
+      showAdaptationBanner(payload.action, `${payload.target_node_id || state.currentNodeId}:${payload.action}`);
     },
 
     assessment_report(payload) {
@@ -599,9 +663,13 @@ if (user && !lessonId) {
     human_escalation(payload) {
       state.closedByUs = true;
       setStatus("Paused");
+      showAdaptationBanner("HUMAN", `${state.currentNodeId}:HUMAN`);
+      // The HUMAN copy is fixed regardless of whether the email actually sent
+      // (e.g. no mentor on file) — the student's experience is the same
+      // either way, and the mentor-notified detail is for the mentor, not them.
       showOverlay("This one needs a human teacher", payload.reason);
       dom.checkpoint.hidden = true;
-      log("Escalated to a human teacher");
+      log(payload.mentor_notified ? "Escalated — mentor notified by email" : "Escalated to a human teacher");
     },
 
     pong() {},

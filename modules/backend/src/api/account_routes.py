@@ -44,6 +44,8 @@ def _user_out(user: User) -> UserOut:
         grade=user.grade,
         board=user.board,
         avatar_color=user.avatar_color,
+        mentor_name=user.mentor_name,
+        mentor_email=user.mentor_email,
         created_at=user.created_at,
         last_login_at=user.last_login_at,
     )

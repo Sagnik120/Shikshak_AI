@@ -307,6 +307,37 @@ def record_adaptation(db: Session, lesson: Lesson, interaction: Interaction, dec
     db.flush()
 
 
+def latest_interaction(db: Session, lesson: Lesson, node_id: str) -> Optional[Interaction]:
+    """Most recent question/answer for a node — the one that triggered escalation."""
+    return db.scalars(
+        select(Interaction)
+        .where(Interaction.lesson_id == lesson.id, Interaction.node_id == node_id)
+        .order_by(Interaction.asked_at.desc())
+    ).first()
+
+
+def failure_count(db: Session, lesson: Lesson, node_id: str) -> int:
+    """How many consecutive wrong/partial attempts led to this escalation."""
+    return db.scalar(
+        select(func.count(Interaction.id)).where(
+            Interaction.lesson_id == lesson.id,
+            Interaction.node_id == node_id,
+            Interaction.correct.is_(False),
+        )
+    ) or 0
+
+
+def already_notified_mentor(db: Session, lesson: Lesson, node_id: str) -> bool:
+    """Idempotency check: one mentor email per node per lesson, not per retry/reconnect."""
+    return db.scalars(
+        select(LessonEvent).where(
+            LessonEvent.lesson_id == lesson.id,
+            LessonEvent.event_type == "mentor_notified",
+            LessonEvent.node_id == node_id,
+        )
+    ).first() is not None
+
+
 def advance_node(db: Session, lesson: Lesson, node_index: int) -> None:
     lesson.current_node_index = node_index
     lesson.fsm_state = "CONTINUE"

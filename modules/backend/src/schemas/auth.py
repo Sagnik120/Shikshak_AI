@@ -13,6 +13,10 @@ class SignupRequest(BaseModel):
     board: Optional[str] = Field(default=None, max_length=40)
     preferred_language: str = Field(default="en", max_length=10)
     preferred_level: Literal["beginner", "intermediate", "advanced"] = "beginner"
+    # Optional at signup: a mentor (parent/guardian/tutor) notified by email if
+    # the learner repeatedly struggles with a concept and the FSM escalates.
+    mentor_name: Optional[str] = Field(default=None, max_length=120)
+    mentor_email: Optional[EmailStr] = Field(default=None)
 
     @field_validator("full_name")
     @classmethod
@@ -71,6 +75,8 @@ class UserOut(BaseModel):
     grade: Optional[str] = None
     board: Optional[str] = None
     avatar_color: str
+    mentor_name: Optional[str] = None
+    mentor_email: Optional[str] = None
     created_at: datetime
     last_login_at: Optional[datetime] = None
 
@@ -99,6 +105,8 @@ class UpdateProfileRequest(BaseModel):
     preferred_style: Optional[str] = Field(default=None, max_length=40)
     default_time_budget_min: Optional[int] = Field(default=None, ge=5, le=120)
     avatar_color: Optional[str] = Field(default=None, pattern=r"^#[0-9A-Fa-f]{6}$")
+    mentor_name: Optional[str] = Field(default=None, max_length=120)
+    mentor_email: Optional[EmailStr] = Field(default=None)
 
 
 class SessionOut(BaseModel):

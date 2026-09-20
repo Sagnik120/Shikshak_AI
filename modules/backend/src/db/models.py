@@ -69,6 +69,12 @@ class User(Base, TimestampMixin):
     # are rejected immediately, without depending on second-granular clocks.
     token_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
 
+    # One predefined mentor per student (parent/guardian/tutor), notified by
+    # email on a HUMAN escalation. A join table would be over-engineering for
+    # a 1:1 relationship with no mentor-side login of its own.
+    mentor_name: Mapped[Optional[str]] = mapped_column(String(120))
+    mentor_email: Mapped[Optional[str]] = mapped_column(String(320))
+
     lessons: Mapped[list["Lesson"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )

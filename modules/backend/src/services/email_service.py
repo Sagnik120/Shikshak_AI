@@ -1,4 +1,5 @@
 """Transactional email delivery over SMTP, with a file-based dev transport."""
+import html
 import json
 import logging
 import smtplib
@@ -253,6 +254,79 @@ class EmailService:
             f"Start learning: {settings.public_base_url}/dashboard.html"
         )
         return self.send(to_email, "Welcome to Shikshak AI", html, text)
+
+    def send_mentor_escalation(
+        self,
+        to_email: str,
+        mentor_name: str,
+        student_name: str,
+        lesson_title: str,
+        concept: str,
+        question_text: str,
+        student_answer: str,
+        misconception: str,
+        failure_count: int,
+        reason: str,
+        report_url: str,
+    ) -> bool:
+        """One escalation email with just enough context for a mentor to act.
+
+        Deliberately excludes anything not needed to act on this concept: no
+        auth tokens, no other students' data, no full document contents.
+        """
+        first = (mentor_name or "there").split()[0]
+        # Student-authored/LLM-generated text (answer, question, concept) is
+        # untrusted by the time it reaches an email client — escape it so it
+        # can't inject markup into the mentor's inbox.
+        e_student = html.escape(student_name)
+        e_lesson = html.escape(lesson_title)
+        e_concept = html.escape(concept)
+        e_question = html.escape(question_text)
+        e_answer = html.escape(student_answer) if student_answer else ""
+        e_misconception = html.escape(misconception) if misconception else ""
+        rows = f"""\
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">
+  <tr><td style="padding:8px 0;border-bottom:1px solid #eceff6;color:#8b93ad;font-size:13px;width:38%">Lesson</td>
+      <td style="padding:8px 0;border-bottom:1px solid #eceff6;color:#141c3c;font-size:14px;font-weight:600">{e_lesson}</td></tr>
+  <tr><td style="padding:8px 0;border-bottom:1px solid #eceff6;color:#8b93ad;font-size:13px">Concept</td>
+      <td style="padding:8px 0;border-bottom:1px solid #eceff6;color:#141c3c;font-size:14px;font-weight:600">{e_concept}</td></tr>
+  <tr><td style="padding:8px 0;border-bottom:1px solid #eceff6;color:#8b93ad;font-size:13px">Question asked</td>
+      <td style="padding:8px 0;border-bottom:1px solid #eceff6;color:#141c3c;font-size:14px">{e_question}</td></tr>
+  <tr><td style="padding:8px 0;border-bottom:1px solid #eceff6;color:#8b93ad;font-size:13px">{e_student}'s answer</td>
+      <td style="padding:8px 0;border-bottom:1px solid #eceff6;color:#141c3c;font-size:14px">{e_answer or "(no answer submitted)"}</td></tr>
+  <tr><td style="padding:8px 0;border-bottom:1px solid #eceff6;color:#8b93ad;font-size:13px">Likely misconception</td>
+      <td style="padding:8px 0;border-bottom:1px solid #eceff6;color:#141c3c;font-size:14px">{e_misconception or "Not classified"}</td></tr>
+  <tr><td style="padding:8px 0;color:#8b93ad;font-size:13px">Consecutive attempts</td>
+      <td style="padding:8px 0;color:#141c3c;font-size:14px;font-weight:600">{failure_count}</td></tr>
+</table>"""
+        cta = f"""\
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 8px;">
+  <tr><td style="background:{BRAND};border-radius:10px;">
+    <a href="{report_url}" style="display:inline-block;padding:13px 26px;color:#fff;text-decoration:none;font-weight:600;font-size:15px;">
+       View the lesson</a>
+  </td></tr>
+</table>"""
+        html = _shell(
+            f"{e_student} could use your help",
+            f"Hi {html.escape(first)}, Shikshak AI paused {e_student}'s lesson and needs a human teacher. "
+            f"{html.escape(escape_reason(reason))}",
+            rows + cta,
+            "This is a one-time notice for this concept — you won't be emailed again for the "
+            "same struggle unless the student tries a fresh lesson.",
+        )
+        text = (
+            f"Hi {first},\n\n{student_name} needs your help in \"{lesson_title}\".\n\n"
+            f"Concept: {concept}\nQuestion: {question_text}\n"
+            f"{student_name}'s answer: {student_answer or '(no answer submitted)'}\n"
+            f"Likely misconception: {misconception or 'Not classified'}\n"
+            f"Consecutive attempts: {failure_count}\nReason: {reason}\n\n"
+            f"View the lesson: {report_url}"
+        )
+        return self.send(to_email, f"{student_name} needs your help — Shikshak AI", html, text)
+
+
+def escape_reason(reason: str) -> str:
+    return (reason or "The same misconception persisted across several attempts.").rstrip(".") + "."
 
 
 email_service = EmailService()
