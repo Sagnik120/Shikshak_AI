@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Account settings — Shikshak AI</title>
+<meta name="description" content="Manage your profile, learning preferences, password, signed-in devices and account.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='3.5' fill='%232A3FA0'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/base.css">
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header id="app-header"></header>
+
+<main id="main" class="page">
+  <div class="container">
+    <div class="page-head">
+      <h1>Account settings</h1>
+      <p>Your profile, how lessons are taught to you, and who's signed in.</p>
+    </div>
+
+    <div class="settings-layout">
+
+      <nav class="settings-nav" role="tablist" aria-label="Settings sections">
+        <button role="tab" aria-selected="true" data-panel="profile">Profile</button>
+        <button role="tab" aria-selected="false" data-panel="learning">Learning</button>
+        <button role="tab" aria-selected="false" data-panel="security">Security</button>
+        <button role="tab" aria-selected="false" data-panel="devices">Devices</button>
+        <button role="tab" aria-selected="false" data-panel="danger">Delete account</button>
+      </nav>
+
+      <div>
+        <!-- Profile -->
+        <section class="settings-panel" id="panel-profile" role="tabpanel">
+          <div class="card">
+            <div class="card-header"><h2 class="card-title">Your profile</h2></div>
+            <div class="card-body">
+              <div class="row" style="gap:var(--sp-5);margin-bottom:var(--sp-6)">
+                <span class="avatar avatar-xl" id="avatar-preview">··</span>
+                <div>
+                  <div class="section-label" style="margin-bottom:var(--sp-2)">Avatar colour</div>
+                  <div class="swatch-row" id="swatches"></div>
+                </div>
+              </div>
+
+              <div class="alert" id="profile-alert" hidden></div>
+
+              <form id="profile-form" novalidate>
+                <div class="field">
+                  <label class="label" for="full_name">Full name</label>
+                  <input class="input" id="full_name" type="text" autocomplete="name" required>
+                  <span class="field-error"></span>
+                </div>
+
+                <div class="field">
+                  <label class="label" for="email-display">Email address</label>
+                  <input class="input" id="email-display" type="email" disabled>
+                  <span class="field-hint">Your email is your sign-in identity and can't be changed here.</span>
+                </div>
+
+                <div class="grid" style="grid-template-columns:1fr 1fr;gap:var(--sp-3);margin-top:var(--sp-4)">
+                  <div class="field" style="margin-top:0">
+                    <label class="label" for="grade">Class</label>
+                    <select class="select" id="grade">
+                      <option value="">Not set</option>
+                      <option>Class 6</option><option>Class 7</option><option>Class 8</option>
+                      <option>Class 9</option><option>Class 10</option><option>Class 11</option>
+                      <option>Class 12</option><option>Undergraduate</option><option>Other</option>
+                    </select>
+                  </div>
+                  <div class="field" style="margin-top:0">
+                    <label class="label" for="board">Board</label>
+                    <select class="select" id="board">
+                      <option value="">Not set</option>
+                      <option>CBSE</option><option>ICSE</option><option>State Board</option>
+                      <option>IB</option><option>Other</option>
+                    </select>
+                  </div>
+                </div>
+
+                <button class="btn btn-primary" type="submit" id="profile-save" style="margin-top:var(--sp-5)">
+                  Save profile
+                </button>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        <!-- Learning -->
+        <section class="settings-panel" id="panel-learning" role="tabpanel" hidden>
+          <div class="card">
+            <div class="card-header"><h2 class="card-title">How lessons are taught</h2></div>
+            <div class="card-body">
+              <p class="subtle" style="margin-bottom:var(--sp-5)">
+                These become the defaults whenever you build a new lesson.
+              </p>
+
+              <div class="alert" id="learning-alert" hidden></div>
+
+              <form id="learning-form">
+                <div class="field" style="margin-top:0">
+                  <span class="label">Default depth</span>
+                  <div class="segmented" id="level-group" role="group" aria-label="Default depth">
+                    <button type="button" data-value="beginner" aria-pressed="true">Beginner</button>
+                    <button type="button" data-value="intermediate" aria-pressed="false">Intermediate</button>
+                    <button type="button" data-value="advanced" aria-pressed="false">Advanced</button>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <label class="label" for="preferred_language">Teaching language</label>
+                  <select class="select" id="preferred_language">
+                    <option value="en">English</option>
+                    <option value="hi">हिन्दी (Hindi)</option>
+                    <option value="bn">বাংলা (Bengali)</option>
+                  </select>
+                  <span class="field-hint">Narration and on-screen text follow this language.</span>
+                </div>
+
+                <div class="field">
+                  <label class="label" for="preferred_style">Explanation style</label>
+                  <select class="select" id="preferred_style">
+                    <option value="visual">Visual — diagrams and graphs first</option>
+                    <option value="narrative">Narrative — analogies and stories</option>
+                    <option value="formal">Formal — definitions and derivations</option>
+                    <option value="practical">Practical — worked examples</option>
+                  </select>
+                </div>
+
+                <div class="field">
+                  <label class="label" for="default_time_budget_min">Default lesson length</label>
+                  <select class="select" id="default_time_budget_min">
+                    <option value="5">5 minutes</option>
+                    <option value="10">10 minutes</option>
+                    <option value="15">15 minutes</option>
+                    <option value="25">25 minutes</option>
+                    <option value="40">40 minutes</option>
+                  </select>
+                </div>
+
+                <button class="btn btn-primary" type="submit" id="learning-save" style="margin-top:var(--sp-5)">
+                  Save preferences
+                </button>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        <!-- Security -->
+        <section class="settings-panel" id="panel-security" role="tabpanel" hidden>
+          <div class="card">
+            <div class="card-header"><h2 class="card-title">Change password</h2></div>
+            <div class="card-body">
+              <div class="alert alert-warning" style="margin-bottom:var(--sp-5)">
+                Changing your password signs you out of every device, including this one.
+              </div>
+
+              <div class="alert" id="password-alert" hidden></div>
+
+              <form id="password-form" novalidate>
+                <div class="field" style="margin-top:0">
+                  <label class="label" for="current_password">Current password</label>
+                  <input class="input" id="current_password" type="password" autocomplete="current-password" required>
+                  <span class="field-error"></span>
+                </div>
+
+                <div class="field">
+                  <label class="label" for="new_password">New password</label>
+                  <div class="input-group">
+                    <input class="input" id="new_password" type="password" autocomplete="new-password" required>
+                    <button class="input-affix" id="toggle-password" type="button" aria-label="Show password">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                  </div>
+                  <div class="strength" id="strength" data-score="0" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+                  <span class="field-hint">8+ characters with an uppercase letter, a lowercase letter and a number.</span>
+                  <span class="field-error"></span>
+                </div>
+
+                <div class="field">
+                  <label class="label" for="confirm_password">Confirm new password</label>
+                  <input class="input" id="confirm_password" type="password" autocomplete="new-password" required>
+                  <span class="field-error"></span>
+                </div>
+
+                <button class="btn btn-primary" type="submit" id="password-save" style="margin-top:var(--sp-5)">
+                  Change password
+                </button>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        <!-- Devices -->
+        <section class="settings-panel" id="panel-devices" role="tabpanel" hidden>
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">Signed-in devices</h2>
+              <button class="btn btn-secondary btn-sm" id="revoke-all" type="button">Sign out everywhere</button>
+            </div>
+            <div class="card-body" id="sessions-list">
+              <div class="skeleton" style="height:72px"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Danger -->
+        <section class="settings-panel" id="panel-danger" role="tabpanel" hidden>
+          <div class="danger-zone">
+            <h3>Delete your account</h3>
+            <p style="font-size:var(--text-sm);margin-top:var(--sp-2);color:var(--rose-600)">
+              This permanently removes your profile, every lesson, all recorded answers, your
+              uploaded material and all rendered videos. It cannot be undone.
+            </p>
+
+            <div class="alert" id="delete-alert" hidden style="margin-top:var(--sp-4)"></div>
+
+            <form id="delete-form" style="margin-top:var(--sp-5)">
+              <div class="field" style="margin-top:0;max-width:340px">
+                <label class="label" for="delete_password">Confirm with your password</label>
+                <input class="input" id="delete_password" type="password" autocomplete="current-password" required>
+              </div>
+              <button class="btn btn-danger" type="submit" id="delete-save" style="margin-top:var(--sp-4)">
+                Permanently delete my account
+              </button>
+            </form>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script type="module" src="/js/pages/settings.js"></script>
+</body>
+</html>

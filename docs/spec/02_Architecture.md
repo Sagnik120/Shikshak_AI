@@ -70,7 +70,7 @@
 ## Tech Stack (proposed — confirm/adjust in Contract.md before build)
 - **Frontend**: React (Next.js) + Tailwind, WebSocket client for live interaction.
 - **Backend**: Python (FastAPI) — async, WebSocket support, easiest to share types with ML/AI layers.
-- **AI Orchestration**: LLM API (e.g. Claude/GPT-class) via an agent/graph framework
+- **AI Orchestration**: LLM API (e.g. Gemini/GPT-class) via an agent/graph framework
   (e.g. LangGraph-style explicit state machine) — NOT a single giant prompt.
 - **RAG**: LlamaIndex or LangChain for chunking/retrieval + a vector DB (Chroma for local/hackathon,
   Qdrant/Pinecone if cloud is available).

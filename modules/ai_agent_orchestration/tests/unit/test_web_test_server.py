@@ -94,14 +94,20 @@ def test_testbed_adaptation_endpoint():
     data = response.json()
     assert data["decision"]["action"] == "MODIFY"
 
-    # Test REGENERATE on 2nd failure
+    # A second failure earns one more re-explanation before re-planning.
     payload["consecutive_failures_on_node"] = 2
+    response = client.post("/api/test/adaptation", json=payload)
+    assert response.status_code == 200
+    assert response.json()["decision"]["action"] == "MODIFY"
+
+    # Test REGENERATE on 3rd failure
+    payload["consecutive_failures_on_node"] = 3
     response = client.post("/api/test/adaptation", json=payload)
     assert response.status_code == 200
     assert response.json()["decision"]["action"] == "REGENERATE"
 
-    # Test HUMAN on 3rd failure
-    payload["consecutive_failures_on_node"] = 3
+    # Test HUMAN on 4th failure
+    payload["consecutive_failures_on_node"] = 4
     response = client.post("/api/test/adaptation", json=payload)
     assert response.status_code == 200
     assert response.json()["decision"]["action"] == "HUMAN"

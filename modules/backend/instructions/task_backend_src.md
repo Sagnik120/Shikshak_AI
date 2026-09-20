@@ -26,7 +26,7 @@
 
 ## B. Repository Inspection (required before writing any code)
 
-Claude has not inspected the live repository; this spec is derived from project docs only.
+This spec is derived from project docs only.
 Antigravity MUST inspect the actual repo and reconcile before implementing:
 
 - `instructions/Contract.md` — exact current schemas (may have evolved past what's summarized

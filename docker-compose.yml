@@ -1,0 +1,19 @@
+services:
+  shikshak:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      ENVIRONMENT: production
+      EMAIL_DEV_FALLBACK: "false"
+    volumes:
+      # Accounts, lessons, uploads and rendered video must outlive the container.
+      - shikshak-data:/app/data
+      - shikshak-chroma:/app/chroma_db
+    restart: unless-stopped
+
+volumes:
+  shikshak-data:
+  shikshak-chroma:

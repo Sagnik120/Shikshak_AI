@@ -109,17 +109,26 @@ def test_full_teaching_loop():
     state = TeacherState.ADAPT
     eval_result3 = EvaluationResult(node_id="node_2", correct=False, confidence=0.8, partial_credit=0.0, feedback_text="")
     session.evaluation_history.append(eval_result3)
-    
-    # 15. ADAPT (2nd consecutive failure -> REGENERATE)
+
+    # 15. ADAPT (2nd consecutive failure -> one more re-explanation)
     state, decision3 = orchestrator.step(state, session, {"eval_result": eval_result3})
-    assert state == TeacherState.PLAN
-    assert decision3.action == "REGENERATE"
-    
-    # Pretend it was replanned, skipped to ADAPT again for 3rd failure
+    assert state == TeacherState.EXPLAIN
+    assert decision3.action == "MODIFY"
+
+    # 3rd consecutive failure -> re-plan the remaining lesson
     state = TeacherState.ADAPT
     eval_result4 = EvaluationResult(node_id="node_2", correct=False, confidence=0.8, partial_credit=0.0, feedback_text="")
     session.evaluation_history.append(eval_result4)
-    
-    # 16. ADAPT (3rd failure -> HUMAN)
+
     state, decision4 = orchestrator.step(state, session, {"eval_result": eval_result4})
+    assert state == TeacherState.PLAN
+    assert decision4.action == "REGENERATE"
+
+    # 4th failure after the re-plan -> hand over to a human
+    state = TeacherState.ADAPT
+    eval_result5 = EvaluationResult(node_id="node_2", correct=False, confidence=0.8, partial_credit=0.0, feedback_text="")
+    session.evaluation_history.append(eval_result5)
+
+    # 16. ADAPT (4th failure -> HUMAN)
+    state, decision5 = orchestrator.step(state, session, {"eval_result": eval_result5})
     assert state == TeacherState.HUMAN_ESCALATION

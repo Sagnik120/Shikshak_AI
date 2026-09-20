@@ -53,8 +53,17 @@ class TeacherOrchestrator:
             else:
                 session.constraints = LearnerConstraints()
                 
-            session.topic = inputs.get("topic") or "Newton's First Law"
+            session.topic = inputs.get("topic") or None
             session.document_id = inputs.get("document_id")
+            session.document_outline = inputs.get("document_outline")
+
+            if not session.topic and not session.document_id:
+                # Previously this silently defaulted to "Newton's First Law", so a
+                # misconfigured session taught the wrong subject instead of failing.
+                raise ValueError(
+                    "A session needs either a topic or a document_id before planning."
+                )
+
             return self._transition(session, current_state, TeacherState.PLAN, "Context initialized")
 
         elif current_state == TeacherState.PLAN:
@@ -62,10 +71,27 @@ class TeacherOrchestrator:
                 raise ValueError("Session is missing LearnerConstraints. You must run the UNDERSTAND state first to initialize the session context.")
             
             source_type = "document" if session.document_id else "topic"
+
+            # A document-sourced lesson has to plan from the document. Without
+            # this the planner saw only the constraints and invented a topic,
+            # so an uploaded chapter produced a lesson on something else.
+            document_outline = getattr(session, "document_outline", None)
+            if (
+                not document_outline
+                and session.document_id
+                and hasattr(self.rag_client, "get_document_outline")
+            ):
+                try:
+                    document_outline = self.rag_client.get_document_outline(session.document_id)
+                except Exception:
+                    # Falling back to an outline-free plan beats failing the lesson.
+                    document_outline = None
+
             plan = self.planner.plan_lesson(
                 constraints=session.constraints,
                 source_type=source_type,
-                topic=session.topic
+                topic=session.topic,
+                document_outline=document_outline,
             )
             session.lesson_plan = plan
             session.current_node_index = 0
@@ -80,7 +106,11 @@ class TeacherOrchestrator:
             chunks = None
             if session.document_id:
                 chunks = self.rag_client.retrieve_context(session.document_id, node.concept)
-                
+                session.recent_grounding = [c for c in (chunks or []) if isinstance(c, str)]
+            else:
+                session.recent_grounding = []
+
+
             segment = self.explainer.generate_segment(
                 node=node,
                 constraints=session.constraints,
@@ -115,6 +145,15 @@ class TeacherOrchestrator:
             node = session.lesson_plan.nodes[session.current_node_index] if session.lesson_plan and session.lesson_plan.nodes else None
             recent_q = getattr(session, "recent_question", None)
             expected = getattr(recent_q, "expected_concept", None) or (node.concept if node else "")
+
+            # Grade against the question type we asked, never the type the client
+            # claims. Trusting the client lets a free-text answer be routed to the
+            # exact-match MCQ path, which marks correct answers wrong.
+            asked_type = getattr(recent_q, "type", None)
+            if asked_type and student_response is not None:
+                if getattr(student_response, "response_type", None) != asked_type:
+                    student_response = student_response.model_copy(update={"response_type": asked_type})
+
             eval_result = self.ml_core.evaluate_answer(student_response, expected_concept=expected)
             session.evaluation_history.append(eval_result)
             return self._transition(session, current_state, TeacherState.ADAPT, "Answer evaluated", eval_result)

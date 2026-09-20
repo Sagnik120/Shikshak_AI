@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verify your email — Shikshak AI</title>
+<meta name="description" content="Enter the code we emailed you to activate your Shikshak AI account.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='3.5' fill='%232A3FA0'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/base.css">
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<div class="auth-layout">
+  <div class="auth-panel" style="grid-column:1/-1">
+    <div class="auth-card">
+      <a class="brand auth-brand" href="/">
+        <svg class="brand-mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <path d="M7 16C7 11.03 11.03 7 16 7" stroke="var(--indigo-600)" stroke-width="3" stroke-linecap="round"/>
+          <path d="M25 16C25 20.97 20.97 25 16 25" stroke="var(--teal-600)" stroke-width="3" stroke-linecap="round"/>
+          <circle cx="16" cy="16" r="3.5" fill="var(--indigo-600)"/>
+        </svg>
+        <span>Shikshak<span class="ai">AI</span></span>
+      </a>
+
+      <header>
+        <h1>Check your email</h1>
+        <p>We sent a 6-digit code to <strong id="target-email">your address</strong>. It expires in 10 minutes.</p>
+      </header>
+
+      <div class="alert" id="form-alert" hidden></div>
+      <div class="alert alert-info" id="dev-notice" hidden></div>
+
+      <form id="verify-form" novalidate>
+        <div class="field">
+          <label class="label" for="otp-1" style="text-align:center;display:block;margin-bottom:var(--sp-2)">Verification code</label>
+          <div class="otp-inputs" id="otp-inputs">
+            <input id="otp-1" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="1" aria-label="Digit 1">
+            <input id="otp-2" type="text" inputmode="numeric" maxlength="1" aria-label="Digit 2">
+            <input id="otp-3" type="text" inputmode="numeric" maxlength="1" aria-label="Digit 3">
+            <input id="otp-4" type="text" inputmode="numeric" maxlength="1" aria-label="Digit 4">
+            <input id="otp-5" type="text" inputmode="numeric" maxlength="1" aria-label="Digit 5">
+            <input id="otp-6" type="text" inputmode="numeric" maxlength="1" aria-label="Digit 6">
+          </div>
+        </div>
+
+        <button class="btn btn-primary btn-block btn-lg" type="submit" id="submit-btn" style="margin-top:var(--sp-6)">
+          Verify and continue
+        </button>
+      </form>
+
+      <div style="text-align:center;margin-top:var(--sp-5)">
+        <button class="btn btn-ghost btn-sm" type="button" id="resend-btn">Resend code</button>
+        <p class="subtle" id="resend-timer" style="margin-top:4px"></p>
+      </div>
+
+      <div class="auth-footer">
+        Wrong address? <a href="/signup.html">Start over</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="/js/pages/verify.js"></script>
+</body>
+</html>

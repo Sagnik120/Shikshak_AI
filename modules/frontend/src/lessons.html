@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My lessons — Shikshak AI</title>
+<meta name="description" content="Every lesson you've built, with progress and scores.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='3.5' fill='%232A3FA0'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/base.css">
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header id="app-header"></header>
+<main id="main" class="page">
+  <div class="container">
+
+    <div class="row-between row-wrap page-head">
+      <div>
+        <h1>My lessons</h1>
+        <p>Everything you've studied, with progress and scores kept per concept.</p>
+      </div>
+      <a class="btn btn-primary" href="/new-lesson.html">New lesson</a>
+    </div>
+
+    <div class="card card-pad" style="margin-bottom:var(--sp-5)">
+      <div class="grid" style="grid-template-columns:1fr auto;gap:var(--sp-3);align-items:end">
+        <div class="field" style="margin-top:0">
+          <label class="label" for="search">Search</label>
+          <input class="input" id="search" type="search" placeholder="Search by lesson title…">
+        </div>
+        <div class="field" style="margin-top:0;min-width:180px">
+          <label class="label" for="status-filter">Status</label>
+          <select class="select" id="status-filter">
+            <option value="all">All lessons</option>
+            <option value="completed">Completed</option>
+            <option value="in_progress">In progress</option>
+            <option value="planned">Ready to start</option>
+            <option value="escalated">Needs a teacher</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="lessons-card">
+      <div class="card-body">
+        <div class="skeleton" style="height:64px;margin-bottom:12px"></div>
+        <div class="skeleton" style="height:64px;margin-bottom:12px"></div>
+        <div class="skeleton" style="height:64px"></div>
+      </div>
+    </div>
+
+    <div class="row" style="justify-content:center;margin-top:var(--sp-5)">
+      <button class="btn btn-secondary" id="load-more" hidden>Load more</button>
+    </div>
+  </div>
+</main>
+<script type="module" src="/js/pages/lessons.js"></script>
+</body>
+</html>

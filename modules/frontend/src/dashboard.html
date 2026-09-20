@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard — Shikshak AI</title>
+<meta name="description" content="Your learning dashboard: progress, mastery, streaks and lessons in flight.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='3.5' fill='%232A3FA0'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/base.css">
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header id="app-header"></header>
+
+<main id="main" class="page">
+  <div class="container">
+    <div id="dash-root">
+      <div class="stack" style="--gap:var(--sp-5)">
+        <div class="skeleton" style="height:36px;max-width:320px"></div>
+        <div class="stat-grid">
+          <div class="skeleton" style="height:112px"></div>
+          <div class="skeleton" style="height:112px"></div>
+          <div class="skeleton" style="height:112px"></div>
+          <div class="skeleton" style="height:112px"></div>
+        </div>
+        <div class="skeleton" style="height:260px"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script type="module" src="/js/pages/dashboard.js"></script>
+</body>
+</html>

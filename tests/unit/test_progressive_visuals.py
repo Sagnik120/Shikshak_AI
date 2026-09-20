@@ -14,6 +14,7 @@ Covers:
 """
 
 import os
+import re
 import pytest
 from modules.avatar_voice.src.models import (
     TeachingSegment,
@@ -159,10 +160,23 @@ class TestProgressiveVisualsDeep:
         assert rendered.node_id == "demo_math_quadratic"
         assert rendered.duration_sec > 0.0
         assert os.path.exists(rendered.video_url)
-        # Verify preview steps generated for presentation
-        step1_preview = rendered.video_url.replace(".mp4", "_step_1_preview.png")
-        step3_preview = rendered.video_url.replace(".mp4", "_step_3_preview.png")
-        assert os.path.exists(step1_preview) or os.path.exists(rendered.video_url.replace(".mp4", "_preview.png"))
+        assert os.path.getsize(rendered.video_url) > 0
+
+        # One frame per derivation step must be rendered, so the equation builds
+        # up on screen rather than appearing all at once. The compositor writes
+        # these next to the video; the Pillow fallback used when FFmpeg is
+        # missing writes "*_preview.png" instead.
+        out_dir = os.path.dirname(rendered.video_url)
+        step_frames = sorted(
+            f for f in os.listdir(out_dir) if re.match(r"equation_\w+_step_\d+\.png$", f)
+        )
+        preview_frames = [f for f in os.listdir(out_dir) if f.endswith("_preview.png")]
+
+        assert step_frames or preview_frames, (
+            f"no progressive step frames were rendered into {out_dir}: {os.listdir(out_dir)}"
+        )
+        if step_frames:
+            assert len(step_frames) == 3, f"expected 3 step frames, got {step_frames}"
 
     def test_demo_scenario_2_cs_binary_search_execution_flow(self, temp_out):
         """DEMO SCENARIO 2: Computer Science - Binary Search with Terminal Execution Output.

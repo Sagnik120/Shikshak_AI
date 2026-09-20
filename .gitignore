@@ -10,6 +10,9 @@ __pycache__/
 *.pyo
 *.pyd
 
+# Generated secret key (regenerating it signs every user out)
+data/.secret_key
+
 # Node / Frontend
 node_modules/
 dist/
@@ -29,19 +32,27 @@ huggingface/
 .hf/
 nltk_data/
 
-# Vector Stores & Databases
+# Databases & vector stores
 chroma_db/
 *.chroma
 *.sqlite3
 *.db
+*.db-wal
+*.db-shm
+data/shikshak.db*
+
+# User data: uploads, rendered media, dev email outbox
 data/storage/*
 !data/storage/.gitkeep
+data/media/*
+!data/media/.gitkeep
+data/outbox/
+data/avatar_voice_test_media/
 
-# Generated Media Outputs
+# Generated media
 output/
 rendered_videos/
 temp_audio/
-data/avatar_voice_test_media/
 *.mp4
 *.webm
 *.wav
@@ -51,22 +62,9 @@ data/avatar_voice_test_media/
 .pytest_cache/
 .coverage
 htmlcov/
-modules/ai_agent_orchestration/tests/web_test/logs/*/*.json
-modules/ai_agent_orchestration/tests/web_test/logs/*/*.log
-!modules/ai_agent_orchestration/tests/web_test/logs/*/.gitkeep
-modules/rag/tests/web_test/logs/*/*.json
-modules/rag/tests/web_test/logs/*/*.log
-!modules/rag/tests/web_test/logs/*/.gitkeep
-modules/avatar_voice/tests/web_test/logs/*/*.json
-modules/avatar_voice/tests/web_test/logs/*/*.log
-!modules/avatar_voice/tests/web_test/logs/*/.gitkeep
-modules/ml_core/tests/web_test/logs/*/*.json
-modules/ml_core/tests/web_test/logs/*/*.log
-!modules/ml_core/tests/web_test/logs/*/.gitkeep
-modules/backend/tests/web_test/logs/*/*.json
-modules/backend/tests/web_test/logs/*/*.log
-!modules/backend/tests/web_test/logs/*/.gitkeep
-
+modules/*/tests/web_test/logs/*/*.json
+modules/*/tests/web_test/logs/*/*.log
+!modules/*/tests/web_test/logs/*/.gitkeep
 
 # IDE & OS
 .DS_Store

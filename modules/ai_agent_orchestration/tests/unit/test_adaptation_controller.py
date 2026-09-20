@@ -1,50 +1,81 @@
 from modules.ai_agent_orchestration.src.agents.adaptation_controller import AdaptationController
 from modules.ai_agent_orchestration.src.schemas.evaluation import EvaluationResult
 
+
+def _ev(correct=False, partial=0.0, confidence=0.9, tag=None, node_id="n1"):
+    return EvaluationResult(
+        node_id=node_id,
+        correct=correct,
+        confidence=confidence,
+        partial_credit=partial,
+        misconception_tag=tag,
+        feedback_text="",
+    )
+
+
 def test_adaptation_controller_allow_high_confidence():
-    controller = AdaptationController()
-    ev = EvaluationResult(node_id="n1", correct=True, confidence=0.8, partial_credit=0.0, feedback_text="")
-    decision = controller.decide(ev, [])
+    decision = AdaptationController().decide(_ev(correct=True, confidence=0.8), [])
     assert decision.action == "ALLOW"
+
 
 def test_adaptation_controller_allow_low_confidence():
-    controller = AdaptationController()
-    ev = EvaluationResult(node_id="n1", correct=True, confidence=0.4, partial_credit=0.0, feedback_text="")
-    decision = controller.decide(ev, [])
+    decision = AdaptationController().decide(_ev(correct=True, confidence=0.4), [])
     assert decision.action == "ALLOW"
 
-def test_adaptation_controller_modify_partial_credit():
-    controller = AdaptationController()
-    ev = EvaluationResult(node_id="n1", correct=False, confidence=0.5, partial_credit=0.5, feedback_text="")
-    decision = controller.decide(ev, [])
+
+def test_adaptation_controller_allows_strong_partial_credit():
+    """Half credit means the core idea landed — keep teaching forward, don't re-teach."""
+    decision = AdaptationController().decide(_ev(partial=0.5, confidence=0.5), [])
+    assert decision.action == "ALLOW"
+    assert "partial understanding" in decision.reason
+
+
+def test_adaptation_controller_modifies_on_weak_partial_credit():
+    decision = AdaptationController().decide(_ev(partial=0.2), [])
     assert decision.action == "MODIFY"
     assert "partial credit" in decision.reason
 
+
 def test_adaptation_controller_modify_misconception():
-    controller = AdaptationController()
-    ev = EvaluationResult(node_id="n1", correct=False, confidence=0.9, partial_credit=0.0, misconception_tag="foo", feedback_text="")
-    decision = controller.decide(ev, [])
+    decision = AdaptationController().decide(_ev(tag="foo"), [])
     assert decision.action == "MODIFY"
     assert "foo" in decision.reason
 
+
 def test_adaptation_controller_first_failure():
-    controller = AdaptationController()
-    ev = EvaluationResult(node_id="n1", correct=False, confidence=0.9, partial_credit=0.0, feedback_text="")
-    decision = controller.decide(ev, [])
+    assert AdaptationController().decide(_ev(), []).action == "MODIFY"
+
+
+def test_adaptation_controller_second_failure_still_modifies():
+    """One more re-explanation before giving up on the current plan."""
+    decision = AdaptationController().decide(_ev(), [_ev()])
     assert decision.action == "MODIFY"
 
-def test_adaptation_controller_regenerate_second_failure():
-    controller = AdaptationController()
-    ev1 = EvaluationResult(node_id="n1", correct=False, confidence=0.9, partial_credit=0.0, feedback_text="")
-    # The second failure on the same node
-    ev2 = EvaluationResult(node_id="n1", correct=False, confidence=0.9, partial_credit=0.0, feedback_text="")
-    decision = controller.decide(ev2, [ev1])
+
+def test_adaptation_controller_regenerate_third_failure():
+    decision = AdaptationController().decide(_ev(), [_ev(), _ev()])
     assert decision.action == "REGENERATE"
 
-def test_adaptation_controller_human_escalation_third_failure():
-    controller = AdaptationController()
-    ev1 = EvaluationResult(node_id="n1", correct=False, confidence=0.9, partial_credit=0.0, feedback_text="")
-    ev2 = EvaluationResult(node_id="n1", correct=False, confidence=0.9, partial_credit=0.0, feedback_text="")
-    ev3 = EvaluationResult(node_id="n1", correct=False, confidence=0.9, partial_credit=0.0, feedback_text="")
-    decision = controller.decide(ev3, [ev1, ev2])
+
+def test_adaptation_controller_human_escalation_fourth_failure():
+    decision = AdaptationController().decide(_ev(), [_ev(), _ev(), _ev()])
     assert decision.action == "HUMAN"
+
+
+def test_partial_credit_does_not_prevent_escalation_after_regenerate():
+    """Once we've re-planned, repeated near-misses still reach a human."""
+    history = [_ev(partial=0.5), _ev(partial=0.5), _ev(partial=0.5)]
+    decision = AdaptationController().decide(_ev(partial=0.5), history)
+    assert decision.action == "HUMAN"
+
+
+def test_failure_count_resets_after_a_correct_answer():
+    history = [_ev(), _ev(), _ev(correct=True)]
+    decision = AdaptationController().decide(_ev(), history)
+    assert decision.action == "MODIFY"
+
+
+def test_failures_on_other_nodes_are_ignored():
+    history = [_ev(node_id="n2"), _ev(node_id="n3")]
+    decision = AdaptationController().decide(_ev(node_id="n1"), history)
+    assert decision.action == "MODIFY"

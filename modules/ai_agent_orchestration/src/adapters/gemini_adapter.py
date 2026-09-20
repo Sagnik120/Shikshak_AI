@@ -163,7 +163,12 @@ class GeminiLLMAdapter(LLMAdapter):
 
     def __init__(self, api_key: Optional[str] = None, model: str = "gemini-3.5-flash-lite", raise_on_failure: bool = False):
         _load_env()
-        self.api_key = api_key or os.environ.get("GEMINI_API_KEY", "")
+        # None means "look the key up"; an explicit empty string means "no key",
+        # so callers can force the offline path without the ambient environment
+        # quietly supplying one.
+        self.api_key = (
+            os.environ.get("GEMINI_API_KEY", "") if api_key is None else api_key
+        ).strip()
         self.model = os.environ.get("GEMINI_MODEL", model)
         self.raise_on_failure = raise_on_failure
         self.fallback = SmartMockLLMAdapter()

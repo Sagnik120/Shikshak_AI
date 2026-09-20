@@ -16,3 +16,9 @@ class SessionState:
     current_feedback_override: Optional[str] = None
     recent_segment: Optional[Any] = None
     recent_question: Optional[Any] = None
+    # Chapters, key terms and excerpts of the source document, so PLAN is
+    # grounded in what was uploaded rather than inventing a subject.
+    document_outline: Optional[dict] = None
+    # The passages that grounded the most recent explanation, so the UI can cite
+    # them. Without this the classroom had no citation to display.
+    recent_grounding: List[str] = field(default_factory=list)

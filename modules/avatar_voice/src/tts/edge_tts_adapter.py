@@ -23,6 +23,30 @@ CUE_PROSODY = {
 }
 
 
+def _srt_to_vtt(srt_text: str) -> str:
+    """Convert SubMaker's SRT output to WebVTT.
+
+    They differ in three ways that matter to a browser: the WEBVTT header,
+    a comma rather than a dot before milliseconds, and numeric cue indices
+    that WebVTT does not use.
+    """
+    body = (srt_text or "").strip()
+    if not body:
+        return ""
+
+    lines = []
+    for line in body.splitlines():
+        stripped = line.strip()
+        if "-->" in stripped:
+            lines.append(stripped.replace(",", "."))
+        elif stripped.isdigit():
+            continue  # SRT cue number; WebVTT has no equivalent
+        else:
+            lines.append(line)
+
+    return "WEBVTT\n\n" + "\n".join(lines).strip() + "\n"
+
+
 class EdgeTTSAdapter:
     """Primary TTS adapter wrapping edge-tts with WebVTT subtitle, word timestamp extraction, and cue prosody."""
 
@@ -44,7 +68,16 @@ class EdgeTTSAdapter:
         rate = prosody["rate"]
         pitch = prosody["pitch"]
 
-        communicate = edge_tts.Communicate(text, voice_id, rate=rate, pitch=pitch)
+        # edge-tts 7.x defaults `boundary` to "SentenceBoundary", which emits one
+        # event for the whole utterance. Word-level events are what drive both the
+        # viseme lip-sync and the caption cues, so ask for them explicitly.
+        # Older releases have no such keyword, hence the fallback.
+        try:
+            communicate = edge_tts.Communicate(
+                text, voice_id, rate=rate, pitch=pitch, boundary="WordBoundary"
+            )
+        except TypeError:
+            communicate = edge_tts.Communicate(text, voice_id, rate=rate, pitch=pitch)
         submaker = edge_tts.SubMaker()
         word_timestamps: List[WordTimestamp] = []
 
@@ -65,7 +98,7 @@ class EdgeTTSAdapter:
                     )
 
         # Write WebVTT captions
-        content = submaker.get_srt()
+        content = _srt_to_vtt(submaker.get_srt())
         if "-->" not in content and word_timestamps:
             def _fmt(sec: float) -> str:
                 m = int(sec // 60)

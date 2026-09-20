@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>New lesson — Shikshak AI</title>
+<meta name="description" content="Upload study material or name a topic, and Shikshak will plan the lesson.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='3.5' fill='%232A3FA0'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/base.css">
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header id="app-header"></header>
+
+<main id="main" class="page">
+  <div class="container">
+
+    <div class="page-head">
+      <span class="section-label">Step 1 of 2</span>
+      <h1 style="margin-top:8px">What are we learning today?</h1>
+      <p>Give Shikshak a source. It will break the material into concepts, sequence them, and teach each one on video.</p>
+    </div>
+
+    <div class="alert" id="page-alert" hidden></div>
+
+    <div class="builder-grid">
+
+      <!-- Source: upload -->
+      <section class="card">
+        <div class="card-header">
+          <h2 class="card-title">Upload study material</h2>
+          <span class="badge badge-teal">Grounded</span>
+        </div>
+        <div class="card-body">
+          <p class="subtle" style="margin-bottom:var(--sp-4)">
+            Explanations will be drawn from this file, with citations back to it.
+          </p>
+
+          <div class="dropzone" id="dropzone" tabindex="0" role="button"
+               aria-label="Upload a study file">
+            <input type="file" id="file-input" hidden accept=".pdf,.docx,.pptx,.txt,.md">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v13"/>
+            </svg>
+            <h3>Drop a file, or click to browse</h3>
+            <p>PDF, DOCX, PPTX, TXT or MD · up to 25 MB</p>
+          </div>
+
+          <div id="upload-progress" hidden style="margin-top:var(--sp-4)">
+            <div class="row-between" style="margin-bottom:6px">
+              <span class="subtle" id="upload-label">Uploading…</span>
+              <span class="subtle" id="upload-pct">0%</span>
+            </div>
+            <div class="progress-track"><div class="progress-fill" id="upload-bar" style="width:0%"></div></div>
+          </div>
+
+          <div id="doc-list" style="margin-top:var(--sp-4)"></div>
+        </div>
+      </section>
+
+      <!-- Source: topic -->
+      <section class="card">
+        <div class="card-header">
+          <h2 class="card-title">Or just name a topic</h2>
+        </div>
+        <div class="card-body">
+          <p class="subtle" style="margin-bottom:var(--sp-4)">
+            No file needed — describe what you want to understand.
+          </p>
+
+          <div class="field">
+            <label class="label" for="topic">Topic or question</label>
+            <textarea class="textarea" id="topic" rows="3"
+                      placeholder="e.g. Why does a moving bus make me lurch forward when it stops?"></textarea>
+          </div>
+
+          <div class="suggestion-row" id="suggestions">
+            <button class="suggestion" type="button">Newton's Laws of Motion</button>
+            <button class="suggestion" type="button">Photosynthesis</button>
+            <button class="suggestion" type="button">Quadratic equations</button>
+            <button class="suggestion" type="button">Cell structure and organelles</button>
+            <button class="suggestion" type="button">The water cycle</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Tuning -->
+    <section class="card" style="margin-top:var(--sp-5)">
+      <div class="card-header">
+        <h2 class="card-title">Tune the lesson</h2>
+        <span class="subtle" id="defaults-note"></span>
+      </div>
+      <div class="card-body">
+        <div class="grid grid-3">
+          <div class="field" style="margin-top:0">
+            <span class="label">Depth</span>
+            <div class="segmented" id="level-group" role="group" aria-label="Lesson depth">
+              <button type="button" data-value="beginner" aria-pressed="true">Beginner</button>
+              <button type="button" data-value="intermediate" aria-pressed="false">Intermediate</button>
+              <button type="button" data-value="advanced" aria-pressed="false">Advanced</button>
+            </div>
+          </div>
+
+          <div class="field" style="margin-top:0">
+            <label class="label" for="language">Teaching language</label>
+            <select class="select" id="language">
+              <option value="en">English</option>
+              <option value="hi">हिन्दी (Hindi)</option>
+              <option value="bn">বাংলা (Bengali)</option>
+            </select>
+          </div>
+
+          <div class="field" style="margin-top:0">
+            <label class="label" for="budget">Time budget</label>
+            <select class="select" id="budget">
+              <option value="5">5 minutes — a quick pass</option>
+              <option value="10">10 minutes</option>
+              <option value="15" selected>15 minutes</option>
+              <option value="25">25 minutes</option>
+              <option value="40">40 minutes — thorough</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row-between row-wrap" style="margin-top:var(--sp-6);gap:var(--sp-4)">
+          <p class="subtle" id="ready-note" style="max-width:52ch">
+            Choose a source above to continue.
+          </p>
+          <button class="btn btn-primary btn-lg" id="build-btn" type="button" disabled>
+            Build my lesson
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Plan result -->
+    <section class="card" id="plan-card" hidden style="margin-top:var(--sp-5)">
+      <div class="card-header">
+        <h2 class="card-title">Your lesson plan</h2>
+        <span class="badge badge-accent" id="plan-count"></span>
+      </div>
+      <div class="card-body">
+        <div id="plan-nodes"></div>
+        <div class="row" style="margin-top:var(--sp-5);justify-content:flex-end">
+          <button class="btn btn-secondary" id="discard-btn" type="button">Discard</button>
+          <button class="btn btn-primary btn-lg" id="start-btn" type="button">Enter the classroom</button>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<script type="module" src="/js/pages/new-lesson.js"></script>
+</body>
+</html>

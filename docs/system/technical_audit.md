@@ -12,21 +12,49 @@ A critical audit question is: **What in this codebase is real, and what is mocke
 - **In Production (`src/`)**: Every single module (`rag`, `avatar_voice`, `ml_core`, `ai_agent_orchestration`, `backend`) contains **real, functional, production algorithms and services**. There are no fake stubs or placeholders running the live pipeline.
 - **The Dependency Container (`modules/backend/src/integrations/container.py`)**: Wires the live production instances of `RAGService`, `AvatarVoiceService`, `MLCoreService`, `TeacherOrchestrator`, and `GeminiLLMAdapter` together.
 
-### Why Does the Test Folder `modules/backend/tests/e2e_mocked/` Exist?
-The folder name `e2e_mocked` is an honest, transparent engineering label. In that specific test file ([`test_teaching_session.py`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/modules/backend/tests/e2e_mocked/test_teaching_session.py)):
-1. **Video Rendering Latency**: Generating real 1080p MP4 educational videos with 24 FPS viseme avatars and FFmpeg encoding takes **15–25 seconds per video segment**. If every automated test rendered real videos, the test suite would take 10+ minutes to execute instead of **0.2 seconds**.
-2. **WebSocket & REST Protocol Isolation**: `test_teaching_session.py` specifically verifies the FastAPI HTTP routing, token authentication, and WebSocket message envelopes (`video_segment`, `interaction_event`, `student_response`, `evaluation_result`, `adaptation_decision`, `assessment_report`) using fast test doubles.
-3. **Un-Mocked Tests Exist Elsewhere**: Genuine, un-mocked cross-module integration tests live in [`tests/integration/test_avatar_voice_pipeline_deep.py`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/tests/integration/test_avatar_voice_pipeline_deep.py) (creates real 1080p MP4 files with real FFmpeg), [`tests/integration/test_rag_pipeline_deep.py`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/tests/integration/test_rag_pipeline_deep.py) (real PDF parsing, BGE-M3 embeddings, ChromaDB search, and reranking), and [`tests/eval/test_rag_groundedness.py`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/tests/eval/test_rag_groundedness.py) (real RAG output piped into real `AvatarVoiceService`).
+### Where the Test Suite Uses Test Doubles
+
+`modules/backend/tests/e2e_mocked/` no longer exists. The backend suite was
+rewritten when the application gained real accounts and a database, and now runs
+against a throwaway SQLite database created per test — no repository mocks.
+
+Test doubles remain in two places, for stated reasons:
+
+1. **`session_manager.build_plan` in `test_lessons_api.py`.** Planning makes a live
+   Gemini call and returns a non-deterministic curriculum. Lesson-lifecycle tests
+   substitute a fixed plan so they assert persistence, not the model's output.
+2. **`FakeLLMAdapter` in the ml_core and orchestration unit tests.** These verify
+   how a *given* model response is interpreted — rubric reconciliation, credit
+   clamping, malformed JSON — which requires controlling the response.
+
+Un-mocked tests exist for the rest:
+[`tests/integration/test_avatar_voice_pipeline_deep.py`](../../tests/integration/test_avatar_voice_pipeline_deep.py)
+renders real MP4s with real FFmpeg,
+[`tests/integration/test_rag_pipeline_deep.py`](../../tests/integration/test_rag_pipeline_deep.py)
+runs real parsing, BGE-M3 embeddings, ChromaDB search and reranking, and
+[`tests/eval/test_rag_groundedness.py`](../../tests/eval/test_rag_groundedness.py)
+pipes real RAG output into the real `AvatarVoiceService`.
+
+### Corrections to Earlier Versions of This Document
+
+Two claims in the pre-2.0 audit did not match the code:
+
+- **"Real HMAC-SHA256 session token auth."** The old `auth.py` was 20 lines that
+  compared a raw `uuid4()` string. There was no HMAC. Authentication as described
+  here — bcrypt, JWT, rotating refresh tokens — was built in 2.0.
+- **"Real session persistence."** Sessions lived in module-level Python dicts in
+  `persistence/in_memory.py` and were lost on every restart. Persistence to SQLite
+  was added in 2.0.
 
 ### Complete Real vs. Mock/Fallback Matrix
 
 | Subsystem | What is REAL in Production (`src/`) | Where Fallbacks or Test Mocks Are Used |
 | :--- | :--- | :--- |
 | **RAG Ingestion & Search** | Real multi-format parsers (PDF, DOCX, PPTX, TXT); real Devanagari & Bengali extraction; real BGE-M3 1024-dim dense/sparse embeddings; real ChromaDB index; real RRF rank fusion; real BGE cross-encoder reranker. | Fallback: If OCR (Tesseract) binary is missing, returns `""` with warning. Fallback: BM25 if PyTorch fails to load BGE-M3. |
-| **Avatar & Voice** | Real Edge-TTS neural speech with W3C SSML prosody (`emphasis`, `questioning`); real 24 FPS transparent viseme mouth animation; real 6 visual renderers (LaTeX math, 2D/3D graphs, code execution panes); real FFmpeg 1080p compositor. | Fallback: Procedural sine synthesizer if offline. Fallback: MuseTalk Tier 2 neural model defaults to Tier 1 visemes because 2 GB weights are not bundled in git. |
-| **ML Core** | Real rule-based exact match for MCQs; real semantic overlap distance for free-text answers; real misconception taxonomy pattern matcher; real visual type suggester. | In complex semantic scoring, delegates to the configured `LLMAdapter` (Gemini or SmartMock). |
+| **Avatar & Voice** | Real Edge-TTS neural speech with cue-driven prosody (`emphasis`, `questioning`), requesting word-level boundaries so both viseme timing and WebVTT captions have real timings; 24 FPS transparent viseme mouth animation; 6 visual renderers (LaTeX math, 2D/3D graphs, code execution panes); FFmpeg 1080p compositor. | Fallback: Procedural sine synthesizer if offline. Fallback: MuseTalk Tier 2 neural model defaults to Tier 1 visemes because 2 GB weights are not bundled in git. |
+| **ML Core** | Normalised exact match for MCQs; embedding similarity pre-filter plus a rubric-based LLM judge for free text, with the judge's `correct` flag reconciled against the credit it awards; misconception taxonomy matcher; visual type suggester. | Mid-range similarity delegates to the configured `LLMAdapter` (Gemini or SmartMock). If the judge is unreachable, the embedding score stands in at reduced confidence rather than failing the student. |
 | **Orchestration Brain** | Real `TeacherOrchestrator` finite-state machine (`IDLE` ➔ `PLAN` ➔ `TEACH` ➔ `INTERACT` ➔ `EVALUATE` ➔ `ADAPT` ➔ `ASSESS`); real 5 specialized agents; real live Gemini 2.0 Flash REST adapter (`httpx`). | Fallback: `SmartMockLLMAdapter` deterministically outputs schema-valid Pydantic JSON if `GEMINI_API_KEY` is not present or offline. |
-| **Backend Server** | Real FastAPI app (`modules.backend.src.main:app`); real HMAC-SHA256 session token auth; real full-duplex WebSocket handler (`/ws/teach` & `/api/v1/sessions/{id}/live`); real session persistence; real container DI. | Test-Only: `modules/backend/tests/e2e_mocked/` uses mocks so CI tests pass in milliseconds. |
+| **Backend Server** | Real FastAPI app (`modules.backend.src.main:app`); bcrypt password hashing, JWT access tokens and rotating refresh tokens; per-IP rate limiting and account lockout; SQLite (WAL) persistence for accounts, lessons, per-concept progress and answers; full-duplex WebSocket at `/api/v1/lessons/{id}/live` authorised by a short-lived ticket; container DI. | No repository mocks. Planning is stubbed in lesson-lifecycle tests only, so they assert persistence rather than model output. |
 
 ---
 
