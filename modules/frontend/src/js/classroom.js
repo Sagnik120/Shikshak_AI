@@ -35,6 +35,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const checkpointCard = document.getElementById("checkpoint-card");
   const questionText = document.getElementById("question-text");
   const optionsList = document.getElementById("options-list");
+  const freeFormAnswer = document.getElementById("free-form-answer");
   const btnCheckAnswer = document.getElementById("btn-check-answer");
   const evalBanner = document.getElementById("eval-banner");
   const evalText = document.getElementById("eval-text");
@@ -226,33 +227,53 @@ document.addEventListener("DOMContentLoaded", () => {
     btnCheckAnswer.disabled = false;
     btnCheckAnswer.innerHTML = `<span>Check my answer →</span>`;
 
-    // Render Radio Options
-    optionsList.innerHTML = "";
-    const opts = event.options || [];
-    opts.forEach((opt, idx) => {
-      const card = document.createElement("div");
-      card.className = "option-card" + (idx === 0 ? " selected" : "");
-      card.dataset.idx = idx;
-      card.dataset.answer = opt;
-      card.innerHTML = `
-        <div class="option-radio"></div>
-        <span class="option-text">${opt}</span>
-      `;
-      card.addEventListener("click", () => {
-        document.querySelectorAll(".option-card").forEach((c) => c.classList.remove("selected"));
-        card.classList.add("selected");
-        selectedAnswer = opt;
+    // Render Options or Free Form
+    if (event.type === "mcq") {
+      optionsList.style.display = "flex";
+      freeFormAnswer.style.display = "none";
+      optionsList.innerHTML = "";
+      const opts = event.options || [];
+      opts.forEach((opt, idx) => {
+        const card = document.createElement("div");
+        card.className = "option-card" + (idx === 0 ? " selected" : "");
+        card.dataset.idx = idx;
+        card.dataset.answer = opt;
+        card.innerHTML = `
+          <div class="option-radio"></div>
+          <span class="option-text">${opt}</span>
+        `;
+        card.addEventListener("click", () => {
+          document.querySelectorAll(".option-card").forEach((c) => c.classList.remove("selected"));
+          card.classList.add("selected");
+          selectedAnswer = opt;
+        });
+        optionsList.appendChild(card);
       });
-      optionsList.appendChild(card);
-    });
+      selectedAnswer = opts[0] || "";
+    } else {
+      optionsList.style.display = "none";
+      freeFormAnswer.style.display = "block";
+      freeFormAnswer.value = "";
+    }
 
-    selectedAnswer = opts[0] || "";
     checkpointCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
   });
 
   // 9. Check Answer Submission to WebSocket / MLCore
   btnCheckAnswer.addEventListener("click", () => {
     if (!currentQuestion) return;
+    
+    let raw_answer = "";
+    if (currentQuestion.type === "mcq") {
+      raw_answer = selectedAnswer;
+    } else {
+      raw_answer = freeFormAnswer.value.trim();
+      if (!raw_answer) {
+        render.showToast("Please enter an answer before checking.");
+        return;
+      }
+    }
+    
     btnCheckAnswer.disabled = true;
     btnCheckAnswer.innerHTML = `${render.getSpinnerSvg()} <span>Evaluating with ML Core...</span>`;
 
@@ -260,8 +281,8 @@ document.addEventListener("DOMContentLoaded", () => {
       event_type: "student_response",
       payload: {
         node_id: currentQuestion.node_id,
-        raw_answer: selectedAnswer,
-        response_type: "mcq",
+        raw_answer: raw_answer,
+        response_type: currentQuestion.type || "unknown",
         response_time_sec: 3.2,
       },
     });
@@ -299,21 +320,6 @@ document.addEventListener("DOMContentLoaded", () => {
     setTimeout(() => {
       window.location.href = redirect_url || "report.html";
     }, 1200);
-  });
-
-  // Video Controls: Play/Pause Toggle
-  ctrlPlay.addEventListener("click", () => {
-    isPlaying = !isPlaying;
-    ctrlPlay.textContent = isPlaying ? "⏸" : "▶";
-    if (lessonVideo && lessonVideo.style.display !== "none") {
-      if (isPlaying) lessonVideo.play();
-      else lessonVideo.pause();
-    }
-    if (isPlaying) {
-      avatarGraphic.classList.add("avatar-talking");
-    } else {
-      avatarGraphic.classList.remove("avatar-talking");
-    }
   });
 
   // Tab Switcher (AI Inspector vs Notes)
