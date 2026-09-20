@@ -184,3 +184,22 @@ Before completing your response, verify:
 - **T7/T8 (avatar gesture polish, multi-board segments)**: deferred — P2, time-boxed out; avatar PiP/lip-sync polish from the earlier pass stands as-is.
 - **Loading UX** (user request, not in task.md): a brand-consistent `#page-loader` overlay inserted into all 13 HTML pages (min 380ms, independent of module-script timing so it can't hang), plus a CSS entrance animation on the landing hero and auth cards. Kept separate from classroom's existing connect/render overlays.
 - **Needs live verification**: an actual mentor inbox receiving the email (SMTP/Resend still not configured on Render per earlier conversation — will log-fallback until that's set up) — `HUMAN LIVE TEST REQUIRED`.
+
+### [Live log triage] Root cause of the generic teaching boards — FIXED
+- `DiagramRenderer`/`Graph`/`Image`/`Map`/`Timeline` unwrapped `visual_spec` with
+  `visual_spec.get("content") if isinstance(visual_spec, dict) else visual_spec` — but the pipeline
+  passes a **Pydantic `VisualSpec`**, not a dict, so the whole object became `content`, no parse branch
+  matched, and every board fell through to placeholder labels. Equation/Code already used `getattr` and
+  were therefore fine. This — not prompt quality — is why "Input Data → Processing Engine" appeared.
+  Fixed all five to `getattr(visual_spec, "content", visual_spec)`.
+- Fixing it exposed two latent bugs on code paths that had never actually executed:
+  `TimelineRenderer` crashed (`'str' object has no attribute 'get'`) because the dict branch passed
+  `events` through unnormalised; `GraphRenderer` defaulted to a built-in 2,4,8…256 series, i.e. it drew
+  a **fabricated exponential curve and presented it as the concept's real data** whenever the spec used
+  any key other than x/y. Both now normalise the shapes models actually emit and fall back to an honest
+  title card with a WARNING instead of inventing content.
+- Diagram cards also now fill the board vertically (were using ~1/3 of it).
+- Verified by rendering the exact `VisualSpec` from the live Render log; board shows the real lesson nodes.
+- **Gemini key was leaking into logs**: the key was passed as `?key=...`, and httpx logs the full request
+  URL at INFO, so every call wrote the secret into the server log (retained and readable on Render).
+  Moved to the `x-goog-api-key` header; verified the URL no longer contains it.

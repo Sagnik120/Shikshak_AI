@@ -19,7 +19,15 @@ class DiagramRenderer(BaseRenderer):
     """Renders structured diagrams, flowcharts, and concept relationship maps."""
 
     def render(self, visual_spec: Union[Dict[str, Any], Any]) -> VisualRenderResult:
-        content = visual_spec.get("content") if isinstance(visual_spec, dict) else visual_spec
+        content = (
+            visual_spec.get("content")
+            if isinstance(visual_spec, dict)
+            # A VisualSpec model arrives here, not a dict: without the
+            # attribute lookup the whole object became "content", no
+            # branch below matched it, and every board fell through to
+            # placeholder labels.
+            else getattr(visual_spec, "content", visual_spec)
+        )
         session_id = uuid.uuid4().hex[:8]
         output_path = os.path.join(self.output_dir, f"diagram_{session_id}.png")
 
@@ -62,9 +70,12 @@ class DiagramRenderer(BaseRenderer):
 
         num_nodes = len(nodes[:5])
         card_w = min(340, int((1180 - (num_nodes - 1) * 50) / max(1, num_nodes)))
-        card_h = 300
+        # Fill the board area (roughly y=150..1040) instead of leaving two thirds
+        # of it empty, which is what made the old boards look sparse on video.
+        card_h = 440
+        board_top, board_bottom = 170, self.height - 60
         start_x = (self.width - (num_nodes * card_w + (num_nodes - 1) * 50)) // 2
-        start_y = 420
+        start_y = board_top + ((board_bottom - board_top) - card_h) // 2
 
         font_node = self._get_font(30, bold=True)
         font_num = self._get_font(20, bold=True)
