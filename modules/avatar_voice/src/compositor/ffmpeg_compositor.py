@@ -131,6 +131,21 @@ def compute_content_aware_step_durations(
     return durations
 
 
+# Avatar picture-in-picture. The frames are 576x432; keeping that ratio avoids
+# stretching the face. The bust is bottom-anchored in a framed panel in the
+# right-hand column, clear of the burned-in subtitles, instead of floating in
+# the top corner.
+PIP_W, PIP_H = 576, 432
+PIP_X = 1344
+PIP_Y = 1080 - PIP_H - 150          # leaves the lower strip free for subtitles
+PANEL_X, PANEL_Y = PIP_X + 8, PIP_Y - 12
+PANEL_W, PANEL_H = PIP_W - 16, PIP_H + 24
+PIP_PANEL_FILTER = (
+    f"drawbox=x={PANEL_X}:y={PANEL_Y}:w={PANEL_W}:h={PANEL_H}:color=#111A2E@0.92:t=fill,"
+    f"drawbox=x={PANEL_X}:y={PANEL_Y}:w={PANEL_W}:h={PANEL_H}:color=#26324A:t=3"
+)
+
+
 class FFmpegCompositor:
     """Composites visual panel, avatar animation frames, and narration audio into an MP4 video."""
 
@@ -246,10 +261,11 @@ class FFmpegCompositor:
             filter_graph = (
                 f"{concat_inputs}concat=n={num_steps}:v=1:a=0[vis_seq]; "
                 f"[vis_seq]scale=1344:1080:force_original_aspect_ratio=decrease,pad=1344:1080:(ow-iw)/2:(oh-ih)/2[vis]; "
-                f"[0:v]scale=576:432[avatar]; "
+                f"[0:v]scale={PIP_W}:{PIP_H}[avatar]; "
                 f"color=c=#0f172a:s=1920x1080:r=24:d={duration_sec}[bg]; "
                 f"[bg][vis]overlay=0:0[bg_vis]; "
-                f"[bg_vis][avatar]overlay=1344:24[outv]"
+                f"[bg_vis]{PIP_PANEL_FILTER}[bg_panel]; "
+                f"[bg_panel][avatar]overlay={PIP_X}:{PIP_Y}[outv]"
             )
 
             cmd.extend([
@@ -266,10 +282,11 @@ class FFmpegCompositor:
             # Standard single visual slide
             filter_graph = (
                 f"[1:v]scale=1344:1080:force_original_aspect_ratio=decrease,pad=1344:1080:(ow-iw)/2:(oh-ih)/2[vis]; "
-                f"[0:v]scale=576:432[avatar]; "
+                f"[0:v]scale={PIP_W}:{PIP_H}[avatar]; "
                 f"color=c=#0f172a:s=1920x1080:r=24:d={duration_sec}[bg]; "
                 f"[bg][vis]overlay=0:0[bg_vis]; "
-                f"[bg_vis][avatar]overlay=1344:24[outv]"
+                f"[bg_vis]{PIP_PANEL_FILTER}[bg_panel]; "
+                f"[bg_panel][avatar]overlay={PIP_X}:{PIP_Y}[outv]"
             )
 
             cmd = [

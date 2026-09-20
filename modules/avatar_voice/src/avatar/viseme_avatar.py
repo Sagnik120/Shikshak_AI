@@ -15,6 +15,11 @@ from PIL import Image, ImageDraw
 from modules.avatar_voice.src.models import AvatarRenderResult
 
 
+# A viseme held for under ~2 frames reads as jitter, not speech.
+MIN_VISEME_HOLD_FRAMES = 2
+SILENCE_ENERGY = 0.15
+
+
 class VisemeAvatarAdapter:
     """Tier-1 MVP viseme-based animated teacher avatar."""
 
@@ -40,13 +45,29 @@ class VisemeAvatarAdapter:
         half_img = self._generate_avatar_sprite(avatar_cue, mouth_state="half_open")
         open_img = self._generate_avatar_sprite(avatar_cue, mouth_state="open")
 
+        # Choosing a mouth per frame straight from the RMS made the jaw flicker
+        # between states at 24 FPS. Each state is now held for a minimum number
+        # of frames, and near-silence always closes the mouth.
+        last_state = "closed"
+        held = MIN_VISEME_HOLD_FRAMES
+        sprites = {"closed": closed_img, "half_open": half_img, "open": open_img}
+
         for frame_idx, energy in enumerate(rms_envelope):
-            if energy < 0.15:
-                frame_img = closed_img
+            if energy < SILENCE_ENERGY:
+                wanted = "closed"
             elif energy < 0.50:
-                frame_img = half_img
+                wanted = "half_open"
             else:
-                frame_img = open_img
+                wanted = "open"
+
+            # Silence closes immediately; anything else waits out the hold.
+            if wanted != last_state and (held >= MIN_VISEME_HOLD_FRAMES or wanted == "closed"):
+                last_state = wanted
+                held = 1
+            else:
+                held += 1
+
+            frame_img = sprites[last_state]
 
             frame_filename = os.path.join(frames_dir, f"frame_{frame_idx:05d}.png")
             frame_img.save(frame_filename, "PNG")
