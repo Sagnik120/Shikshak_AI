@@ -1,0 +1,250 @@
+{
+  "suite_name": "Physics NCERT",
+  "config": {
+    "top_k": 5,
+    "relevance_threshold": 0.5001,
+    "confidence_threshold": 0.52
+  },
+  "num_queries": 8,
+  "metrics": {
+    "precision_at_k": 0.0,
+    "recall_at_k": 1.0,
+    "mrr": 0.0,
+    "ndcg_at_k": 1.0,
+    "risk_accuracy": 1.0
+  },
+  "latency": {
+    "p50_ms": 594.39,
+    "p95_ms": 4428.0,
+    "p99_ms": 6064.19,
+    "mean_ms": 1326.66,
+    "throughput_qps": 0.75
+  },
+  "stage_breakdown": {},
+  "per_query": [
+    {
+      "query_text": "What is electric current and what is its SI unit?",
+      "expected_chunk_ids": [],
+      "retrieved_chunk_ids": [
+        "chunk_bench_ph_0001",
+        "chunk_bench_ph_0003",
+        "chunk_bench_ph_0005",
+        "chunk_bench_ph_0002",
+        "chunk_bench_ph_0004"
+      ],
+      "retrieved_scores": [
+        0.7309,
+        0.5848,
+        0.5616,
+        0.5193,
+        0.5025
+      ],
+      "latency_ms": 6473.24,
+      "risk_level": "low",
+      "expected_risk_level": "low",
+      "has_sufficient_context": true,
+      "precision_at_k": 0.0,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 0.0,
+      "ndcg_at_k": 1.0,
+      "risk_match": true,
+      "perf_stages": {}
+    },
+    {
+      "query_text": "Explain Ohm's Law and the relationship between voltage, current and resistance",
+      "expected_chunk_ids": [],
+      "retrieved_chunk_ids": [
+        "chunk_bench_ph_0002",
+        "chunk_bench_ph_0003",
+        "chunk_bench_ph_0004",
+        "chunk_bench_ph_0005",
+        "chunk_bench_ph_0001"
+      ],
+      "retrieved_scores": [
+        0.7297,
+        0.6135,
+        0.5707,
+        0.5377,
+        0.503
+      ],
+      "latency_ms": 629.71,
+      "risk_level": "low",
+      "expected_risk_level": "low",
+      "has_sufficient_context": true,
+      "precision_at_k": 0.0,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 0.0,
+      "ndcg_at_k": 1.0,
+      "risk_match": true,
+      "perf_stages": {}
+    },
+    {
+      "query_text": "How does resistance depend on length and area of a conductor?",
+      "expected_chunk_ids": [],
+      "retrieved_chunk_ids": [
+        "chunk_bench_ph_0003",
+        "chunk_bench_ph_0002",
+        "chunk_bench_ph_0007",
+        "chunk_bench_ph_0004",
+        "chunk_bench_ph_0005"
+      ],
+      "retrieved_scores": [
+        0.7306,
+        0.5237,
+        0.5014,
+        0.501,
+        0.501
+      ],
+      "latency_ms": 614.0,
+      "risk_level": "low",
+      "expected_risk_level": "low",
+      "has_sufficient_context": true,
+      "precision_at_k": 0.0,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 0.0,
+      "ndcg_at_k": 1.0,
+      "risk_match": true,
+      "perf_stages": {}
+    },
+    {
+      "query_text": "What is the difference between series and parallel circuits?",
+      "expected_chunk_ids": [],
+      "retrieved_chunk_ids": [
+        "chunk_bench_ph_0004",
+        "chunk_bench_ph_0002",
+        "chunk_bench_ph_0001",
+        "chunk_bench_ph_0007",
+        "chunk_bench_ph_0003"
+      ],
+      "retrieved_scores": [
+        0.7298,
+        0.5001,
+        0.5001,
+        0.5,
+        0.5
+      ],
+      "latency_ms": 585.05,
+      "risk_level": "low",
+      "expected_risk_level": "low",
+      "has_sufficient_context": true,
+      "precision_at_k": 0.0,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 0.0,
+      "ndcg_at_k": 1.0,
+      "risk_match": true,
+      "perf_stages": {}
+    },
+    {
+      "query_text": "Who discovered electromagnetic induction and when?",
+      "expected_chunk_ids": [],
+      "retrieved_chunk_ids": [
+        "chunk_bench_ph_0007",
+        "chunk_bench_ph_0008",
+        "chunk_bench_ph_0002",
+        "chunk_bench_ph_0006",
+        "chunk_bench_ph_0003"
+      ],
+      "retrieved_scores": [
+        0.7306,
+        0.5394,
+        0.5203,
+        0.5055,
+        0.5
+      ],
+      "latency_ms": 581.4,
+      "risk_level": "low",
+      "expected_risk_level": "low",
+      "has_sufficient_context": true,
+      "precision_at_k": 0.0,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 0.0,
+      "ndcg_at_k": 1.0,
+      "risk_match": true,
+      "perf_stages": {}
+    },
+    {
+      "query_text": "H = I\u00b2Rt formula explanation",
+      "expected_chunk_ids": [],
+      "retrieved_chunk_ids": [
+        "chunk_bench_ph_0005",
+        "chunk_bench_ph_0001",
+        "chunk_bench_ph_0002",
+        "chunk_bench_ph_0004",
+        "chunk_bench_ph_0003"
+      ],
+      "retrieved_scores": [
+        0.6971,
+        0.5009,
+        0.5006,
+        0.5005,
+        0.5003
+      ],
+      "latency_ms": 603.73,
+      "risk_level": "low",
+      "expected_risk_level": "low",
+      "has_sufficient_context": true,
+      "precision_at_k": 0.0,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 0.0,
+      "ndcg_at_k": 1.0,
+      "risk_match": true,
+      "perf_stages": {}
+    },
+    {
+      "query_text": "How does an electric motor work?",
+      "expected_chunk_ids": [],
+      "retrieved_chunk_ids": [
+        "chunk_bench_ph_0008",
+        "chunk_bench_ph_0007",
+        "chunk_bench_ph_0004",
+        "chunk_bench_ph_0005",
+        "chunk_bench_ph_0001"
+      ],
+      "retrieved_scores": [
+        0.7306,
+        0.5056,
+        0.5014,
+        0.5012,
+        0.5011
+      ],
+      "latency_ms": 566.54,
+      "risk_level": "low",
+      "expected_risk_level": "low",
+      "has_sufficient_context": true,
+      "precision_at_k": 0.0,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 0.0,
+      "ndcg_at_k": 1.0,
+      "risk_match": true,
+      "perf_stages": {}
+    },
+    {
+      "query_text": "Oersted experiment magnetic field",
+      "expected_chunk_ids": [],
+      "retrieved_chunk_ids": [
+        "chunk_bench_ph_0006",
+        "chunk_bench_ph_0007",
+        "chunk_bench_ph_0008",
+        "chunk_bench_ph_0005",
+        "chunk_bench_ph_0003"
+      ],
+      "retrieved_scores": [
+        0.7151,
+        0.5011,
+        0.5002,
+        0.5,
+        0.5
+      ],
+      "latency_ms": 559.64,
+      "risk_level": "low",
+      "expected_risk_level": "low",
+      "has_sufficient_context": true,
+      "precision_at_k": 0.0,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 0.0,
+      "ndcg_at_k": 1.0,
+      "risk_match": true,
+      "perf_stages": {}
+    }
+  ]
+}

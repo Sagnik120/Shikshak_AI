@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG Performance Benchmark Dashboard — Shikshak AI</title>
+    <meta name="description" content="Production-grade RAG pipeline performance benchmarking dashboard for measuring retrieval quality, latency, and throughput.">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <div class="header-icon">📊</div>
+            <h1>RAG <span>Benchmark</span> Dashboard</h1>
+        </div>
+        <div class="header-badge">PORT 8006 · ISOLATED</div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+
+        <!-- Controls Panel -->
+        <section class="controls" id="controlsPanel">
+            <div class="controls-header">
+                <h2>⚙️ Benchmark Configuration</h2>
+            </div>
+
+            <div class="controls-grid">
+                <div class="form-group">
+                    <label for="suiteSelect">Test Suite</label>
+                    <select id="suiteSelect">
+                        <option value="physics">Loading...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="topKInput">Top K</label>
+                    <input type="number" id="topKInput" value="5" min="1" max="20">
+                </div>
+                <div class="form-group">
+                    <label for="relThreshold">Relevance Threshold</label>
+                    <input type="number" id="relThreshold" value="0.5001" step="0.01" min="0" max="1">
+                </div>
+                <div class="form-group">
+                    <label for="confThreshold">Confidence Threshold</label>
+                    <input type="number" id="confThreshold" value="0.52" step="0.01" min="0" max="1">
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-primary" id="runBtn">
+                    <span class="spinner" id="runSpinner"></span>
+                    ▶ Run Benchmark
+                </button>
+                <button class="btn btn-secondary" id="compareBtn">
+                    🔄 A/B Compare (top_k 3 vs 10)
+                </button>
+                <button class="btn btn-secondary" id="exportBtn">
+                    💾 Export JSON
+                </button>
+            </div>
+
+            <div class="progress-bar" id="progressBar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="status-text" id="statusText"></div>
+        </section>
+
+        <!-- Results Area (populated dynamically) -->
+        <div id="resultsArea">
+            <div class="empty-state">
+                <div class="empty-state-icon">📈</div>
+                <h3>No Benchmark Results Yet</h3>
+                <p>Select a test suite and click "Run Benchmark" to measure RAG pipeline performance.</p>
+                <p style="margin-top:12px; font-size:13px; color:var(--text-muted);">
+                    Available suites: Physics NCERT · Cross-Domain Rejection · Multilingual Paraphrase
+                </p>
+            </div>
+        </div>
+
+    </main>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

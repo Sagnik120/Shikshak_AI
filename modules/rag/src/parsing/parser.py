@@ -76,7 +76,22 @@ def parse_document(
     key_terms = extract_key_terms_tfidf(full_text, top_n=15)
 
     # Chunk sections using structure-aware semantic chunker
-    chunks = chunk_sections(raw_sections, document_id=doc_id)
+    # Adaptive chunk sizing based on document type
+    ext = os.path.splitext(filename)[1].lower()
+    if ext in (".pptx", ".ppt"):
+        # Slides have sparse text per section — smaller chunks for precision
+        target_tokens, max_tokens = 150, 300
+    elif ext in (".txt", ".md", ".markdown", ".rst"):
+        # Plain text — slightly smaller than PDF for better granularity
+        target_tokens, max_tokens = 250, 450
+    else:
+        # PDF / DOCX — dense paragraphs, standard chunking
+        target_tokens, max_tokens = 300, 500
+
+    chunks = chunk_sections(
+        raw_sections, document_id=doc_id,
+        target_tokens=target_tokens, max_tokens=max_tokens
+    )
 
     # Collect diagnostic warnings from raw sections and empty/scanned document checks
     warnings: List[str] = []

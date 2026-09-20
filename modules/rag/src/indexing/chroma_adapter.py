@@ -1,11 +1,18 @@
-"""ChromaDB implementation of VectorStoreAdapter."""
+"""ChromaDB implementation of VectorStoreAdapter.
+
+Production optimizations:
+- Inverted index for O(M·k) sparse lookup (replaces O(N·M) linear scan)
+- IDF-weighted BM25-style sparse scoring
+"""
 
 from __future__ import annotations
 
 import os
+import math
 import json
 import logging
-from typing import List, Dict, Any, Optional, Tuple
+from collections import defaultdict
+from typing import List, Dict, Any, Optional, Tuple, Set
 
 from modules.rag.src.models import Chunk
 from modules.rag.src.indexing.vector_store_adapter import VectorStoreAdapter
@@ -21,6 +28,12 @@ class ChromaVectorStoreAdapter(VectorStoreAdapter):
         self._client = None
         self._sparse_store: Dict[str, Dict[str, Dict[str, float]]] = {}  # doc_id -> chunk_id -> sparse_dict
         self._chunk_lookup: Dict[str, Dict[str, Chunk]] = {}  # doc_id -> chunk_id -> Chunk
+        # Inverted index: doc_id -> term -> set of chunk_ids containing that term
+        self._inverted_index: Dict[str, Dict[str, Set[str]]] = {}
+        # Document frequency: doc_id -> term -> number of chunks containing the term
+        self._doc_freq: Dict[str, Dict[str, int]] = {}
+        # Total chunk count per document (for IDF calculation)
+        self._doc_chunk_count: Dict[str, int] = {}
 
     def _get_client(self):
         if self._client is not None:
@@ -74,12 +87,25 @@ class ChromaVectorStoreAdapter(VectorStoreAdapter):
             for c in chunks
         ]
 
-        # Store in internal lookups
+        # Initialize inverted index structures for this document if needed
+        if document_id not in self._inverted_index:
+            self._inverted_index[document_id] = defaultdict(set)
+            self._doc_freq[document_id] = defaultdict(int)
+            self._doc_chunk_count[document_id] = 0
+
+        # Store in internal lookups and build inverted index
         for idx, chunk in enumerate(chunks):
             self._chunk_lookup[document_id][chunk.chunk_id] = chunk
             chunk.embedding_ref = f"{document_id}#{chunk.chunk_id}"
+            self._doc_chunk_count[document_id] += 1
             if sparse_weights and idx < len(sparse_weights):
-                self._sparse_store[document_id][chunk.chunk_id] = sparse_weights[idx]
+                sw = sparse_weights[idx]
+                self._sparse_store[document_id][chunk.chunk_id] = sw
+                # Update inverted index and document frequency
+                for term in sw:
+                    if chunk.chunk_id not in self._inverted_index[document_id][term]:
+                        self._inverted_index[document_id][term].add(chunk.chunk_id)
+                        self._doc_freq[document_id][term] += 1
 
         # Upsert into Chroma collection if available
         collection = self._get_collection(document_id)
@@ -150,26 +176,38 @@ class ChromaVectorStoreAdapter(VectorStoreAdapter):
         query_sparse: Dict[str, float],
         top_k: int = 20
     ) -> List[Dict[str, Any]]:
+        """Query sparse index using inverted index for O(M·k) lookup.
+
+        Uses IDF-weighted scoring: score = Σ (q_weight × tf × idf)
+        where idf = log(N / df) and N = total chunks in document.
+        """
+        inv_idx = self._inverted_index.get(document_id, {})
         doc_sparse = self._sparse_store.get(document_id, {})
         doc_chunks = self._chunk_lookup.get(document_id, {})
-        if not doc_sparse or not query_sparse:
+        if not inv_idx or not query_sparse:
             return []
 
-        scored: List[Tuple[str, float]] = []
-        for chunk_id, term_weights in doc_sparse.items():
-            # Dot product of sparse lexical vectors
-            dot = 0.0
-            for term, q_weight in query_sparse.items():
-                if term in term_weights:
-                    dot += q_weight * term_weights[term]
-            if dot > 0.0:
-                scored.append((chunk_id, dot))
+        total_chunks = max(self._doc_chunk_count.get(document_id, 1), 1)
+        df_map = self._doc_freq.get(document_id, {})
 
-        scored.sort(key=lambda x: x[1], reverse=True)
-        top_matches = scored[:top_k]
+        # Accumulate scores using inverted index (only touch relevant chunks)
+        scores: Dict[str, float] = {}
+        for term, q_weight in query_sparse.items():
+            posting_list = inv_idx.get(term)
+            if not posting_list:
+                continue
+            # IDF: log(N / df), clamped to >= 0.1 for very common terms
+            df = df_map.get(term, 1)
+            idf = max(0.1, math.log(total_chunks / df))
+            for chunk_id in posting_list:
+                tf = doc_sparse.get(chunk_id, {}).get(term, 0.0)
+                scores[chunk_id] = scores.get(chunk_id, 0.0) + (q_weight * tf * idf)
+
+        # Sort by score descending and take top_k
+        sorted_results = sorted(scores.items(), key=lambda x: x[1], reverse=True)[:top_k]
 
         results = []
-        for c_id, score in top_matches:
+        for c_id, score in sorted_results:
             chunk = doc_chunks.get(c_id)
             if chunk:
                 results.append({
