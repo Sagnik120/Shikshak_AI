@@ -1,14 +1,3 @@
----
-title: Shikshak AI
-emoji: 🎓
-colorFrom: indigo
-colorTo: blue
-sdk: gradio
-app_file: app.py
-pinned: false
-license: mit
----
-
 <div align="center">
 
 # Shikshak AI (शिक्षक AI)
