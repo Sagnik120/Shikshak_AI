@@ -179,6 +179,64 @@ def attach_media(
     return stored_url
 
 
+def record_notes(db: Session, lesson: Lesson, node_id: str, notes: dict) -> None:
+    """Persist the Explainer's chapter notes so they outlive the live socket."""
+    node = get_node(db, lesson, node_id)
+    if not node or not notes:
+        return
+    node.notes_json = notes
+    db.flush()
+
+
+def lesson_notes_markdown(db: Session, lesson: Lesson) -> str:
+    """The whole lesson as a Markdown study sheet, ready to download."""
+    nodes = sorted(lesson.nodes, key=lambda n: n.position)
+    taught = [n for n in nodes if n.script_text or n.notes_json]
+
+    lines = [f"# {lesson.title}", ""]
+    when = (lesson.started_at or lesson.created_at)
+    if when:
+        lines += [f"_Lesson notes · {when.strftime('%d %b %Y')}_", ""]
+
+    for node in taught:
+        lines += [f"## {node.concept}", ""]
+        meta = [node.depth, f"{node.est_minutes} min"]
+        if node.status:
+            meta.append(node.status)
+        lines += ["*" + " · ".join(str(m) for m in meta if m) + "*", ""]
+
+        notes = node.notes_json or {}
+        points = [p for p in (notes.get("key_points") or []) if p]
+        if not points and node.script_text:
+            points = [s.strip() for s in node.script_text.split(". ")[:4] if s.strip()]
+        for point in points:
+            lines.append(f"- {point.rstrip('.')}.")
+        lines.append("")
+
+        if notes.get("example"):
+            lines += ["**Example.** " + str(notes["example"]), ""]
+
+        citation = node.citation_json or {}
+        if citation.get("excerpt"):
+            lines += [f"> From your material: {citation['excerpt']}", ""]
+
+        if node.script_text:
+            lines += ["<details><summary>Full transcript</summary>", "",
+                      node.script_text, "", "</details>", ""]
+
+    takeaways = []
+    for node in taught:
+        points = ((node.notes_json or {}).get("key_points") or [])[:1]
+        takeaways += [f"- **{node.concept}** — {p}" for p in points]
+    if takeaways:
+        lines += ["## Key takeaways", ""] + takeaways + [""]
+
+    if not taught:
+        lines += ["_No concepts have been taught in this lesson yet._", ""]
+
+    return "\n".join(lines)
+
+
 def record_citation(db: Session, lesson: Lesson, node_id: str, citation: dict) -> None:
     node = get_node(db, lesson, node_id)
     if node:
@@ -599,6 +657,7 @@ def lesson_detail(db: Session, lesson: Lesson) -> dict:
             "mastery_score": round(n.mastery_score, 2),
             "times_reexplained": n.times_reexplained,
             "script_text": n.script_text,
+            "notes": n.notes_json,
             "video_url": n.video_url,
             "captions_url": n.captions_url,
             "duration_sec": n.duration_sec,

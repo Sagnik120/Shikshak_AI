@@ -147,6 +147,9 @@ class LiveSession:
         script_text = getattr(segment, "script_text", "") or ""
 
         lesson_service.mark_node_teaching(self.db, self.lesson, node.node_id, script_text)
+        notes = _as_dict(getattr(segment, "notes", None))
+        if notes:
+            lesson_service.record_notes(self.db, self.lesson, node.node_id, notes)
         self.commit()
 
         await self.send(
@@ -158,7 +161,7 @@ class LiveSession:
                 "script_text": script_text,
                 "visual_spec": _as_dict(getattr(segment, "visual_spec", None)),
                 "avatar_cue": getattr(segment, "avatar_cue", "neutral"),
-                "notes": _as_dict(getattr(segment, "notes", None)) or None,
+                "notes": notes or None,
                 "depth": getattr(node, "depth", None),
                 "est_minutes": getattr(node, "est_minutes", None),
             },
@@ -166,17 +169,43 @@ class LiveSession:
 
         if self.lesson.document_id:
             # TeachingSegment has no grounding field, so the passages come from
-            # the orchestrator session that retrieved them.
-            chunks = session_manager.current_grounding(self.lesson)
-            if chunks:
+            # the orchestrator session that retrieved them. The provenance is
+            # system-generated from retrieval metadata, never from the LLM.
+            provenance = session_manager.current_provenance(self.lesson)
+            chunks = provenance.get("chunks") or []
+            risk = provenance.get("risk_level", "low")
+
+            if not chunks:
+                chunks = [
+                    {"text": text}
+                    for text in session_manager.current_grounding(self.lesson)
+                ]
+
+            if chunks and risk != "no_document_context":
+                top = chunks[0]
                 citation = {
-                    "source_title": self.lesson.title,
-                    "excerpt": chunks[0] if isinstance(chunks[0], str) else str(chunks[0]),
+                    "source_title": getattr(self.lesson.document, "filename", None) or self.lesson.title,
+                    "excerpt": (top.get("text") or "")[:400],
                     "node_id": node.node_id,
+                    "chunk_id": top.get("chunk_id"),
+                    "section_title": top.get("section_title"),
+                    "page_or_slide": top.get("page_or_slide"),
+                    "chunk_count": len(chunks),
+                    "risk_level": risk,
                 }
                 lesson_service.record_citation(self.db, self.lesson, node.node_id, citation)
                 self.commit()
                 await self.send("citation_updated", citation)
+            else:
+                await self.send(
+                    "citation_updated",
+                    {
+                        "node_id": node.node_id,
+                        "excerpt": "",
+                        "risk_level": "no_document_context",
+                        "chunk_count": 0,
+                    },
+                )
 
         # DEMONSTRATE enqueues the render and tells us whether a question follows.
         next_state, payload = await self._run(

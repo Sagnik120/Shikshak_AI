@@ -175,6 +175,14 @@ class SessionManager:
         session = self.get_or_restore(lesson)
         return list(getattr(session, "recent_grounding", []) or [])
 
+    def current_provenance(self, lesson: Lesson) -> dict:
+        """Where the most recent explanation came from, and how well grounded."""
+        session = self.get_or_restore(lesson)
+        return {
+            "chunks": list(getattr(session, "recent_provenance", []) or []),
+            "risk_level": getattr(session, "recent_risk_level", "low"),
+        }
+
     def step(self, lesson: Lesson, state: TeacherState, inputs: dict):
         self.get_or_restore(lesson)
         return self._ai.process_next_step(lesson.id, state, inputs)

@@ -83,8 +83,14 @@ class Settings:
     otp_ttl_min: int = _int("OTP_TTL_MIN", 10)
     otp_max_attempts: int = _int("OTP_MAX_ATTEMPTS", 5)
     otp_resend_cooldown_sec: int = _int("OTP_RESEND_COOLDOWN_SEC", 60)
-    expose_dev_otp: bool = _bool("EXPOSE_DEV_OTP", True)
-    enable_smtp_send: bool = _bool("ENABLE_SMTP_SEND", False)
+    # Returning the OTP in the API response is a dev convenience. Once real mail
+    # is going out it is a live account-takeover hole, so it now defaults off
+    # whenever SMTP is configured; EXPOSE_DEV_OTP=true still forces it on.
+    _expose_dev_otp_override: str = os.getenv("EXPOSE_DEV_OTP", "").strip()
+    # Left as a plain False default, credentials in .env still went nowhere but
+    # data/outbox/. Unset now means "send if SMTP is actually configured";
+    # ENABLE_SMTP_SEND=false still forces the offline transport.
+    _smtp_send_override: str = os.getenv("ENABLE_SMTP_SEND", "").strip()
 
     # --- Account lockout ---
     max_failed_logins: int = _int("MAX_FAILED_LOGINS", 8)
@@ -126,6 +132,18 @@ class Settings:
     @property
     def smtp_configured(self) -> bool:
         return bool(self.smtp_user and self.smtp_password)
+
+    @property
+    def expose_dev_otp(self) -> bool:
+        if self._expose_dev_otp_override:
+            return self._expose_dev_otp_override.lower() in ("1", "true", "yes", "on")
+        return not self.smtp_configured
+
+    @property
+    def enable_smtp_send(self) -> bool:
+        if self._smtp_send_override:
+            return self._smtp_send_override.lower() in ("1", "true", "yes", "on")
+        return self.smtp_configured
 
     @property
     def sender_address(self) -> str:

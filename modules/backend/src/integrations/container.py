@@ -37,6 +37,34 @@ class RAGClient:
         result = self.rag.retrieve_context(document_id=document_id, query_text=concept)
         return [chunk.text for chunk in result.chunks]
 
+    def retrieve_detailed(self, document_id: str, concept: str) -> dict:
+        """Retrieval with its provenance kept.
+
+        retrieve_context() throws away chunk_id, page and section, so the
+        classroom could only ever show a bare excerpt with no source.
+        """
+        result = self.rag.retrieve_context(document_id=document_id, query_text=concept)
+        chunks = [
+            {
+                "chunk_id": c.chunk_id,
+                "text": c.text,
+                "section_title": c.section_title,
+                "page_or_slide": c.page_or_slide,
+                "score": round(float(c.score), 4),
+            }
+            for c in result.chunks
+        ]
+        logger.info(
+            "RAG retrieval document=%s concept=%r chunks=%s risk=%s top_scores=%s ids=%s",
+            document_id, concept, len(chunks), result.risk_level,
+            [c["score"] for c in chunks[:3]], [c["chunk_id"] for c in chunks[:5]],
+        )
+        return {
+            "chunks": chunks,
+            "risk_level": result.risk_level,
+            "has_sufficient_context": result.has_sufficient_context,
+        }
+
     def get_document_outline(self, document_id: str) -> Optional[dict]:
         """What the document is about, for planning a lesson from it.
 

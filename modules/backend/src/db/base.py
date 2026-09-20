@@ -1,4 +1,5 @@
 """SQLite engine, session factory, and schema bootstrap for Shikshak AI."""
+import logging
 import os
 from pathlib import Path
 from typing import Generator
@@ -97,8 +98,39 @@ def get_db() -> Generator[Session, None, None]:
         db.close()
 
 
+def _add_missing_columns() -> None:
+    """Add columns that exist on the models but not yet in an older database file.
+
+    create_all() only creates missing *tables*, so a schema addition left every
+    existing install querying a column SQLite did not have.
+    """
+    from sqlalchemy import text
+
+    with engine.begin() as conn:
+        for table in Base.metadata.sorted_tables:
+            existing = {
+                row[1]
+                for row in conn.execute(text(f"PRAGMA table_info('{table.name}')"))
+            }
+            if not existing:
+                continue  # create_all() will make the whole table
+            for column in table.columns:
+                if column.name in existing or column.primary_key:
+                    continue
+                if not (column.nullable or column.server_default is not None):
+                    continue  # needs a real migration, not a silent ALTER
+                ddl = column.type.compile(dialect=engine.dialect)
+                conn.execute(
+                    text(f'ALTER TABLE "{table.name}" ADD COLUMN "{column.name}" {ddl}')
+                )
+                logging.getLogger(__name__).info(
+                    "Added missing column %s.%s", table.name, column.name
+                )
+
+
 def init_db() -> None:
-    """Create all tables. Safe to call repeatedly."""
+    """Create all tables and patch in new nullable columns. Safe to call repeatedly."""
     from modules.backend.src.db import models  # noqa: F401  (registers mappers)
 
     Base.metadata.create_all(bind=engine)
+    _add_missing_columns()

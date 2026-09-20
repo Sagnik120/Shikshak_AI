@@ -255,6 +255,9 @@ class LessonNodeRow(Base, TimestampMixin):
     captions_url: Mapped[Optional[str]] = mapped_column(String(600))
     duration_sec: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     citation_json: Mapped[Optional[dict]] = mapped_column(JSON)
+    # {"key_points": [...], "example": "..."} as returned by the Explainer, so
+    # the notes survive a reload and can be downloaded after the lesson.
+    notes_json: Mapped[Optional[dict]] = mapped_column(JSON)
 
     first_seen_at: Mapped[Optional[datetime]] = mapped_column(UTCDateTime)
     completed_at: Mapped[Optional[datetime]] = mapped_column(UTCDateTime)

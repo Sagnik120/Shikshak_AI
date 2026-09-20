@@ -15,7 +15,7 @@ from fastapi import (
     UploadFile,
     status,
 )
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -350,6 +350,51 @@ def _serve_owned_media(stored_path: Optional[str], lesson_id: str, media_type: s
     if not path.is_file():
         raise HTTPException(status_code=404, detail="Media file is no longer available.")
     return FileResponse(path, media_type=media_type, filename=path.name)
+
+
+@router.get("/{lesson_id}/notes")
+def get_lesson_notes(
+    lesson_id: str,
+    format: Literal["json", "markdown"] = Query("json"),
+    download: bool = Query(False),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """The lesson's chapter notes — as JSON for the UI, or a Markdown study sheet."""
+    lesson = _owned_lesson(db, lesson_id, user)
+
+    if format == "markdown":
+        markdown = lesson_service.lesson_notes_markdown(db, lesson)
+        headers = {}
+        if download:
+            safe = "".join(
+                ch if ch.isalnum() or ch in " -_" else "" for ch in (lesson.title or "lesson")
+            ).strip() or "lesson"
+            headers["Content-Disposition"] = f'attachment; filename="{safe[:80]} - notes.md"'
+        return Response(
+            content=markdown, media_type="text/markdown; charset=utf-8", headers=headers
+        )
+
+    nodes = sorted(lesson.nodes, key=lambda n: n.position)
+    return {
+        "lesson_id": lesson.id,
+        "title": lesson.title,
+        "notes": [
+            {
+                "node_id": n.node_id,
+                "concept": n.concept,
+                "depth": n.depth,
+                "est_minutes": n.est_minutes,
+                "status": n.status,
+                "key_points": (n.notes_json or {}).get("key_points") or [],
+                "example": (n.notes_json or {}).get("example"),
+                "script_text": n.script_text,
+                "citation": n.citation_json,
+            }
+            for n in nodes
+            if n.script_text or n.notes_json
+        ],
+    }
 
 
 @router.get("/{lesson_id}/nodes/{node_id}/video")
