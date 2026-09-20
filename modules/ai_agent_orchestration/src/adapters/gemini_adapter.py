@@ -9,6 +9,11 @@ from modules.ai_agent_orchestration.src.adapters.llm_adapter import LLMAdapter
 
 logger = logging.getLogger(__name__)
 
+# A full teaching segment (up to ~600 spoken words plus notes and a visual spec)
+# needs real headroom, and a long JSON reply needs longer than a chat turn.
+MAX_OUTPUT_TOKENS = 8192
+REQUEST_TIMEOUT_SEC = 90.0
+
 
 class SmartMockLLMAdapter(LLMAdapter):
     """
@@ -202,17 +207,22 @@ class GeminiLLMAdapter(LLMAdapter):
             "generationConfig": {
                 "temperature": 0.2,
                 "responseMimeType": "application/json",
+                # A full-length teaching script plus its notes runs well past the
+                # small default, and a truncated reply comes back with no parts
+                # at all, which used to look like "the model returned nothing".
+                "maxOutputTokens": MAX_OUTPUT_TOKENS,
             },
         }
         if system_instruction:
             payload["systemInstruction"] = system_instruction
 
         models_to_try = [self.model]
+        last_error: Optional[Exception] = None
 
         for m in models_to_try:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent"
             try:
-                with httpx.Client(timeout=30.0) as client:
+                with httpx.Client(timeout=REQUEST_TIMEOUT_SEC) as client:
                     resp = client.post(url, params=params, json=payload)
                     resp.raise_for_status()
                     data = resp.json()
@@ -221,6 +231,15 @@ class GeminiLLMAdapter(LLMAdapter):
                         parts = candidates[0]["content"].get("parts", [])
                         if parts and "text" in parts[0]:
                             return parts[0]["text"]
+                    # Falling through here silently served mock content as if it
+                    # were the model's. Say why, so a truncated or blocked reply
+                    # is visible in the log instead of looking like a short lesson.
+                    reason = (candidates[0].get("finishReason") if candidates else None) or "no candidates"
+                    logger.warning(
+                        "Gemini '%s' returned no usable text (finishReason=%s, prompt_feedback=%s)",
+                        m, reason, data.get("promptFeedback"),
+                    )
+                    last_error = RuntimeError(f"empty response (finishReason={reason})")
             except Exception as e:
                 logger.warning(f"Live Gemini call for '{m}' failed ({e}).")
                 last_error = e

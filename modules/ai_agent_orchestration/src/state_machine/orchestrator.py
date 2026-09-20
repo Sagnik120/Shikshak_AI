@@ -104,11 +104,23 @@ class TeacherOrchestrator:
             node = session.lesson_plan.nodes[session.current_node_index]
             
             chunks = None
+            session.recent_provenance = []
             if session.document_id:
-                chunks = self.rag_client.retrieve_context(session.document_id, node.concept)
+                # retrieve_detailed keeps chunk_id/page/section so the classroom
+                # can show where the explanation came from; plain retrieval is
+                # still honoured for clients that only implement that.
+                if hasattr(self.rag_client, "retrieve_detailed"):
+                    detail = self.rag_client.retrieve_detailed(session.document_id, node.concept)
+                    chunks = [c["text"] for c in detail.get("chunks", [])]
+                    session.recent_provenance = detail.get("chunks", [])
+                    session.recent_risk_level = detail.get("risk_level", "low")
+                else:
+                    chunks = self.rag_client.retrieve_context(session.document_id, node.concept)
+                    session.recent_risk_level = "low"
                 session.recent_grounding = [c for c in (chunks or []) if isinstance(c, str)]
             else:
                 session.recent_grounding = []
+                session.recent_risk_level = "no_document_context"
 
 
             segment = self.explainer.generate_segment(

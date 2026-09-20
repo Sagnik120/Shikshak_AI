@@ -22,3 +22,9 @@ class SessionState:
     # The passages that grounded the most recent explanation, so the UI can cite
     # them. Without this the classroom had no citation to display.
     recent_grounding: List[str] = field(default_factory=list)
+    # The same passages with their chunk_id/page/section, so a citation can name
+    # its source instead of showing a bare excerpt. System-generated from
+    # retrieval metadata — never authored by the LLM.
+    recent_provenance: List[dict] = field(default_factory=list)
+    # 'low' | 'high_hallucination_risk' | 'no_document_context'
+    recent_risk_level: str = "low"
