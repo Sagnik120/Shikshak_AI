@@ -229,3 +229,10 @@ The **`frontend`** is the student's physical window into the system:
 > 2. **Captions Must Always Render**: To satisfy accessibility and hackathon evaluation requirements, always ensure the `<track>` element is correctly populated from `captions_vtt_url`.
 > 3. **Mid-Lesson Language Switch Invariant**: Switching languages must emit a `{ type: "control", action: "language_switch", language: "hi" }` frame over the WebSocket. Never reload the webpage or wipe state; the server will update constraints and push the next segment in the new language.
 > 4. **Handling Rendering Latency**: Video synthesis can take several seconds. The UI must show an engaging loading skeleton or preview message rather than freezing or showing a broken player.
+
+
+### Recent Updates (Integration Stabilization Phase)
+- **Dynamic Loading Data**: The initial UI state no longer contains static mock context. It elegantly handles a neutral waiting state.
+- **Media Playback**: Relies on robust native HTML5 video controls for playback.
+- **Free-form Interaction**: The checkpoint card now features a dynamically toggled textarea to seamlessly support open-ended questions.
+- **Initial States**: Telemetry cards (Evaluation Confidence, Pedagogical Adaptation) are now cleanly initialized to WAITING and gracefully transition to real values.

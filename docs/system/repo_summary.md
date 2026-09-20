@@ -113,3 +113,9 @@ The ML Core handles specific NLP tasks cheaper/more reliably than raw LLM calls.
 ## 13. Critical Context
 - **Contract Enforcement**: Cross-module communication must strictly adhere to the schemas defined in `instructions/Contract.md`. Do not bypass them.
 - **Explicit State Machine**: The AI Orchestration must be built as an inspectable, loggable finite-state machine. Do not condense the teaching loop into a single giant LLM prompt; it will fail the hackathon rubric.
+
+
+### Recent Updates (Integration Stabilization Phase)
+- **Frontend Audit Fixes**: The initial UI state elegantly handles a neutral waiting state instead of mock static content. Telemetry cards (Evaluation Confidence, Pedagogical Adaptation) are now cleanly initialized to WAITING.
+- **Media Playback**: Relies on robust native HTML5 video controls for playback.
+- **Free-form Interaction**: The checkpoint card features a dynamically toggled textarea to seamlessly support open-ended questions.
