@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Entrypoint for Hugging Face Spaces (Gradio SDK).
 
-Mounts the full Shikshak AI FastAPI platform and serves it on port 7860.
-The complete SPA (Landing, Auth, Dashboard, Classroom, etc.) runs on the root '/'.
-A companion Gradio interface is mounted on '/gradio'.
+Runs the Shikshak AI FastAPI platform via uvicorn.run string import to ensure
+clean process management and persistent event loop handling.
 """
 import os
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -16,35 +16,26 @@ sys.path.insert(0, str(ROOT))
 for folder in ["data/storage", "data/media", "data/outbox", "chroma_db"]:
     (ROOT / folder).mkdir(parents=True, exist_ok=True)
 
-import uvicorn
-from modules.backend.src.main import app
-
+# Satisfy Hugging Face ZeroGPU startup probe if hardware has ZeroGPU enabled
 try:
-    import gradio as gr
+    import spaces
 
-    with gr.Blocks(title="Shikshak AI (शिक्षक AI)") as demo:
-        gr.Markdown(
-            """
-            # 🎓 Shikshak AI (शिक्षक AI)
-            **Autonomous, Multimodal AI Educator with Real-Time Pedagogical Adaptation & Viseme Lip-Synced Video Instruction**
+    @spaces.GPU(duration=1)
+    def _hf_zerogpu_probe():
+        return None
+except Exception:
+    pass
 
-            The full interactive platform is running on the main interface:
-            👉 [**Open Shikshak AI Full Application**](/)
-            """
-        )
-
-    # Mount Gradio at /gradio so root '/' remains our custom Vanilla JS SPA
-    app = gr.mount_gradio_app(app, demo, path="/gradio")
-except Exception as err:
-    print(f"Notice: Gradio wrapper skipped ({err}). Serving raw FastAPI application.")
+import uvicorn
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 7860))
+    port = int(os.getenv("PORT", os.getenv("GRADIO_SERVER_PORT", 7860)))
+    time.sleep(1)
     print(f"\n========================================================")
-    print(f"  Shikshak AI — Launching on Hugging Face Spaces (Port {port})")
+    print(f"  Shikshak AI — Starting production server on 0.0.0.0:{port}")
     print(f"========================================================\n")
     uvicorn.run(
-        app,
+        "modules.backend.src.main:app",
         host="0.0.0.0",
         port=port,
         timeout_keep_alive=75,
