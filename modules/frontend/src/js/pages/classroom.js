@@ -757,8 +757,15 @@ if (user && !lessonId) {
       connect();
     }
   } catch (error) {
-    showOverlay("Couldn't open this lesson", error.message);
+    showOverlay(
+      "Lesson expired or not found",
+      `${error.message}. If the server recently restarted, previous lessons reset. Redirecting to New Lesson…`
+    );
     setConnection("Unavailable", "badge-rose");
+    toast("Lesson not found on server. Taking you to start a fresh lesson…", "warning", 5000);
+    setTimeout(() => {
+      window.location.replace("/new-lesson.html");
+    }, 3000);
   }
 
   // Keep the socket alive through proxy idle timeouts on long renders.
