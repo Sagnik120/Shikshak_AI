@@ -15,6 +15,8 @@ from modules.backend.src.api.lesson_routes import router as lesson_router
 from modules.backend.src.api.ws import router as ws_router
 from modules.backend.src.config import settings
 from modules.backend.src.db.base import init_db
+import tracemalloc
+from modules.rag.src.perf import record_memory_checkpoint
 
 logging.basicConfig(
     level=logging.INFO,
@@ -70,6 +72,8 @@ async def validation_handler(_request: Request, exc: RequestValidationError):
 
 @app.on_event("startup")
 def on_startup() -> None:
+    tracemalloc.start()
+    record_memory_checkpoint("App startup (post-import, pre-first-request)")
     init_db()
     logger.info("Database ready at %s", settings.database_url)
     if not settings.smtp_configured:

@@ -44,6 +44,10 @@ class BGEM3EmbeddingAdapter(BaseEmbeddingAdapter):
         if not texts:
             return [], []
 
+        from modules.rag.src.perf import record_memory_checkpoint, take_tracemalloc_snapshot
+        record_memory_checkpoint("Before embedding generation")
+        take_tracemalloc_snapshot("Before BGE-M3")
+
         model = self._get_model()
         if model == "mock":
             # Deterministic mock vectors for testing
@@ -65,12 +69,16 @@ class BGEM3EmbeddingAdapter(BaseEmbeddingAdapter):
                     {str(k): float(v) for k, v in sp.items()}
                     for sp in outputs['lexical_weights']
                 ]
+                record_memory_checkpoint("After embedding generation (dense + sparse)")
+                take_tracemalloc_snapshot("After BGE-M3")
                 return dense_vectors, sparse_weights
             else:
                 # sentence-transformers dense-only output with basic token term frequencies for sparse
                 dense_arr = model.encode(texts, normalize_embeddings=True)
                 dense_vectors = [v.tolist() for v in dense_arr]
                 sparse_weights = [{w.lower(): 1.0 for w in t.split()} for t in texts]
+                record_memory_checkpoint("After embedding generation (dense + sparse)")
+                take_tracemalloc_snapshot("After BGE-M3")
                 return dense_vectors, sparse_weights
         except Exception as e:
             logger.error(f"Error encoding passages with BGE-M3: {e}")

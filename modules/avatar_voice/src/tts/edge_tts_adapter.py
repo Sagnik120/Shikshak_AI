@@ -212,4 +212,7 @@ class EdgeTTSAdapter:
         
         if error:
             raise error[0]
+            
+        from modules.rag.src.perf import record_memory_checkpoint
+        record_memory_checkpoint("TTS synthesis complete")
         return result[0]

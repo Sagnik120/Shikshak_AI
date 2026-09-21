@@ -343,10 +343,13 @@ class FFmpegCompositor:
             ]
 
         try:
+            from modules.rag.src.perf import record_memory_checkpoint
+            record_memory_checkpoint("FFmpeg subprocess invocation start")
             logger.info(
                 f"Executing FFmpeg composition for {output_mp4} (duration: {duration_sec}s, preset: ultrafast)..."
             )
             res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=90)
+            record_memory_checkpoint("FFmpeg subprocess completion")
             if res.returncode != 0:
                 logger.error(
                     f"FFmpeg composition failed with code {res.returncode}: "

@@ -6,9 +6,16 @@ latency without impacting the hot path when disabled.
 
 from __future__ import annotations
 
+import os
 import time
 import threading
 import logging
+import tracemalloc
+try:
+    import psutil
+except ImportError:
+    psutil = None
+
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Callable, Any
 from functools import wraps
@@ -21,9 +28,10 @@ _thread_local = threading.local()
 
 @dataclass
 class PerfTrace:
-    """Collects stage-level latency measurements for a single pipeline invocation."""
+    """Collects stage-level latency and memory measurements for a single pipeline invocation."""
 
     stages: Dict[str, float] = field(default_factory=dict)
+    rss_mb: Dict[str, float] = field(default_factory=dict)
     _start_time: Optional[float] = field(default=None, repr=False)
 
     def start(self) -> None:
@@ -33,6 +41,15 @@ class PerfTrace:
     def record(self, stage_name: str, duration_ms: float) -> None:
         """Record a stage's duration in milliseconds."""
         self.stages[stage_name] = round(duration_ms, 3)
+
+    def record_memory_checkpoint(self, checkpoint_name: str) -> None:
+        """Record the current process RSS memory in MB."""
+        if not psutil:
+            return
+        process = psutil.Process(os.getpid())
+        rss_mb = process.memory_info().rss / (1024 * 1024)
+        self.rss_mb[checkpoint_name] = round(rss_mb, 2)
+        logger.info(f"[Memory] {checkpoint_name}: {rss_mb:.2f} MB")
 
     @property
     def total_ms(self) -> float:
@@ -45,6 +62,8 @@ class PerfTrace:
         """Serialize to dict for JSON output and logging."""
         result = dict(self.stages)
         result["total_ms"] = self.total_ms
+        if self.rss_mb:
+            result["rss_mb"] = self.rss_mb
         return result
 
     def __repr__(self) -> str:
@@ -76,6 +95,41 @@ def end_trace() -> Optional[PerfTrace]:
     trace = get_current_trace()
     set_current_trace(None)
     return trace
+
+
+def record_memory_checkpoint(checkpoint_name: str) -> None:
+    """Record memory if trace is active, else just log it."""
+    trace = get_current_trace()
+    if trace:
+        trace.record_memory_checkpoint(checkpoint_name)
+    elif psutil:
+        process = psutil.Process(os.getpid())
+        rss_mb = process.memory_info().rss / (1024 * 1024)
+        logger.info(f"[Memory] {checkpoint_name}: {rss_mb:.2f} MB")
+
+
+def take_tracemalloc_snapshot(snapshot_name: str, limit: int = 10) -> None:
+    """Take and log a tracemalloc snapshot to find Python-level memory leaks."""
+    if not tracemalloc.is_tracing():
+        return
+    snapshot = tracemalloc.take_snapshot()
+    top_stats = snapshot.statistics('lineno')
+    logger.info(f"[Tracemalloc] Snapshot: {snapshot_name}")
+    for index, stat in enumerate(top_stats[:limit], 1):
+        logger.info(f"  #{index}: {stat}")
+
+
+def memory_checkpoint(checkpoint_name: str):
+    """Decorator that records memory usage before and after a function."""
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            record_memory_checkpoint(f"Before {checkpoint_name}")
+            result = func(*args, **kwargs)
+            record_memory_checkpoint(f"After {checkpoint_name}")
+            return result
+        return wrapper
+    return decorator
 
 
 def timed(stage_name: str):

@@ -59,6 +59,8 @@ def _owned_document(db: Session, document_id: str, user: User) -> Document:
 # Documents
 # --------------------------------------------------------------------------
 
+from modules.rag.src.perf import record_memory_checkpoint
+
 @router.post("/documents", status_code=status.HTTP_201_CREATED)
 async def upload_document(
     file: UploadFile = File(...),
@@ -66,6 +68,7 @@ async def upload_document(
     db: Session = Depends(get_db),
 ):
     """Store an uploaded study file and ingest it into the RAG index."""
+    record_memory_checkpoint("Document upload received")
     filename = os.path.basename(file.filename or "document")
     ext = Path(filename).suffix.lower()
     if ext not in settings.allowed_upload_ext:
@@ -130,6 +133,7 @@ async def upload_document(
     doc.key_terms = list(getattr(structure, "key_terms", []) or [])
     db.flush()
 
+    record_memory_checkpoint("Request/response fully complete (Document Upload)")
     return {
         "document_id": doc.id,
         "filename": doc.filename,

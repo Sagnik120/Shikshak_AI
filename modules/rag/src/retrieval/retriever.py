@@ -159,11 +159,18 @@ class HybridRetriever:
 
         # 5. Rerank -> top_k
         with TimedBlock("rerank"):
+            from modules.rag.src.perf import record_memory_checkpoint, take_tracemalloc_snapshot
+            record_memory_checkpoint("Before reranking")
+            take_tracemalloc_snapshot("Before Reranker")
+            
             reranked_top_k = self.reranker.rerank(
                 query=query_text,
                 candidates=fused_top10,
                 top_k=top_k
             )
+            
+            record_memory_checkpoint("After reranking")
+            take_tracemalloc_snapshot("After Reranker")
 
         # Build RetrievedChunk models
         retrieved_chunks: List[RetrievedChunk] = []
@@ -199,6 +206,7 @@ class HybridRetriever:
             has_sufficient = True
             risk_level = "moderate_relevance"
 
+        record_memory_checkpoint("After retrieval + reranking for a query")
         return RetrievalResult(
             document_id=document_id,
             query_text=query_text,

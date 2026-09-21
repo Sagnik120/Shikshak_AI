@@ -68,6 +68,9 @@ def parse_document(
     """
     doc_id = document_id or str(uuid.uuid4())
     raw_sections, chapters = extract_raw_sections(file_bytes, filename, mime_type)
+    
+    from modules.rag.src.perf import record_memory_checkpoint
+    record_memory_checkpoint("After text extraction")
 
     # Combine all raw text for language and TF-IDF key terms extraction
     full_text = "\n\n".join(sec.raw_text for sec in raw_sections if sec.raw_text.strip())
