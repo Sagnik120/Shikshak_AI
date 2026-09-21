@@ -16,6 +16,7 @@ os.environ["EXPOSE_DEV_OTP"] = "true"
 os.environ["SMTP_USER"] = ""
 os.environ["SMTP_PASSWORD"] = ""
 os.environ["OTP_RESEND_COOLDOWN_SEC"] = "0"
+os.environ["SEED_DEFAULT_USERS"] = "false"
 
 from fastapi.testclient import TestClient  # noqa: E402
 

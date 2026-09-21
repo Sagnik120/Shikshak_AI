@@ -128,9 +128,54 @@ def _add_missing_columns() -> None:
                 )
 
 
+def _seed_default_users() -> None:
+    """Ensure standard demo/test accounts exist with verified status across ephemeral container deploys."""
+    if not settings.seed_default_users:
+        return
+    try:
+        from modules.backend.src.db.models import User
+        from modules.backend.src.security import hash_password
+        from sqlalchemy import select
+
+        with SessionLocal() as db:
+            seed_accounts = [
+                {
+                    "email": "chandrasagnik2004@gmail.com",
+                    "full_name": "Sagnik Chandra",
+                    "password": settings.default_admin_password,
+                },
+                {
+                    "email": "demo@shikshak.ai",
+                    "full_name": "Demo Student",
+                    "password": "DemoPassword@123",
+                },
+            ]
+            seeded = 0
+            for acc in seed_accounts:
+                existing = db.scalars(select(User).where(User.email == acc["email"])).first()
+                if not existing:
+                    user = User(
+                        email=acc["email"],
+                        password_hash=hash_password(acc["password"]),
+                        full_name=acc["full_name"],
+                        is_verified=True,
+                        is_active=True,
+                        role="student",
+                    )
+                    db.add(user)
+                    seeded += 1
+            if seeded > 0:
+                db.commit()
+                logging.getLogger(__name__).info("Seeded %d verified persistent user(s)", seeded)
+    except Exception as exc:
+        logging.getLogger(__name__).warning("User auto-seed encountered error: %s", exc)
+
+
 def init_db() -> None:
     """Create all tables and patch in new nullable columns. Safe to call repeatedly."""
     from modules.backend.src.db import models  # noqa: F401  (registers mappers)
 
     Base.metadata.create_all(bind=engine)
     _add_missing_columns()
+    _seed_default_users()
+
