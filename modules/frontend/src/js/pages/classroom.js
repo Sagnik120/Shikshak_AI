@@ -626,6 +626,14 @@ if (user && !lessonId) {
                 payload.chunk_count === 1 ? "" : "s"
               } used for this concept</span>`
             : ""
+        }
+        ${
+          payload.attempts > 1
+            ? `<span class="subtle" style="display:block;margin-top:4px">
+                 First search was weakly grounded — refined to
+                 <strong>${escapeHtml(payload.refined_query || "")}</strong> and searched again.
+               </span>`
+            : ""
         }`;
       dom.citation.hidden = false;
     },

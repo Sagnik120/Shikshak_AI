@@ -39,6 +39,39 @@ def preflight() -> None:
         print("\n  WARNING: EMAIL_DEV_FALLBACK is on in production, which returns OTP")
         print("           codes to the caller. Set EMAIL_DEV_FALLBACK=false.\n")
 
+    if settings.environment == "production":
+        _production_warnings()
+
+
+def _production_warnings() -> None:
+    """Flag the deploy-time footguns that are invisible until they bite."""
+    db_path = str(settings.database_url).replace("sqlite:///", "")
+    if not os.path.isabs(db_path):
+        db_path = str(settings.project_root / db_path)
+
+    # Hosts like Render give a container an ephemeral filesystem: everything
+    # written is discarded on every deploy and restart. Only SQLite is
+    # supported, so without a mounted disk the database, uploads, rendered
+    # videos and the Chroma index all reset — accounts included.
+    print("\n  WARNING: all state is on the local filesystem:")
+    print(f"             database  {db_path}")
+    print(f"             uploads   {settings.upload_root}")
+    print(f"             media     {settings.media_root}")
+    print(f"             index     {os.getenv('CHROMA_PERSIST_DIR', './chroma_db')}")
+    print("           If this host has an ephemeral filesystem (Render free tier,")
+    print("           Heroku, most container PaaS), every deploy or restart wipes")
+    print("           accounts, lessons and uploads. Mount a persistent disk at")
+    print("           the data directory before taking real users.")
+
+    print("\n  WARNING: retrieval models are loaded lazily on the FIRST document")
+    print("           upload, not at startup. Defaults need roughly:")
+    print("             BAAI/bge-m3              ~2.4 GB resident")
+    print("             BAAI/bge-reranker-v2-m3  ~1.3 GB on top of that")
+    print("           An instance smaller than ~4 GB will be OOM-killed the first")
+    print("           time a learner uploads a file. For a small instance set")
+    print("           EMBEDDING_BACKEND/EMBEDDING_MODEL to a MiniLM-sized model")
+    print("           and RERANKER_ENABLED=false.\n")
+
 
 def main() -> None:
     import uvicorn

@@ -95,6 +95,15 @@ class RetrievalResult(BaseModel):
         default="low",
         description="'low', 'no_document_context', or 'high_hallucination_risk'"
     )
+    # Additive/optional: set by the bounded agentic retrieval loop so the UI and
+    # the trace can show that a weak first pass was refined. A single-pass
+    # retrieval leaves these at their defaults and behaves exactly as before.
+    attempts: int = Field(
+        default=1, description="How many retrieval passes produced this result"
+    )
+    refined_query: Optional[str] = Field(
+        default=None, description="The refined query, when a refinement pass was used"
+    )
 
     @property
     def candidate_chunks(self) -> List[RetrievedChunk]:

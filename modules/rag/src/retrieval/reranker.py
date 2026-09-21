@@ -8,7 +8,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["OMP_NUM_THREADS"] = "1"
 
 import logging
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -16,13 +16,24 @@ logger = logging.getLogger(__name__)
 class BGEReranker:
     """Second-stage cross-encoder reranker for high-precision grounding context."""
 
-    def __init__(self, model_name: str = "BAAI/bge-reranker-v2-m3", device: str = "cpu"):
-        self.model_name = model_name
-        self.device = device
+    def __init__(self, model_name: Optional[str] = None, device: Optional[str] = None):
+        # Env-overridable: BAAI/bge-reranker-v2-m3 needs ~1.3 GB resident on top
+        # of the embedding model, which does not fit a small instance.
+        # RERANKER_ENABLED=false skips the cross-encoder entirely and uses the
+        # existing lexical-overlap path instead.
+        self.model_name = model_name or os.getenv("RERANKER_MODEL", "BAAI/bge-reranker-v2-m3")
+        self.device = device or os.getenv("RERANKER_DEVICE", "cpu")
+        self.enabled = os.getenv("RERANKER_ENABLED", "true").strip().lower() not in (
+            "0", "false", "no", "off",
+        )
         self._model = None
 
     def _get_model(self):
         if self._model is not None:
+            return self._model
+        if not self.enabled:
+            logger.info("Cross-encoder reranking disabled; using lexical overlap fallback.")
+            self._model = "fallback"
             return self._model
         try:
             from FlagEmbedding import FlagReranker

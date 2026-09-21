@@ -203,3 +203,149 @@ Before completing your response, verify:
 - **Gemini key was leaking into logs**: the key was passed as `?key=...`, and httpx logs the full request
   URL at INFO, so every call wrote the secret into the server log (retained and readable on Render).
   Moved to the `x-goog-api-key` header; verified the URL no longer contains it.
+
+### [task_agentic_ai_modernization.md] Phases 0,1,3,5,6 — IMPLEMENTED
+- **Phase 0 audit corrected three plan assumptions** (`current_task/phase0_findings.md`):
+  `mlops/src/` was *empty* (no PerfTrace to extend — it had to be built; only `rag/src/perf.py` existed);
+  `learner_profiles` was *already fully implemented* incl. `refresh_learner_profile()`, so Phase 5's write
+  side existed and only the read path was missing; and `lesson_events` already had the exact
+  `{event_type, lesson_id(=session_id), node_id, payload, occurred_at}` shape, so **no `agent_events` table
+  was needed**.
+- **Phase 1 (trace)**: `modules/mlops/src/agent_trace.py` — process-wide tracer with a pluggable sink, so
+  `rag`/`ai_agent_orchestration` emit without importing the backend. `_SENSITIVE_KEYS` strips prompts,
+  scripts, raw answers and credentials *before* an event leaves the process; long values truncate. Backend
+  installs the sink at startup → `lesson_events` with an `agent.` prefix; read via `GET /lessons/{id}/trace`
+  (owner-scoped). Sink failure can never interrupt a lesson.
+- **Phase 3 (agentic RAG)**: `RAGService.retrieve_context_agentic()` — retrieve → reuse the *existing*
+  `has_sufficient_context` (0.52 threshold, no new threshold invented) → refine once → stop.
+  **Refinement is deterministic** (content terms + topic, framing words like "Introduction" dropped), so the
+  loop adds **no LLM call and no quota cost** — the plan had assumed an LLM refinement step. Always falls
+  back to the single-pass result; topic-only mode never refined. `RetrievalResult.attempts/refined_query`
+  are additive-optional.
+- **Phase 5 (memory)**: `SessionManager.memory_for()` builds a narrow payload (strong/weak concepts,
+  misconceptions seen >1×) from the existing table; orchestrator passes it to the Planner **in PLAN only**;
+  `planner_system.md` gained the missing usage rules. Dead wiring closed: the planner had accepted
+  `learner_profile` all along but nothing ever passed one.
+- **Deferred per the plan's own §8 matrix**: Phase 2 (LangGraph, "Could Have" — heavyweight dep on a
+  <512 MB deploy, highest-risk touch to working orchestration) and Phase 4 (MCP, listed "Future Scope" —
+  adds an IPC boundary for no correctness gain). Phases 3/5 are plain bounded Python, which §8 permits.
+- 285 tests pass (was 252). `Contract.md` unchanged; FSM state names and ADAPT semantics unchanged.
+
+### [Agentic RAG A/B] Measured — single-pass vs bounded loop
+Both paths kept live. `python -m modules.rag.tests.benchmark.compare_retrieval_modes` runs the existing
+benchmark harness in both modes (`--suite`, `--json`). `AGENTIC_RAG_ENABLED=false` restores exact
+single-pass behaviour in production (`max_refinements=0`).
+
+Results over 24 queries, real BGE-M3 + Chroma, no LLM in the loop:
+
+| Suite | Refined | Grounded rate | Risk accuracy | p50 latency |
+|---|---|---|---|---|
+| Physics NCERT (8) | 0/8 | 1.000 = | 1.000 = | −11% (noise) |
+| Lesson-Node Concepts (8) | 0/8 | 1.000 = | 1.000 = (MRR 1.000 =) | −6% (noise) |
+| Multilingual (4) | 2/4 | 0.500 = | 1.000 = | +55% |
+| Cross-Domain Rejection (4) | 3/4 | 0.250 = | 0.750 = | +94% |
+
+**Verdict: safe, but benefit unproven on this corpus.** 5 refinements fired, **0 rescues**. No quality or
+safety regression anywhere — critically, refinement never turned an off-domain query into false
+grounding. Cost is zero when the first pass already grounds (0 refinements on both physics suites) and
+only materialises where retrieval had already failed.
+
+The premise (verbose Planner node titles like "Introduction to…" weaken grounding) is **not supported**:
+a new `lesson_nodes` suite using the real production query shape, with per-section ground truth,
+retrieves 8/8 at MRR 1.000 single-pass. Refinement cannot help where nothing is broken. The two suites
+where it did fire were unrescuable by design (off-domain, and Hindi transliteration — which needs
+translation, not term extraction).
+
+**Also found:** the three pre-existing suites ship `expected_chunk_ids=[]`, so their Precision/MRR/nDCG/
+Recall were vacuous (0.0/1.0 by definition, not measurements). The comparison tool now prints `n/a` for
+them instead of misleading numbers; only `lesson_nodes` has real ground truth.
+
+Still needs a real uploaded document (messier than this clean synthetic chapter) to decide whether to
+keep the loop on by default.
+
+### [Agentic RAG A/B — final] Real uploaded PDF tested; verdict updated
+Ran the one test that was still open: a PDF **actually uploaded through the app**
+(`data/storage/daad.../8d99....pdf`, "Newton's Laws", 4 chunks) with genuine extraction noise —
+content split mid-sentence across pages, section titles mis-detected as `"where:"`. New `real_pdf`
+suite, 8 Planner-style node concepts, ground truth labelled from the chunks' actual text.
+`BenchmarkDocument.source_path` now lets a suite benchmark a real file instead of inline prose.
+
+Result: **single-pass grounds 8/8, MRR 0.854, nDCG 0.871, Recall 1.000 — the loop fired 0 times.**
+
+Cumulative across 5 suites / 32 queries: **5 refinements, 0 rescues.** The loop is proven *harmless*
+(zero cost on the happy path — 0 refinements across all 24 in-domain queries; no quality or safety
+regression anywhere) and remains *unproven useful*. The real-PDF test I had flagged as the one case
+that could still show a rescue came back negative, so the case for the loop is now weaker, not stronger.
+
+**Standing recommendation: keep enabled** (`AGENTIC_RAG_ENABLED=true`, the default) — its cost is
+confined to retrievals that have *already failed*, where the alternative is teaching the node
+ungrounded, and ~600 ms to try once more is cheap insurance. Disable it if demo latency on the
+no-context path ever matters. The one shape still untested is a document whose vocabulary genuinely
+differs from the Planner's phrasing (e.g. a Hindi/Bengali textbook with English node titles) — the
+synthetic case where a rescue *did* occur.
+
+### [Production audit] Breakers found and fixed
+Measured, not guessed. Four real issues; three fixed in code, one is an infra decision.
+
+1. **OOM on first document upload (was: hard container kill).** Retrieval models load *lazily on first
+   upload*, not at startup, so a small instance boots fine and dies when a learner uploads. Measured RSS:
+   idle 53 MB → after ingest **2,426 MB** (BGE-M3) → after retrieval **3,786 MB** (+ cross-encoder). That
+   is ~7× a 512 MB free tier. This is why the live logs only ever showed *topic* lessons — without a
+   `document_id` retrieval short-circuits and the models never load.
+   *Fixed:* `EMBEDDING_BACKEND` / `EMBEDDING_MODEL` / `EMBEDDING_DEVICE` / `RERANKER_MODEL` /
+   `RERANKER_ENABLED` are now env-driven (were hardcoded constructor defaults), so a small host can pick
+   a MiniLM-sized model and skip the cross-encoder (falls back to the existing lexical-overlap path).
+   Startup prints the memory requirement in production.
+
+2. **Silent fabricated grounding.** Both embedding adapters fall back to deterministic *hash* vectors when
+   the model can't load (blocked download, missing dep). Similarity over those is meaningless, but the
+   scores still look like scores, so retrieval reported `has_sufficient_context=True`, `risk_level="low"`
+   and the classroom would cite a learner's document for content it never matched.
+   *Fixed:* adapters expose `is_degraded`; `RAGService._guard_degraded_embeddings()` forces
+   `has_sufficient_context=False` / `high_hallucination_risk` / no chunks, logging once. Upload now marks
+   such a document `failed` with an actionable message instead of leaving it "ready" but unusable.
+
+3. **Upload froze the whole server.** `upload_document` is `async def` but called blocking
+   `ingest_document` (model load + embedding) directly, blocking the event loop — on a single worker that
+   halts every other request, all classroom WebSockets and the host health check, long enough on a first
+   upload for the platform to restart the container mid-lesson. Demonstrated: 0 heartbeats served during a
+   1.5 s upload before, 15 after. *Fixed:* runs via `run_in_executor`. Swept the rest of the codebase —
+   this was the only `async def` endpoint with the bug; `ws.py` already used executors and every other
+   route is sync `def` (FastAPI threadpools those).
+
+4. **All state is ephemeral — NOT fixable in code (infra decision).** DB, uploads, rendered media and the
+   Chroma index all live under `data/` on the container filesystem, and `_resolve_sqlite_path()` **rejects
+   Postgres** (`Only sqlite:/// URLs are supported`). On Render free tier every deploy/restart wipes
+   accounts, lessons and uploads. Needs either a mounted persistent disk (paid instance) or Postgres
+   support added. Startup now warns loudly in production.
+
+291 tests pass (was 285). Nothing committed.
+
+### [Phase 2 — LangGraph] IMPLEMENTED (previously deferred)
+Built after re-checking my own reasoning for deferring it. **One of my two stated reasons was wrong:**
+langgraph is ~5.8 MB, not a "heavyweight dependency" — the 2.4 GB memory problem was BGE-M3, a
+different thing entirely. The real cost is ~20 transitive packages (langchain-core, langsmith, httpx2)
+and a silent `websockets` downgrade 17.1 → 16.1.1 (verified: full suite green and a live WS handshake
+against the classroom route still works).
+
+`src/state_machine/langgraph_adapter.py`: graph topology mirrors `VALID_TRANSITIONS`; node bodies
+delegate to the existing `TeacherOrchestrator` so all agent logic is reused verbatim; edges are
+deterministic functions of the returned `TeacherState` (no prompt-driven routing, per §4.1.G);
+`SessionState`/SQLite stay authoritative with the graph holding routing data only (§4.1.D). Exposes the
+same `step()` signature, so the WS loop and service layer are untouched. The classroom drives the loop
+externally (it renders video and waits for the learner between steps), so the graph is stepped one node
+per call rather than run to completion.
+
+Selected by `ORCHESTRATION_RUNTIME=langgraph`; **default stays `fsm`**, and it falls back to the
+dispatcher if the optional dep is missing, so a deploy can't be bricked.
+
+**Parity test caught a real bug in my own adapter:** `__getattr__` forwarded reads but not writes, so
+`orchestrator.ml_core = client` landed on the wrapper while execution used the inner object — silently
+ignored but looking successful. Added `__setattr__` forwarding.
+
+302 tests pass under **both** runtimes (`ORCHESTRATION_RUNTIME=fsm` and `=langgraph`).
+
+Honest value note: the plan (§4.1) cites checkpointing, state streaming and HITL interrupt as
+LangGraph's selling points — this project already hand-rolls all three and they work (SQLite resume, WS
+streaming, HUMAN branch). So functionally this buys close to nothing; its value is legibility and the
+demo narrative. It is safe because the original dispatcher remains the default and parity is enforced.

@@ -96,7 +96,30 @@ class RetrievalResult(BaseModel):
     chunks: List[RetrievedChunk] = []
     has_sufficient_context: bool = True
     risk_level: str = "low"            # 'low', 'moderate_relevance', 'no_document_context', 'high_hallucination_risk'
+    # Additive/optional — set only by retrieve_context_agentic(). A single-pass
+    # retrieval leaves these at their defaults, so older payloads stay valid.
+    attempts: int = 1                  # retrieval passes behind this result
+    refined_query: Optional[str] = None  # the broadened query, when one grounded the node
+```
 
+### Bounded agentic retrieval — `RAGService.retrieve_context_agentic()`
+Wraps `retrieve_context()` in a capped loop for weakly-grounded nodes:
+
+1. Retrieve with the caller's query.
+2. Sufficiency is **not** a new judgement — it reuses the retriever's existing
+   `has_sufficient_context` (top rerank score vs. the 0.52 citation threshold).
+3. If insufficient, refine the query **deterministically** (content terms from the concept +
+   the lesson topic, lesson-plan framing words like "Introduction"/"Overview" dropped) and
+   retrieve once more. No LLM call, so no quota cost and fully testable offline.
+4. Stop at `MAX_REFINEMENTS = 1` extra pass.
+
+Guarantees: topic-only mode (`no_document_context`) is never refined; an already-sufficient first
+pass is returned untouched; and if refinement fails to ground the node, the **original single-pass
+result is returned**, so behaviour can only match or beat the previous single-pass pipeline.
+Each pass emits an `agent.retrieval_attempt` trace event, and the outcome an
+`agent.retrieval_resolved`.
+
+```python
 class GroundedContext(BaseModel):
     """Injection-ready context block for AI Teacher agents."""
     formatted_prompt_context: str

@@ -307,6 +307,32 @@ def record_adaptation(db: Session, lesson: Lesson, interaction: Interaction, dec
     db.flush()
 
 
+def agent_trace(db: Session, lesson: Lesson, limit: int = 500) -> list[dict]:
+    """The lesson's agent-decision trace, oldest first.
+
+    Only `agent.*` events are returned: lifecycle rows (lesson_created,
+    disconnected, mentor_notified) share the table but are not agent decisions.
+    """
+    rows = db.scalars(
+        select(LessonEvent)
+        .where(
+            LessonEvent.lesson_id == lesson.id,
+            LessonEvent.event_type.like("agent.%"),
+        )
+        .order_by(LessonEvent.occurred_at.asc(), LessonEvent.id.asc())
+        .limit(limit)
+    ).all()
+    return [
+        {
+            "event_type": row.event_type,
+            "node_id": row.node_id,
+            "occurred_at": row.occurred_at.isoformat(),
+            "payload": row.payload or {},
+        }
+        for row in rows
+    ]
+
+
 def latest_interaction(db: Session, lesson: Lesson, node_id: str) -> Optional[Interaction]:
     """Most recent question/answer for a node — the one that triggered escalation."""
     return db.scalars(

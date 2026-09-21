@@ -1,4 +1,6 @@
 """Lessons: creation from topic or document, planning, history, media, analytics."""
+import asyncio
+import functools
 import json
 import logging
 import os
@@ -105,12 +107,23 @@ async def upload_document(
 
     from modules.backend.src.integrations.container import services
 
+    rag_service = services["rag_service"]
     try:
-        parsed = services["rag_service"].ingest_document(
-            file_bytes=file_bytes,
-            filename=filename,
-            mime_type=doc.mime_type,
-            document_id=doc.id,
+        # Parsing, loading the embedding model and embedding every chunk are all
+        # blocking CPU work. Called directly from this async endpoint they block
+        # the event loop, which on a single-worker deploy freezes every other
+        # request, the classroom WebSockets and the host's health check — long
+        # enough on a first upload (model load) for the platform to restart the
+        # container mid-lesson. Hand it to the executor instead.
+        parsed = await asyncio.get_running_loop().run_in_executor(
+            None,
+            functools.partial(
+                rag_service.ingest_document,
+                file_bytes=file_bytes,
+                filename=filename,
+                mime_type=doc.mime_type,
+                document_id=doc.id,
+            ),
         )
     except Exception as exc:
         logger.exception("Ingestion failed for document %s", doc.id)
@@ -121,6 +134,18 @@ async def upload_document(
             status_code=422,
             detail=f"We couldn't read that file: {exc}",
         ) from exc
+
+    # A document indexed with hash-fallback vectors can never ground a lesson,
+    # so it is reported as failed rather than sitting in the library looking
+    # usable. The retrieval guard already refuses to cite it either way.
+    if getattr(getattr(rag_service, "embedding_adapter", None), "is_degraded", False):
+        doc.status = "failed"
+        doc.error = (
+            "The embedding model is unavailable on this server, so this document "
+            "could not be indexed for search. Please try again later."
+        )
+        db.flush()
+        raise HTTPException(status_code=503, detail=doc.error)
 
     structure = getattr(parsed, "detected_structure", None)
     doc.status = "ready"
@@ -350,6 +375,17 @@ def _serve_owned_media(stored_path: Optional[str], lesson_id: str, media_type: s
     if not path.is_file():
         raise HTTPException(status_code=404, detail="Media file is no longer available.")
     return FileResponse(path, media_type=media_type, filename=path.name)
+
+
+@router.get("/{lesson_id}/trace")
+def get_lesson_trace(
+    lesson_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Structured agent-decision trace for this lesson (observable metadata only)."""
+    lesson = _owned_lesson(db, lesson_id, user)
+    return {"lesson_id": lesson.id, "events": lesson_service.agent_trace(db, lesson)}
 
 
 @router.get("/{lesson_id}/notes")

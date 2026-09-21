@@ -72,6 +72,12 @@ async def validation_handler(_request: Request, exc: RequestValidationError):
 def on_startup() -> None:
     init_db()
     logger.info("Database ready at %s", settings.database_url)
+
+    # Agent-decision traces are emitted by modules that must not import the
+    # backend, so the persistence side is wired up here.
+    from modules.backend.src.services import agent_trace_sink
+
+    agent_trace_sink.install()
     if not settings.smtp_configured:
         logger.warning(
             "SMTP is not configured — OTP emails will be written to data/outbox/ "

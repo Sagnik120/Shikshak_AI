@@ -17,6 +17,11 @@ class E5BM25EmbeddingAdapter(BaseEmbeddingAdapter):
         self.device = device
         self._model = None
 
+    @property
+    def is_degraded(self) -> bool:
+        """True once the real model has been tried and a mock had to be used."""
+        return self._model == "mock"
+
     def _get_model(self):
         if self._model is not None:
             return self._model

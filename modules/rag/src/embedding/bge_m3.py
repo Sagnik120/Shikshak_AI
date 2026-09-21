@@ -18,6 +18,11 @@ class BGEM3EmbeddingAdapter(BaseEmbeddingAdapter):
         self.use_fp16 = use_fp16
         self._model = None
 
+    @property
+    def is_degraded(self) -> bool:
+        """True once the real model has been tried and a mock had to be used."""
+        return self._model == "mock"
+
     def _get_model(self):
         if self._model is not None:
             return self._model

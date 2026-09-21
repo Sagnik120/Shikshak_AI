@@ -119,6 +119,20 @@ class Settings:
     # When SMTP is unconfigured, write the email to data/outbox/ instead of failing.
     email_dev_fallback: bool = _bool("EMAIL_DEV_FALLBACK", True)
 
+    # --- Retrieval (A/B switch) ---
+    # The bounded agentic loop refines a weakly-grounded first pass once. Both
+    # paths are live so they can be compared; see
+    # `python -m modules.rag.tests.benchmark.compare_retrieval_modes`.
+    # Set AGENTIC_RAG_ENABLED=false to fall back to exact single-pass retrieval.
+    agentic_rag_enabled: bool = _bool("AGENTIC_RAG_ENABLED", True)
+    agentic_rag_max_refinements: int = _int("AGENTIC_RAG_MAX_REFINEMENTS", 1)
+
+    # --- Orchestration runtime ---
+    # "fsm" (default) runs the built-in dispatcher; "langgraph" runs the same
+    # pedagogical graph through LangGraph. Parity is covered by
+    # modules/ai_agent_orchestration/tests/integration/test_langgraph_parity.py.
+    orchestration_runtime: str = os.getenv("ORCHESTRATION_RUNTIME", "fsm").strip().lower()
+
     # --- Uploads ---
     max_upload_bytes: int = _int("MAX_UPLOAD_MB", 25) * 1024 * 1024
     allowed_upload_ext: tuple = (".pdf", ".docx", ".pptx", ".txt", ".md")

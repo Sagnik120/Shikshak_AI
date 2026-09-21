@@ -37,6 +37,13 @@ imageio-ffmpeg>=0.4.9
 pillow>=10.0.0
 matplotlib>=3.8.0
 
+# --- Optional orchestration runtime ---
+# Only needed for ORCHESTRATION_RUNTIME=langgraph; the default "fsm" dispatcher
+# has no extra dependency and the app falls back to it if this is absent.
+# Note: installing this pins websockets down from 17.x to 16.x (verified
+# compatible with the classroom WebSocket).
+langgraph>=1.0,<2.0
+
 # --- Testing ---
 pytest>=7.4.0
 pytest-asyncio>=0.21.0

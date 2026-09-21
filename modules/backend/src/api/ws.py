@@ -129,8 +129,12 @@ class LiveSession:
         await self.send("ai_state", {"state": "PLAN"})
         # A mid-lesson re-plan must stay grounded in the same document.
         outline = session_manager.outline_for(self.lesson, self.db)
+        session = session_manager.get_or_restore(self.lesson)
         if outline:
-            session_manager.get_or_restore(self.lesson).document_outline = outline
+            session.document_outline = outline
+        # A mid-lesson REGENERATE is still a planning decision, so it gets the
+        # same cross-lesson memory the initial plan had.
+        session.learner_profile = session_manager.memory_for(self.lesson, self.db)
         next_state, plan = await self._run(session_manager.step, self.lesson, state, {})
         lesson_service.persist_plan(self.db, self.lesson, plan)
         self.commit()
@@ -194,6 +198,8 @@ class LiveSession:
                     "page_or_slide": top.get("page_or_slide"),
                     "chunk_count": len(chunks),
                     "risk_level": risk,
+                    "attempts": provenance.get("attempts", 1),
+                    "refined_query": provenance.get("refined_query"),
                 }
                 lesson_service.record_citation(self.db, self.lesson, node.node_id, citation)
                 self.commit()

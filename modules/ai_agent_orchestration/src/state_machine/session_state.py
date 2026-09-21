@@ -19,6 +19,9 @@ class SessionState:
     # Chapters, key terms and excerpts of the source document, so PLAN is
     # grounded in what was uploaded rather than inventing a subject.
     document_outline: Optional[dict] = None
+    # Cross-lesson pedagogical memory (strong/weak concepts, recurring
+    # misconceptions), read once at planning time. Never written mid-lesson.
+    learner_profile: Optional[dict] = None
     # The passages that grounded the most recent explanation, so the UI can cite
     # them. Without this the classroom had no citation to display.
     recent_grounding: List[str] = field(default_factory=list)
@@ -28,3 +31,7 @@ class SessionState:
     recent_provenance: List[dict] = field(default_factory=list)
     # 'low' | 'high_hallucination_risk' | 'no_document_context'
     recent_risk_level: str = "low"
+    # How many retrieval passes grounded the current node, and the refined query
+    # if the bounded agentic loop had to broaden the first one.
+    recent_retrieval_attempts: int = 1
+    recent_refined_query: Optional[str] = None

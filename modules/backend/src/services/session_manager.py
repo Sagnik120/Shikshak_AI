@@ -54,13 +54,53 @@ class SessionManager:
             style=lesson.style,
         )
 
-    def _fresh_session(self, lesson: Lesson, document_outline: Optional[dict] = None):
+    def _fresh_session(self, lesson: Lesson, document_outline: Optional[dict] = None, db=None):
         session = self._ai.init_session(lesson.id)
         session.constraints = self.constraints_for(lesson)
         session.topic = lesson.topic
         session.document_id = lesson.document_id
         session.document_outline = document_outline
+        session.learner_profile = self.memory_for(lesson, db)
         return session
+
+    @staticmethod
+    def memory_for(lesson: Lesson, db=None) -> Optional[dict]:
+        """What previous lessons established about this learner, for planning only.
+
+        Deliberately narrow: mastered/weak concepts and recurring misconception
+        tags, reusing the vocabulary ml_core already produces. No transcripts, no
+        raw answers, no identifiers — only what can bias the next lesson plan.
+        Returns None for a learner with no history, so a first lesson plans
+        exactly as it did before.
+        """
+        if db is None:
+            return None
+
+        from modules.backend.src.db.models import LearnerProfileRow
+
+        profile = db.get(LearnerProfileRow, lesson.user_id)
+        if profile is None:
+            return None
+
+        # Only tags seen more than once are "recurring" — a single slip should
+        # not bias every future lesson.
+        recurring = sorted(
+            (tag for tag, count in (profile.misconception_counts or {}).items() if count > 1),
+            key=lambda tag: profile.misconception_counts[tag],
+            reverse=True,
+        )[:5]
+
+        memory = {
+            "strong_concepts": list(profile.strong_concepts or [])[:8],
+            "weak_concepts": list(profile.weak_concepts or [])[:8],
+            "recurring_misconceptions": recurring,
+            "lessons_completed": profile.lessons_completed,
+        }
+
+        # Nothing learned yet: treat as no memory rather than sending empty lists.
+        if not any([memory["strong_concepts"], memory["weak_concepts"], recurring]):
+            return None
+        return memory
 
     @staticmethod
     def outline_for(lesson: Lesson, db=None) -> Optional[dict]:
@@ -133,7 +173,7 @@ class SessionManager:
             try:
                 session = self._ai.get_session(lesson.id)
             except KeyError:
-                session = self._fresh_session(lesson, self.outline_for(lesson, db))
+                session = self._fresh_session(lesson, self.outline_for(lesson, db), db=db)
                 self._rehydrate_plan(session, lesson)
                 logger.info("Restored orchestrator session for lesson %s", lesson.id)
                 return session
@@ -156,7 +196,7 @@ class SessionManager:
         outline = self.outline_for(lesson, db)
         with self._lock:
             self.reset(lesson.id)
-            self._fresh_session(lesson, outline)
+            self._fresh_session(lesson, outline, db=db)
             state, _ = self.step(
                 lesson,
                 TeacherState.UNDERSTAND,
@@ -181,6 +221,8 @@ class SessionManager:
         return {
             "chunks": list(getattr(session, "recent_provenance", []) or []),
             "risk_level": getattr(session, "recent_risk_level", "low"),
+            "attempts": getattr(session, "recent_retrieval_attempts", 1),
+            "refined_query": getattr(session, "recent_refined_query", None),
         }
 
     def step(self, lesson: Lesson, state: TeacherState, inputs: dict):
