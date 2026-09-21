@@ -63,6 +63,7 @@ if (user && !lessonId) {
     questionShownAt: 0,
     objectUrls: [],
     closedByUs: false,
+    reconnectAttempts: 0,
     // One entry per concept taught, in order, for the class notes panel.
     collectedNotes: [],
     // Dedupe key for the adaptation banner so a reconnect/resend can't stack it.
@@ -715,11 +716,19 @@ if (user && !lessonId) {
         socket.onclose = () => {
           setConnection("Disconnected", "badge-rose");
           if (!state.closedByUs) {
-            log("Connection closed — your progress is saved");
-            showOverlay(
-              "Disconnected",
-              "Your progress is saved. Reload this page to pick the lesson back up."
-            );
+            log("Connection closed — attempting to reconnect...");
+            if (state.reconnectAttempts < 5) {
+              state.reconnectAttempts++;
+              setTimeout(() => {
+                log(`Reconnecting (attempt ${state.reconnectAttempts})...`);
+                connect();
+              }, 2000 * state.reconnectAttempts);
+            } else {
+              showOverlay(
+                "Disconnected",
+                "Your progress is saved. Please reload this page to pick the lesson back up."
+              );
+            }
           }
         };
 

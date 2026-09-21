@@ -80,6 +80,15 @@ class LiveSession:
         self.lesson = lesson
         return True
 
+    async def _keepalive(self) -> None:
+        """Sends a ping every 5 seconds to prevent proxy timeouts during long LLM calls."""
+        try:
+            while True:
+                await asyncio.sleep(5)
+                await self.send("ping", {})
+        except asyncio.CancelledError:
+            pass
+
     async def run(self) -> None:
         lesson = self.lesson
         assert lesson is not None
@@ -101,27 +110,31 @@ class LiveSession:
 
         state = session_manager.resume_state(lesson)
 
-        while True:
-            lesson.fsm_state = state.name
-            self.commit()
+        ping_task = asyncio.create_task(self._keepalive())
+        try:
+            while True:
+                lesson.fsm_state = state.name
+                self.commit()
 
-            if state == TeacherState.PLAN:
-                state = await self._do_plan(state)
-            elif state == TeacherState.EXPLAIN:
-                state = await self._do_explain(state)
-            elif state == TeacherState.QUESTION:
-                state = await self._do_question(state)
-            elif state == TeacherState.CONTINUE:
-                state = await self._do_continue(state)
-            elif state == TeacherState.DONE:
-                await self._do_done(state)
-                break
-            elif state == TeacherState.HUMAN_ESCALATION:
-                await self._do_escalation()
-                break
-            else:
-                logger.warning("Unexpected FSM state %s in live session", state)
-                break
+                if state == TeacherState.PLAN:
+                    state = await self._do_plan(state)
+                elif state == TeacherState.EXPLAIN:
+                    state = await self._do_explain(state)
+                elif state == TeacherState.QUESTION:
+                    state = await self._do_question(state)
+                elif state == TeacherState.CONTINUE:
+                    state = await self._do_continue(state)
+                elif state == TeacherState.DONE:
+                    await self._do_done(state)
+                    break
+                elif state == TeacherState.HUMAN_ESCALATION:
+                    await self._do_escalation()
+                    break
+                else:
+                    logger.warning("Unexpected FSM state %s in live session", state)
+                    break
+        finally:
+            ping_task.cancel()
 
     # -- FSM steps -----------------------------------------------------------
 
@@ -266,6 +279,17 @@ class LiveSession:
                 )
                 return
 
+            # Keep connection alive while rendering takes a long time
+            if int(waited / RENDER_POLL_SEC) % 5 == 0:
+                await self.send(
+                    "render_progress",
+                    {
+                        "node_id": node.node_id, 
+                        "progress_pct": status.progress_pct if status else 0.0,
+                        "stage": status.stage if status else "queued"
+                    }
+                )
+
             await asyncio.sleep(RENDER_POLL_SEC)
             waited += RENDER_POLL_SEC
 
@@ -278,6 +302,16 @@ class LiveSession:
         await self.send("ai_state", {"state": "INTERACT"})
 
         next_state, question = await self._run(session_manager.step, self.lesson, state, {})
+        
+        # The LLM occasionally hallucinates the wrong node_id (e.g. from a previous chapter).
+        # We enforce that the question belongs to the CURRENT active node.
+        active_node = session_manager.current_node(self.lesson)
+        if active_node:
+            if hasattr(question, "node_id"):
+                question.node_id = active_node.node_id
+            elif isinstance(question, dict):
+                question["node_id"] = active_node.node_id
+                
         interaction = lesson_service.record_question(self.db, self.lesson, question)
         self.pending_interaction = interaction
         self.commit()

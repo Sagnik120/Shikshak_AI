@@ -23,9 +23,9 @@ logger = logging.getLogger(__name__)
 _RESUMABLE = {
     "EXPLAIN": TeacherState.EXPLAIN,
     "DEMONSTRATE": TeacherState.EXPLAIN,  # re-render rather than await a lost job
-    "QUESTION": TeacherState.EXPLAIN,     # re-teach so the question has context
-    "EVALUATE": TeacherState.EXPLAIN,
-    "ADAPT": TeacherState.EXPLAIN,
+    "QUESTION": TeacherState.QUESTION,    # re-teach so the question has context
+    "EVALUATE": TeacherState.QUESTION,
+    "ADAPT": TeacherState.QUESTION,
     "CONTINUE": TeacherState.CONTINUE,
     "PLAN": TeacherState.PLAN,
 }
