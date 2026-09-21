@@ -30,6 +30,16 @@ if (!redirectIfSignedIn()) {
     passwordInput.focus();
   }
 
+  const demoLoginBtn = $("#demo-login-btn");
+  if (demoLoginBtn) {
+    demoLoginBtn.addEventListener("click", () => {
+      emailInput.value = "chandrasagnik2004@gmail.com";
+      passwordInput.value = "Sagnik@12345";
+      clearFieldErrors(form);
+      form.requestSubmit();
+    });
+  }
+
   form.addEventListener("input", (event) => {
     if (event.target.matches(".input")) fieldError(event.target, null);
   });
