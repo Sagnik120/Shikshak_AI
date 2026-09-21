@@ -199,6 +199,38 @@ class FFmpegCompositor:
                 "FFmpeg binary not detected on PATH or imageio-ffmpeg. Operating in Pillow preview fallback mode."
             )
 
+        if not ffmpeg_success and self.ffmpeg_bin and os.path.exists(visual_result.image_path):
+            try:
+                logger.info(f"Attempting lightweight static-slide video fallback for {output_mp4}...")
+                audio_input = (
+                    ["-i", tts_result.audio_path, "-c:a", "aac"]
+                    if os.path.exists(tts_result.audio_path)
+                    else ["-f", "lavfi", "-i", "anullsrc=r=24000:cl=mono", "-c:a", "aac"]
+                )
+                simple_cmd = [
+                    self.ffmpeg_bin, "-y",
+                    "-loop", "1",
+                    "-t", str(duration_sec),
+                    "-i", visual_result.image_path,
+                ] + audio_input + [
+                    "-c:v", "libx264",
+                    "-preset", "ultrafast",
+                    "-tune", "stillimage",
+                    "-pix_fmt", "yuv420p",
+                    "-shortest",
+                    output_mp4,
+                ]
+                res_simple = subprocess.run(simple_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+                ffmpeg_success = (
+                    res_simple.returncode == 0
+                    and os.path.exists(output_mp4)
+                    and os.path.getsize(output_mp4) > 0
+                )
+                if ffmpeg_success:
+                    logger.info(f"Static-slide fallback video created successfully: {output_mp4}")
+            except Exception as e:
+                logger.warning(f"Static slide fallback encountered error: {e}")
+
         if not ffmpeg_success:
             self._compose_with_pillow_fallback(
                 output_mp4=output_mp4,
@@ -273,6 +305,7 @@ class FFmpegCompositor:
                 "-map", "[outv]",
                 "-map", f"{audio_idx}:a",
                 "-c:v", "libx264",
+                "-preset", "ultrafast",
                 "-pix_fmt", "yuv420p",
                 "-c:a", "aac",
                 "-shortest",
@@ -302,14 +335,34 @@ class FFmpegCompositor:
                 "-map", "[outv]",
                 "-map", "2:a",
                 "-c:v", "libx264",
+                "-preset", "ultrafast",
                 "-pix_fmt", "yuv420p",
                 "-c:a", "aac",
                 "-shortest",
                 output_mp4,
             ]
 
-        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        return res.returncode == 0 and os.path.exists(output_mp4) and os.path.getsize(output_mp4) > 0
+        try:
+            logger.info(
+                f"Executing FFmpeg composition for {output_mp4} (duration: {duration_sec}s, preset: ultrafast)..."
+            )
+            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=90)
+            if res.returncode != 0:
+                logger.error(
+                    f"FFmpeg composition failed with code {res.returncode}: "
+                    f"{res.stderr.decode('utf-8', errors='ignore')[-600:]}"
+                )
+            else:
+                logger.info(
+                    f"FFmpeg composition succeeded: {output_mp4} ({os.path.getsize(output_mp4)} bytes)"
+                )
+            return res.returncode == 0 and os.path.exists(output_mp4) and os.path.getsize(output_mp4) > 0
+        except subprocess.TimeoutExpired:
+            logger.error(f"FFmpeg composition timed out after 90s for {output_mp4}")
+            return False
+        except Exception as e:
+            logger.error(f"FFmpeg execution error: {e}")
+            return False
 
     def _compose_with_pillow_fallback(
         self,

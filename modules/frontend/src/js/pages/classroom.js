@@ -501,6 +501,13 @@ if (user && !lessonId) {
       hideOverlay();
       setStatus("Teaching");
 
+      dom.video.onerror = () => {
+        console.warn("Video failed to play, displaying concept notes and card instead.");
+        dom.video.hidden = true;
+        showOverlay(payload.title || "Concept", payload.script_text || "");
+        toast("Video playback encountered an error — displaying lesson notes.", "warning", 5000);
+      };
+
       try {
         await dom.video.play();
       } catch {
