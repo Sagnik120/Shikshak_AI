@@ -43,7 +43,9 @@ def preflight() -> None:
 def main() -> None:
     import uvicorn
 
-    host = os.getenv("HOST", "0.0.0.0")
+    import sys
+    default_host = "127.0.0.1" if sys.platform == "win32" else "0.0.0.0"
+    host = os.getenv("HOST", default_host)
     port = int(os.getenv("PORT", "8000"))
 
     # Cloud environments (Render, Railway, Heroku, Fly, Cloud Run) provide $PORT or $RENDER.
