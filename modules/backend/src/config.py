@@ -71,7 +71,7 @@ class Settings:
     database_url: str = os.getenv("DATABASE_URL", "sqlite:///data/shikshak.db")
     sql_echo: bool = _bool("SQL_ECHO", False)
     seed_default_users: bool = _bool("SEED_DEFAULT_USERS", True)
-    default_admin_password: str = os.getenv("DEFAULT_ADMIN_PASSWORD", "Sagnik@12345")
+    default_demo_password: str = os.getenv("DEFAULT_DEMO_PASSWORD", "DemoStudent@123")
 
     # --- Auth / tokens ---
     secret_key: str = _resolve_secret()

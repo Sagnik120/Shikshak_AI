@@ -140,14 +140,16 @@ def _seed_default_users() -> None:
         with SessionLocal() as db:
             seed_accounts = [
                 {
-                    "email": "chandrasagnik2004@gmail.com",
-                    "full_name": "Sagnik Chandra",
-                    "password": settings.default_admin_password,
-                },
-                {
                     "email": "demo@shikshak.ai",
                     "full_name": "Demo Student",
-                    "password": "DemoPassword@123",
+                    "password": settings.default_demo_password,
+                    "role": "student",
+                },
+                {
+                    "email": "teacher@shikshak.ai",
+                    "full_name": "Demo Teacher",
+                    "password": settings.default_demo_password,
+                    "role": "teacher",
                 },
             ]
             seeded = 0
@@ -160,7 +162,7 @@ def _seed_default_users() -> None:
                         full_name=acc["full_name"],
                         is_verified=True,
                         is_active=True,
-                        role="student",
+                        role=acc["role"],
                     )
                     db.add(user)
                     seeded += 1

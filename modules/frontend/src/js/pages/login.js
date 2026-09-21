@@ -33,8 +33,8 @@ if (!redirectIfSignedIn()) {
   const demoLoginBtn = $("#demo-login-btn");
   if (demoLoginBtn) {
     demoLoginBtn.addEventListener("click", () => {
-      emailInput.value = "chandrasagnik2004@gmail.com";
-      passwordInput.value = "Sagnik@12345";
+      emailInput.value = "demo@shikshak.ai";
+      passwordInput.value = "DemoStudent@123";
       clearFieldErrors(form);
       form.requestSubmit();
     });
