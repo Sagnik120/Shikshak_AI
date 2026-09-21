@@ -45,20 +45,35 @@ def main() -> None:
 
     host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", "8000"))
-    reload_enabled = settings.environment == "development"
+
+    # Cloud environments (Render, Railway, Heroku, Fly, Cloud Run) provide $PORT or $RENDER.
+    # Never enable reloader in cloud deployments: file writes to SQLite/data trigger
+    # WatchFiles restart loops, which shut down the worker and cause port scan timeouts.
+    is_cloud = bool(
+        os.getenv("RENDER")
+        or os.getenv("PORT")
+        or os.getenv("DYNO")
+        or os.getenv("FLY_APP_NAME")
+        or os.getenv("K_SERVICE")
+        or os.getenv("ENVIRONMENT", "").strip().lower() == "production"
+    )
+    reload_enabled = (settings.environment == "development") and not is_cloud
 
     print(f"\nShikshak AI — starting on http://{host}:{port}\n")
     preflight()
     print()
 
-    uvicorn.run(
-        "modules.backend.src.main:app",
-        host=host,
-        port=port,
-        reload=reload_enabled,
-        # Renders block a worker for ~30s, so keep the default loop responsive.
-        timeout_keep_alive=75,
-    )
+    kwargs = {
+        "host": host,
+        "port": port,
+        "reload": reload_enabled,
+        "timeout_keep_alive": 75,
+    }
+    if reload_enabled:
+        kwargs["reload_dirs"] = [str(ROOT / "modules"), str(ROOT / "scripts")]
+        kwargs["reload_excludes"] = ["data/*", "chroma_db/*", "*.db*", "*.wal", "*.shm", "storage/*"]
+
+    uvicorn.run("modules.backend.src.main:app", **kwargs)
 
 
 if __name__ == "__main__":
