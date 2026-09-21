@@ -19,19 +19,25 @@ bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def get_current_user(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
     db: Session = Depends(get_db),
 ) -> User:
-    """Resolve the authenticated, verified, active user from a Bearer access token."""
+    """Resolve the authenticated, verified, active user from a Bearer access token or query parameter."""
+    raw_token = (
+        credentials.credentials
+        if credentials and credentials.credentials
+        else request.query_params.get("token")
+    )
     unauthorized = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Not authenticated",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    if credentials is None or not credentials.credentials:
+    if not raw_token:
         raise unauthorized
 
-    payload = decode_token(credentials.credentials, expected_type="access")
+    payload = decode_token(raw_token, expected_type="access")
     if not payload:
         raise unauthorized
 
@@ -53,11 +59,12 @@ def get_current_user(
 
 
 def get_optional_user(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
     db: Session = Depends(get_db),
 ) -> Optional[User]:
     try:
-        return get_current_user(credentials, db)
+        return get_current_user(request, credentials, db)
     except HTTPException:
         return None
 
