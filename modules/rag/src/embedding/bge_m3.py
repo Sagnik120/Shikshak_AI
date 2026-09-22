@@ -10,9 +10,9 @@ logger = logging.getLogger(__name__)
 
 
 class BGEM3EmbeddingAdapter(BaseEmbeddingAdapter):
-    """Embedding adapter using BAAI/bge-m3 for dense + sparse multi-lingual representations."""
+    """Embedding adapter using sentence-transformers for dense + sparse multi-lingual representations."""
 
-    def __init__(self, model_name: str = "BAAI/bge-m3", use_fp16: bool = True, device: str = "cpu"):
+    def __init__(self, model_name: str = "all-MiniLM-L6-v2", use_fp16: bool = True, device: str = "cpu"):
         self.model_name = model_name
         self.device = device
         self.use_fp16 = use_fp16
