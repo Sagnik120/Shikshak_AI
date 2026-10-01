@@ -362,6 +362,9 @@ button, input, select, textarea {
    ------------------------------------------------------------------------- */
 
 .field { display: flex; flex-direction: column; gap: 6px; }
+/* display:flex above beats the hidden attribute; without this the classroom's
+   free-text box showed under every multiple-choice question. */
+.field[hidden] { display: none; }
 .field + .field { margin-top: var(--sp-4); }
 
 .label { font-size: var(--text-sm); font-weight: 600; color: var(--text); }

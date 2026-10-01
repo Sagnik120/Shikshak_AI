@@ -823,3 +823,12 @@
 }
 .swatch:hover { transform: scale(1.1); }
 .swatch[aria-pressed="true"] { border-color: var(--text); box-shadow: 0 0 0 2px var(--bg-elevated) inset; }
+
+/* Rewatch an earlier concept from inside the classroom. */
+.rewatch { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center;
+           background: rgba(6, 8, 15, .72); padding: 16px; }
+.rewatch[hidden] { display: none; }
+.rewatch-panel { background: var(--bg-elevated); border-radius: 16px; padding: 16px; width: min(880px, 100%); }
+.rewatch-panel video { width: 100%; border-radius: 12px; background: #000; }
+.node-item[data-rewatch] { cursor: pointer; }
+.node-item[data-rewatch]:hover { background: var(--bg-sunken); }
