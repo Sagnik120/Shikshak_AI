@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 """Start the Shikshak AI server with the configured host and port.
 
@@ -35,9 +36,9 @@ def preflight() -> None:
         if settings.environment == "production":
             print("                  ^ set SECRET_KEY explicitly in production")
 
-    if settings.environment == "production" and settings.email_dev_fallback:
-        print("\n  WARNING: EMAIL_DEV_FALLBACK is on in production, which returns OTP")
-        print("           codes to the caller. Set EMAIL_DEV_FALLBACK=false.\n")
+    if settings.environment == "production" and settings.expose_dev_otp:
+        print("\n  NOTE: OTP codes are shown on screen and not emailed (demo mode).")
+        print("        Set ENABLE_SMTP_SEND=true with SMTP/Resend configured to email them.\n")
 
     if settings.environment == "production":
         _production_warnings()
@@ -90,7 +91,13 @@ def main() -> None:
         or os.getenv("K_SERVICE")
         or os.getenv("ENVIRONMENT", "").strip().lower() == "production"
     )
-    reload_enabled = (settings.environment == "development") and not is_cloud
+    # Opt-in (RELOAD=true): every code save restarts the server, which drops
+    # every live classroom mid-lesson — confusing when you're testing lessons.
+    reload_enabled = (
+        os.getenv("RELOAD", "").strip().lower() in ("1", "true", "yes")
+        and settings.environment == "development"
+        and not is_cloud
+    )
 
     print(f"\nShikshak AI — starting on http://{host}:{port}\n")
     preflight()
