@@ -20,6 +20,12 @@ if (user && !lessonId) {
     overlay: $("#overlay"),
     overlayTitle: $("#overlay-title"),
     overlayBody: $("#overlay-body"),
+    overlayActions: $("#overlay-actions"),
+    practiceLink: $("#practice-link"),
+    rewatch: $("#rewatch"),
+    rewatchTitle: $("#rewatch-title"),
+    rewatchVideo: $("#rewatch-video"),
+    rewatchClose: $("#rewatch-close"),
     video: $("#video"),
     nodeList: $("#node-list"),
     progressBar: $("#progress-bar"),
@@ -67,7 +73,18 @@ if (user && !lessonId) {
     collectedNotes: [],
     // Dedupe key for the adaptation banner so a reconnect/resend can't stack it.
     lastAdaptationKey: null,
+    // The segment currently loaded in the player, so a reconnect that replays
+    // it doesn't restart the video from 0:00.
+    playing: null,
+    // An answer is being graded: Submit stays disabled.
+    grading: false,
+    // The lesson was handed to a human: the video must not play.
+    lessonStopped: false,
+    reconnectAttempts: 0,
+    reconnectTimer: null,
   };
+
+  const MAX_RECONNECT_ATTEMPTS = 8;
 
   const QUESTION_KIND = {
     mcq: "Multiple choice",
@@ -103,11 +120,129 @@ if (user && !lessonId) {
   function showOverlay(title, body) {
     dom.overlayTitle.textContent = title;
     dom.overlayBody.textContent = body;
+    clear(dom.overlayActions);
+    dom.overlayActions.hidden = true;
     dom.overlay.hidden = false;
+    // The overlay covers the player; a hidden video must not keep talking.
+    dom.video.pause();
   }
 
   function hideOverlay() {
     dom.overlay.hidden = true;
+  }
+
+  /* ---------------------------------------------------------------------
+     Rewatch an earlier concept: the live lesson pauses where it is and
+     continues untouched afterwards. No server calls besides the video.
+     --------------------------------------------------------------------- */
+
+  const rewatch = { open: false, url: null, resumeLive: false };
+
+  async function openRewatch(node) {
+    if (rewatch.open) return;
+    rewatch.open = true;
+    rewatch.resumeLive = !dom.video.paused;
+    dom.video.pause();
+    dom.rewatchTitle.textContent = `Rewatching: ${node.concept}`;
+    dom.rewatch.hidden = false;
+    try {
+      rewatch.url = await api.mediaObjectUrl(node.video_url);
+      if (!rewatch.open) return URL.revokeObjectURL(rewatch.url);
+      dom.rewatchVideo.src = rewatch.url;
+      dom.rewatchVideo.play().catch(() => {});
+    } catch (error) {
+      toast(`Couldn't load that video: ${error.message}`, "error");
+      closeRewatch();
+    }
+  }
+
+  function closeRewatch() {
+    if (!rewatch.open) return;
+    rewatch.open = false;
+    dom.rewatchVideo.pause();
+    dom.rewatchVideo.removeAttribute("src");
+    dom.rewatchVideo.load();
+    if (rewatch.url) URL.revokeObjectURL(rewatch.url);
+    rewatch.url = null;
+    dom.rewatch.hidden = true;
+    // Carry on exactly where the lesson was, unless it's waiting on a question.
+    if (rewatch.resumeLive && !state.lessonStopped && state.playing?.awaiting == null && !dom.video.hidden) {
+      dom.video.play().catch(() => {});
+    }
+  }
+
+  dom.rewatchClose.addEventListener("click", closeRewatch);
+  dom.rewatch.addEventListener("click", (event) => { if (event.target === dom.rewatch) closeRewatch(); });
+  document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeRewatch(); });
+  dom.practiceLink.href = `/review.html?lesson=${encodeURIComponent(lessonId)}#practice`;
+
+  /** The end of the lesson with concepts still to review: not completed. */
+  function showReviewNeeded(concepts) {
+    state.closedByUs = true;
+    state.lessonStopped = true;
+    dom.video.pause();
+    dom.checkpoint.hidden = true;
+    setStatus("Almost done");
+    setConnection("Paused", "badge-amber");
+    const n = concepts.length;
+    showOverlay(
+      `Almost done — ${n} concept${n === 1 ? "" : "s"} to review`,
+      `You skipped or didn't master: ${concepts.map((c) => c.concept).join(", ")}. ` +
+        "Review them to complete this lesson and get your report."
+    );
+    const next = concepts[0];
+    const go = el("button", { class: "btn btn-primary btn-sm", type: "button" }, `Review next: ${next.concept}`);
+    go.addEventListener("click", async () => {
+      go.disabled = true;
+      go.textContent = "One moment…";
+      try {
+        await api.relearnConcept(lessonId, next.node_id);
+        window.location.reload();
+      } catch (error) {
+        toast(error.message, "error", 6000);
+        go.disabled = false;
+        go.textContent = `Review next: ${next.concept}`;
+      }
+    });
+    const practise = el("a", { class: "btn btn-secondary btn-sm", href: `/review.html?lesson=${encodeURIComponent(lessonId)}` },
+      "Review & practise");
+    dom.overlayActions.append(go, practise);
+    dom.overlayActions.hidden = false;
+  }
+
+  /** Paused for a mentor: never teach on silently — offer the ways forward. */
+  function showPaused(escalation) {
+    state.closedByUs = true;
+    state.lessonStopped = true;
+    dom.video.pause();
+    dom.video.controls = false;
+    dom.checkpoint.hidden = true;
+    setStatus("Paused");
+    setConnection("Paused", "badge-rose");
+    const concept = escalation?.concept ? `“${escalation.concept}”` : "this concept";
+    showOverlay(
+      "Waiting for your mentor",
+      `This lesson is paused at ${concept}. Your mentor has been told. You can review and practise, or choose how to go on.`
+    );
+    const review = el("a", { class: "btn btn-secondary btn-sm", href: `/review.html?lesson=${encodeURIComponent(lessonId)}` },
+      "Review & practise");
+    const again = el("button", { class: "btn btn-primary btn-sm", type: "button" }, "Continue — teach it again");
+    const skip = el("button", { class: "btn btn-secondary btn-sm", type: "button" }, "Skip this concept");
+    const act = async (button, call) => {
+      [again, skip].forEach((b) => (b.disabled = true));
+      button.textContent = "One moment…";
+      try {
+        await call();
+        window.location.reload(); // start the lesson fresh from the chosen point
+      } catch (error) {
+        toast(error.message, "error", 6000);
+        [again, skip].forEach((b) => (b.disabled = false));
+      }
+    };
+    again.addEventListener("click", () => act(again, () => api.continueLesson(lessonId)));
+    skip.addEventListener("click", () => act(skip, () => api.skipConcept(lessonId)));
+    dom.overlayActions.append(review, again, skip);
+    dom.overlayActions.hidden = false;
   }
 
   /* ---------------------------------------------------------------------
@@ -124,7 +259,15 @@ if (user && !lessonId) {
         "data-node": node.node_id,
       });
 
-      const mastered = node.status === "mastered";
+      const mastered = node.status === "mastered" || node.status === "completed";
+      // Finished concepts can be rewatched right here, without leaving the lesson.
+      const canRewatch = Boolean(node.video_url) && node.node_id !== state.currentNodeId
+        && ["mastered", "completed", "skipped"].includes(node.status);
+      if (canRewatch) {
+        item.dataset.rewatch = "";
+        item.title = "Rewatch this concept";
+        item.addEventListener("click", () => openRewatch(node));
+      }
       item.innerHTML = `
         <span class="node-marker">${mastered ? icon("check", 13) : index + 1}</span>
         <span class="grow">
@@ -148,8 +291,10 @@ if (user && !lessonId) {
         return "Being taught now";
       case "questioning":
         return "Question in progress";
+      case "completed":
+        return "Watched";
       case "skipped":
-        return "Moved on";
+        return "To review";
       default:
         return node.checkpoint_question ? "Has a checkpoint" : "Up next";
     }
@@ -217,7 +362,90 @@ if (user && !lessonId) {
     dom.checkpoint.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
+  /* ---------------------------------------------------------------------
+     Mid-video checkpoints: the video pauses at each one, the learner answers
+     a question about what has been covered so far, and it resumes once the
+     server allows it. Nothing can be skipped or seeked past.
+     --------------------------------------------------------------------- */
+
+  function nextCheckpoint() {
+    const seg = state.playing;
+    if (!seg?.checkpoints) return null;
+    return seg.checkpoints.find((cp) => !seg.passed.has(cp.index)) || null;
+  }
+
+  function reachCheckpoint(cp) {
+    const seg = state.playing;
+    if (!seg || seg.awaiting === cp.index) return;
+    seg.awaiting = cp.index;
+    dom.video.pause();
+    if (Math.abs(dom.video.currentTime - cp.at_sec) > 0.5) dom.video.currentTime = cp.at_sec;
+    setStatus("Question time");
+    log(`Checkpoint ${cp.index + 1} — pausing for a question`);
+    // If the socket is down, the replay after reconnecting sends it again.
+    seg.awaitingSent = send("checkpoint_reached", { node_id: seg.node_id, index: cp.index });
+  }
+
+  dom.video.addEventListener("timeupdate", () => {
+    const cp = nextCheckpoint();
+    if (cp && dom.video.currentTime >= cp.at_sec) reachCheckpoint(cp);
+  });
+
+  // Paused for a question (or the lesson has stopped): it stays paused.
+  dom.video.addEventListener("play", () => {
+    if (state.lessonStopped || state.playing?.awaiting != null) dom.video.pause();
+  });
+
+  // No seeking past a question that hasn't been answered yet.
+  dom.video.addEventListener("seeking", () => {
+    const cp = nextCheckpoint();
+    if (cp && dom.video.currentTime > cp.at_sec + 0.25) dom.video.currentTime = cp.at_sec;
+  });
+
+  function resumeAfterCheckpoint(index) {
+    const seg = state.playing;
+    if (!seg) return;
+    seg.passed.add(index);
+    if (seg.awaiting !== index) return;
+    seg.awaiting = null;
+    // Long enough to read the feedback, then carry on.
+    setTimeout(() => {
+      if (state.playing !== seg || seg.awaiting != null || state.lessonStopped) return;
+      if (rewatch.open) {
+        dismissCheckpoint();
+        rewatch.resumeLive = true;
+        return;
+      }
+      dismissCheckpoint();
+      const atEnd = dom.video.ended || dom.video.currentTime >= (dom.video.duration || Infinity) - 0.3;
+      if (atEnd || !seg.video_url) {
+        markWatched();
+        return;
+      }
+      setStatus("Teaching");
+      dom.video.play().catch(() => toast("Tap play to continue the lesson.", "info", 4000));
+    }, 1800);
+  }
+
+  /** Tell the server this concept's video is finished, once per segment. */
+  function markWatched() {
+    const seg = state.playing;
+    if (!seg) return;
+    seg.done = true; // the learner is finished, even if the socket is down
+    if (!seg.sent) seg.sent = send("segment_watched", { node_id: seg.node_id });
+  }
+
+  dom.video.addEventListener("ended", () => {
+    const cp = nextCheckpoint();
+    if (cp) {
+      reachCheckpoint(cp); // a checkpoint right at the end
+      return;
+    }
+    markWatched();
+  });
+
   dom.answerInput.addEventListener("input", () => {
+    if (state.grading) return; // typing must not re-enable Submit mid-grading
     dom.submitAnswer.disabled = dom.answerInput.value.trim().length < 2;
   });
 
@@ -236,16 +464,32 @@ if (user && !lessonId) {
     const answer = state.selectedOption ?? dom.answerInput.value.trim();
     if (!answer) return;
 
-    send("student_response", {
+    if (state.grading) return; // one answer per question — no double submits
+    const sent = send("student_response", {
       node_id: state.question.node_id,
+      // Binds the answer to THIS question, so it can never answer another.
+      interaction_id: state.question.interaction_id,
       raw_answer: answer,
       response_time_sec: (Date.now() - state.questionShownAt) / 1000,
     });
+    if (!sent) {
+      // Keep the answer on screen; it can be submitted once we're reconnected.
+      toast("Reconnecting to your classroom — submit again in a moment. Your answer is kept.", "warning", 5000);
+      return;
+    }
 
+    state.grading = true;
     dom.submitAnswer.disabled = true;
     dom.submitAnswer.textContent = "Grading…";
     dom.answerHint.textContent = "Shikshak is checking your understanding.";
     log(`Answer submitted: ${answer.slice(0, 60)}`);
+  }
+
+  /** Make the current question answerable again, keeping what was typed. */
+  function resetSubmit() {
+    state.grading = false;
+    dom.submitAnswer.textContent = "Submit answer";
+    dom.submitAnswer.disabled = state.selectedOption == null && dom.answerInput.value.trim().length < 2;
   }
 
   function showFeedback(evaluation) {
@@ -484,9 +728,30 @@ if (user && !lessonId) {
      Video
      --------------------------------------------------------------------- */
 
+  /** No playable video for this segment: the text explanation stands in, and
+   *  the lesson must not wait on a video that will never end. */
+  function segmentWithoutVideo(title, body) {
+    dom.video.hidden = true;
+    showOverlay(title, body);
+    markWatched(); // the server then asks this concept's questions directly
+  }
+
   async function playSegment(payload) {
+    // Claimed before the (async) download, so a question arriving meanwhile
+    // waits for THIS video rather than the previous, already-ended one.
+    const segment = {
+      node_id: payload.node_id,
+      video_url: payload.video_url,
+      checkpoints: [...(payload.checkpoints || [])].sort((a, b) => a.at_sec - b.at_sec),
+      passed: new Set(payload.passed || []),
+      awaiting: null,
+      done: false,
+      sent: false,
+    };
+    state.playing = segment;
+
     if (!payload.video_url) {
-      showOverlay(payload.title || "Concept", payload.script_text || "");
+      segmentWithoutVideo(payload.title || "Concept", payload.script_text || "");
       return;
     }
 
@@ -494,28 +759,46 @@ if (user && !lessonId) {
       // Media is owner-scoped and needs an Authorization header, so it is
       // fetched as a blob rather than set directly as the video src.
       const objectUrl = await api.mediaObjectUrl(payload.video_url);
-      state.objectUrls.push(objectUrl);
+      if (state.playing !== segment) {
+        URL.revokeObjectURL(objectUrl); // a newer segment arrived meanwhile
+        return;
+      }
+      state.objectUrls.forEach((url) => URL.revokeObjectURL(url));
+      state.objectUrls = [objectUrl];
 
+      dom.video.onerror = () => {
+        if (state.playing !== segment) return;
+        console.warn("Video failed to play, displaying concept notes and card instead.");
+        segmentWithoutVideo(payload.title || "Concept", payload.script_text || "");
+        toast("Video playback encountered an error — displaying lesson notes.", "warning", 5000);
+      };
       dom.video.src = objectUrl;
+      // Coming back to a half-watched video: continue after the last
+      // question already answered rather than from 0:00.
+      const resumeAt = Math.max(
+        0,
+        ...segment.checkpoints.filter((cp) => segment.passed.has(cp.index)).map((cp) => cp.at_sec)
+      );
+      if (resumeAt > 0) {
+        dom.video.addEventListener("loadedmetadata", () => { dom.video.currentTime = resumeAt; }, { once: true });
+      }
       dom.video.hidden = false;
       hideOverlay();
       setStatus("Teaching");
 
-      dom.video.onerror = () => {
-        console.warn("Video failed to play, displaying concept notes and card instead.");
-        dom.video.hidden = true;
-        showOverlay(payload.title || "Concept", payload.script_text || "");
-        toast("Video playback encountered an error — displaying lesson notes.", "warning", 5000);
-      };
-
-      try {
-        await dom.video.play();
-      } catch {
-        // Autoplay with sound is blocked until the learner interacts.
-        toast("Tap play to start the lesson audio.", "info", 5000);
+      if (rewatch.open) {
+        rewatch.resumeLive = true; // start it once the learner closes the rewatch
+      } else {
+        try {
+          await dom.video.play();
+        } catch {
+          // Autoplay with sound is blocked until the learner interacts.
+          toast("Tap play to start the lesson audio.", "info", 5000);
+        }
       }
     } catch (error) {
-      showOverlay("Playing without video", payload.script_text || "");
+      if (state.playing !== segment) return;
+      segmentWithoutVideo("Playing without video", payload.script_text || "");
       toast(`Couldn't load the video: ${error.message}`, "error");
     }
   }
@@ -524,10 +807,13 @@ if (user && !lessonId) {
      WebSocket
      --------------------------------------------------------------------- */
 
+  /** Returns whether the message actually went out. */
   function send(eventType, payload) {
     if (state.socket?.readyState === WebSocket.OPEN) {
       state.socket.send(JSON.stringify({ event_type: eventType, payload }));
+      return true;
     }
+    return false;
   }
 
   const HANDLERS = {
@@ -542,7 +828,12 @@ if (user && !lessonId) {
     },
 
     curriculum_loaded(payload) {
-      state.nodes = (payload.nodes || []).map((n) => ({ ...n, status: "pending", attempts: 0 }));
+      // Keep statuses already known (a snapshot can arrive before this).
+      const known = new Map(state.nodes.map((n) => [n.node_id, n]));
+      state.nodes = (payload.nodes || []).map((n) => ({
+        status: "pending", attempts: 0, ...(known.get(n.node_id) || {}), ...n,
+        ...(known.has(n.node_id) ? { status: known.get(n.node_id).status } : {}),
+      }));
       renderNodes();
       log(`Curriculum loaded — ${state.nodes.length} concepts`);
     },
@@ -563,6 +854,7 @@ if (user && !lessonId) {
         INTERACT: "Asking you a question",
         EVALUATE: "Grading your answer",
         ASSESS: "Writing your report",
+        RESUME: "Picking up where you left off",
       };
       setStatus(labels[payload.state] || payload.state);
       if (payload.node_id) {
@@ -575,12 +867,21 @@ if (user && !lessonId) {
     },
 
     explanation_chunk(payload) {
-      dismissCheckpoint();
-      hideAdaptationBanner();
       state.currentNodeId = payload.node_id;
       showChapterNotes(payload);
       collectNotes(payload);
-      showOverlay(payload.concept || "", "Rendering the video for this concept…");
+      // After a reconnect the server replays the concept already on screen:
+      // keep the video, the question card and anything typed exactly as is.
+      if (payload.replay && state.playing?.node_id === payload.node_id) {
+        log(`Reconnected — continuing ${payload.concept}`);
+        return;
+      }
+      dismissCheckpoint();
+      hideAdaptationBanner();
+      showOverlay(
+        payload.concept || "",
+        payload.replay ? "Loading this concept…" : "Rendering the video for this concept…"
+      );
       log(`Explaining: ${payload.concept}`);
     },
 
@@ -593,6 +894,19 @@ if (user && !lessonId) {
     },
 
     video_segment(payload) {
+      const current = state.playing;
+      if (current && current.node_id === payload.node_id && current.video_url === payload.video_url) {
+        // A reconnect replayed the video already loaded: don't restart it.
+        // Re-send whatever the new connection must hear from us.
+        (payload.passed || []).forEach((i) => current.passed.add(i));
+        if (current.awaiting != null && !state.question) {
+          send("checkpoint_reached", { node_id: current.node_id, index: current.awaiting });
+        } else if (current.done) {
+          current.sent = false;
+          markWatched();
+        }
+        return;
+      }
       log(`Video ready (${formatSeconds(payload.duration_sec)})`);
       playSegment(payload);
     },
@@ -600,7 +914,13 @@ if (user && !lessonId) {
     render_failed(payload) {
       log(`Render failed: ${payload.reason}`);
       toast("Video rendering failed for this concept — continuing with the written explanation.", "error", 7000);
-      showOverlay("Continuing without video", payload.reason || "");
+      state.playing = { node_id: payload.node_id, video_url: null, done: false, sent: false };
+      segmentWithoutVideo("Continuing without video", payload.reason || "");
+    },
+
+    answer_rejected(payload) {
+      toast(payload.reason || "Please enter an answer.", "warning");
+      resetSubmit();
     },
 
     citation_updated(payload) {
@@ -646,13 +966,38 @@ if (user && !lessonId) {
     },
 
     interaction_event(payload) {
-      setStatus("Your turn");
+      const id = payload.interaction_id;
+      if (id && state.question?.interaction_id === id && !dom.checkpoint.hidden) {
+        // Re-asked after a reconnect: keep the card and the typed answer. If it
+        // was mid-"Grading…", the answer never arrived, so allow a resubmit.
+        resetSubmit();
+        return;
+      }
+      // The video waits at this question until it has been answered.
+      const seg = state.playing;
+      if (seg && payload.node_id === seg.node_id && payload.checkpoint_index != null) {
+        const cp = seg.checkpoints.find((c) => c.index === payload.checkpoint_index);
+        seg.awaiting = payload.checkpoint_index;
+        dom.video.pause();
+        if (cp && !dom.video.hidden && Math.abs(dom.video.currentTime - cp.at_sec) > 0.5) {
+          dom.video.currentTime = cp.at_sec;
+        }
+      }
       dismissCheckpoint();
+      resetSubmit();
+      setStatus("Your turn");
       showQuestion(payload);
       log(`Question asked: ${payload.question_text.slice(0, 70)}`);
     },
 
+    resume_video(payload) {
+      if (state.playing?.node_id === payload.node_id && payload.index != null) {
+        resumeAfterCheckpoint(payload.index);
+      }
+    },
+
     evaluation_result(payload) {
+      state.grading = false;
       showFeedback(payload);
       log(`Graded: ${payload.correct ? "correct" : `partial ${payload.partial_credit}`}`);
     },
@@ -677,21 +1022,61 @@ if (user && !lessonId) {
 
     human_escalation(payload) {
       state.closedByUs = true;
+      // The lesson stops here for a human teacher: the video can't be played on.
+      state.lessonStopped = true;
+      dom.video.pause();
+      dom.video.controls = false;
       setStatus("Paused");
       showAdaptationBanner("HUMAN", `${state.currentNodeId}:HUMAN`);
       // The HUMAN copy is fixed regardless of whether the email actually sent
       // (e.g. no mentor on file) — the student's experience is the same
       // either way, and the mentor-notified detail is for the mentor, not them.
-      showOverlay("This one needs a human teacher", payload.reason);
       dom.checkpoint.hidden = true;
       log(payload.mentor_notified ? "Escalated — mentor notified by email" : "Escalated to a human teacher");
+      showPaused(payload.escalation);
+    },
+
+    review_needed(payload) {
+      log(`${payload.concepts.length} concept(s) still to review`);
+      showReviewNeeded(payload.concepts || []);
+    },
+
+    lesson_paused(payload) {
+      log("This lesson is paused for your mentor");
+      showPaused(payload.escalation);
     },
 
     pong() {},
   };
 
+  // Close codes after which reconnecting cannot help.
+  const CLOSE_SUPERSEDED = 4001; // this lesson was opened in another tab
+  const CLOSE_POLICY = 1008; // bad ticket, account or lesson
+
+  /** Reconnect quietly with backoff. The server resumes exactly where the
+   *  lesson was, and the video keeps playing meanwhile. */
+  function scheduleReconnect() {
+    if (state.closedByUs || state.reconnectTimer) return;
+    state.reconnectAttempts += 1;
+    if (state.reconnectAttempts > MAX_RECONNECT_ATTEMPTS) {
+      setConnection("Offline", "badge-rose");
+      showOverlay(
+        "Can't reach your classroom",
+        "Your progress is saved. Check your internet connection, then reload this page."
+      );
+      return;
+    }
+    const delay = Math.min(15000, 1000 * 2 ** (state.reconnectAttempts - 1));
+    setConnection("Reconnecting…", "badge-amber");
+    log(`Connection lost — reconnecting in ${Math.round(delay / 1000)}s (your progress is saved)`);
+    state.reconnectTimer = setTimeout(() => {
+      state.reconnectTimer = null;
+      connect();
+    }, delay);
+  }
+
   function connect() {
-    setConnection("Connecting");
+    setConnection(state.reconnectAttempts ? "Reconnecting…" : "Connecting", state.reconnectAttempts ? "badge-amber" : "");
 
     openLessonSocket(lessonId)
       .then((socket) => {
@@ -699,7 +1084,9 @@ if (user && !lessonId) {
 
         socket.onopen = () => {
           setConnection("Live", "badge-green");
-          log("Connected to your classroom");
+          log(state.reconnectAttempts ? "Reconnected" : "Connected to your classroom");
+          if (state.reconnectAttempts) toast("Reconnected — continuing your lesson.", "success", 2500);
+          state.reconnectAttempts = 0;
         };
 
         socket.onmessage = (event) => {
@@ -711,8 +1098,10 @@ if (user && !lessonId) {
           }
 
           if (message.error) {
+            // The close that follows decides whether to reconnect; the error
+            // itself must not cover a video the learner is watching.
+            state.lastError = message.error;
             toast(message.error, "error", 8000);
-            showOverlay("Something went wrong", message.error);
             log(`Error: ${message.error}`);
             return;
           }
@@ -720,25 +1109,49 @@ if (user && !lessonId) {
           HANDLERS[message.event_type]?.(message.payload || {});
         };
 
-        socket.onclose = () => {
-          setConnection("Disconnected", "badge-rose");
-          if (!state.closedByUs) {
-            log("Connection closed — your progress is saved");
+        socket.onclose = (event) => {
+          if (state.socket !== socket || state.closedByUs) return;
+          state.socket = null;
+          if (event.code === CLOSE_SUPERSEDED) {
+            state.closedByUs = true;
+            setConnection("Open elsewhere", "badge-rose");
             showOverlay(
-              "Disconnected",
-              "Your progress is saved. Reload this page to pick the lesson back up."
+              "This lesson is open in another tab",
+              "Continue there, or reload this page to continue here."
             );
+            return;
           }
+          if (event.code === CLOSE_POLICY) {
+            setConnection("Unavailable", "badge-rose");
+            showOverlay("Couldn't continue the lesson", state.lastError || "Please reload this page.");
+            return;
+          }
+          scheduleReconnect();
         };
 
         socket.onerror = () => setConnection("Connection problem", "badge-rose");
       })
       .catch((error) => {
-        setConnection("Couldn't connect", "badge-rose");
-        showOverlay("Couldn't start the lesson", error.message);
-        toast(error.message, "error", 8000);
+        // 4xx (lesson gone, not planned, signed out) won't fix itself; a
+        // network failure or 5xx usually will.
+        if (error.status >= 400 && error.status < 500) {
+          setConnection("Couldn't connect", "badge-rose");
+          showOverlay("Couldn't start the lesson", error.message);
+          toast(error.message, "error", 8000);
+          return;
+        }
+        scheduleReconnect();
       });
   }
+
+  // Back online: don't wait out the backoff.
+  window.addEventListener("online", () => {
+    if (!state.socket && state.reconnectTimer && !state.closedByUs) {
+      clearTimeout(state.reconnectTimer);
+      state.reconnectTimer = null;
+      connect();
+    }
+  });
 
   // Load the persisted lesson first, so the rail is populated even before
   // the socket has produced anything.
@@ -753,6 +1166,8 @@ if (user && !lessonId) {
 
     if (lesson.status === "completed") {
       window.location.replace(`/report.html?lesson=${encodeURIComponent(lessonId)}`);
+    } else if (lesson.status === "escalated") {
+      showPaused(lesson.escalation); // never auto-start a paused lesson
     } else {
       connect();
     }

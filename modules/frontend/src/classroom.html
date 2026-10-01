@@ -56,6 +56,7 @@
       <span class="dot dot-pulse"></span> <span id="status-text">Starting</span>
     </span>
     <span class="badge" id="connection-badge"><span class="dot dot-pulse"></span> Connecting</span>
+    <a class="btn btn-secondary btn-sm" id="practice-link" href="/lessons.html">Review &amp; practise</a>
     <a class="btn btn-secondary btn-sm" href="/dashboard.html">Leave</a>
   </div>
 </header>
@@ -88,6 +89,7 @@
         <div class="thinking-orb"></div>
         <h3 id="overlay-title">Getting your classroom ready…</h3>
         <p id="overlay-body">Connecting to your lesson.</p>
+        <div id="overlay-actions" class="row row-wrap" style="gap:8px;justify-content:center;margin-top:12px" hidden></div>
       </div>
     </div>
 
@@ -173,6 +175,17 @@
   </main>
 </div>
 
+<!-- Rewatch an earlier concept without leaving (or changing) the lesson. -->
+<div class="rewatch" id="rewatch" role="dialog" aria-modal="true" aria-labelledby="rewatch-title" hidden>
+  <div class="rewatch-panel">
+    <div class="row-between" style="gap:12px;margin-bottom:12px">
+      <strong id="rewatch-title">Rewatch</strong>
+      <button class="btn btn-primary btn-sm" type="button" id="rewatch-close">Back to the lesson</button>
+    </div>
+    <video id="rewatch-video" controls playsinline preload="auto"></video>
+    <p class="subtle" style="margin-top:8px;font-size:var(--text-sm)">Rewatching doesn't change your progress. Your lesson waits right where you left it.</p>
+  </div>
+</div>
 <script type="module" src="/js/pages/classroom.js"></script>
 </body>
 </html>
