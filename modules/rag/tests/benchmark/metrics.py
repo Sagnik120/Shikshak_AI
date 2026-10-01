@@ -24,6 +24,10 @@ class QueryResult:
     has_sufficient_context: bool
     expected_risk_level: Optional[str] = None
     perf_stages: Dict[str, float] = field(default_factory=dict)
+    # Additive: populated in agentic mode. Single-pass runs leave them at the
+    # defaults, so both modes share one report format.
+    attempts: int = 1
+    refined_query: Optional[str] = None
 
     @property
     def precision_at_k(self) -> float:
@@ -84,6 +88,8 @@ class QueryResult:
             "risk_level": self.risk_level,
             "expected_risk_level": self.expected_risk_level,
             "has_sufficient_context": self.has_sufficient_context,
+            "attempts": self.attempts,
+            "refined_query": self.refined_query,
             "precision_at_k": round(self.precision_at_k, 4),
             "recall_at_k": round(self.recall_at_k, 4),
             "reciprocal_rank": round(self.reciprocal_rank, 4),
@@ -128,6 +134,20 @@ class BenchmarkReport:
         if not self.query_results:
             return 0.0
         return statistics.mean(r.ndcg_at_k for r in self.query_results)
+
+    @property
+    def refinement_rate(self) -> float:
+        """Share of queries where the bounded loop needed a second pass."""
+        if not self.query_results:
+            return 0.0
+        return sum(1 for q in self.query_results if q.attempts > 1) / len(self.query_results)
+
+    @property
+    def grounded_rate(self) -> float:
+        """Share of queries that ended up with usable grounding."""
+        if not self.query_results:
+            return 0.0
+        return sum(1 for q in self.query_results if q.has_sufficient_context) / len(self.query_results)
 
     @property
     def risk_accuracy(self) -> float:
@@ -187,6 +207,8 @@ class BenchmarkReport:
                 "mrr": round(self.mrr, 4),
                 "ndcg_at_k": round(self.mean_ndcg, 4),
                 "risk_accuracy": round(self.risk_accuracy, 4),
+                "grounded_rate": round(self.grounded_rate, 4),
+                "refinement_rate": round(self.refinement_rate, 4),
             },
             "latency": {
                 "p50_ms": round(self.latency_p50, 2),

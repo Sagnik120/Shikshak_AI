@@ -67,6 +67,17 @@ class Settings:
     environment: str = os.getenv("ENVIRONMENT", "development")
     public_base_url: str = os.getenv("PUBLIC_BASE_URL", "http://localhost:8000").rstrip("/")
 
+    # --- Staff (admin / teacher) sign-up ---
+    @property
+    def admin_signup_code(self) -> str:
+        """Access code required by the staff sign-up form. Outside production a
+        demo code applies when none is configured; in production staff sign-up
+        stays closed until ADMIN_SIGNUP_CODE is set."""
+        code = os.getenv("ADMIN_SIGNUP_CODE", "").strip()
+        if code:
+            return code
+        return "" if self.environment == "production" else "SHIKSHAK-ADMIN"
+
     # --- Database ---
     database_url: str = os.getenv("DATABASE_URL", "sqlite:///data/shikshak.db")
     sql_echo: bool = _bool("SQL_ECHO", False)
@@ -121,6 +132,20 @@ class Settings:
     # When SMTP is unconfigured, write the email to data/outbox/ instead of failing.
     email_dev_fallback: bool = _bool("EMAIL_DEV_FALLBACK", True)
 
+    # --- Retrieval (A/B switch) ---
+    # The bounded agentic loop refines a weakly-grounded first pass once. Both
+    # paths are live so they can be compared; see
+    # `python -m modules.rag.tests.benchmark.compare_retrieval_modes`.
+    # Set AGENTIC_RAG_ENABLED=false to fall back to exact single-pass retrieval.
+    agentic_rag_enabled: bool = _bool("AGENTIC_RAG_ENABLED", True)
+    agentic_rag_max_refinements: int = _int("AGENTIC_RAG_MAX_REFINEMENTS", 1)
+
+    # --- Orchestration runtime ---
+    # "fsm" (default) runs the built-in dispatcher; "langgraph" runs the same
+    # pedagogical graph through LangGraph. Parity is covered by
+    # modules/ai_agent_orchestration/tests/integration/test_langgraph_parity.py.
+    orchestration_runtime: str = os.getenv("ORCHESTRATION_RUNTIME", "fsm").strip().lower()
+
     # --- Uploads ---
     max_upload_bytes: int = _int("MAX_UPLOAD_MB", 25) * 1024 * 1024
     allowed_upload_ext: tuple = (".pdf", ".docx", ".pptx", ".txt", ".md")
@@ -134,6 +159,8 @@ class Settings:
         return [
             "http://localhost:8000",
             "http://127.0.0.1:8000",
+            "http://localhost:3000",  # the Next.js app (FRONTEND/) in development
+            "http://127.0.0.1:3000",
             "http://localhost:5173",
             "http://127.0.0.1:5173",
         ]

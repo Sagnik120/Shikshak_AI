@@ -172,11 +172,15 @@ class EmailService:
             ),
             encoding="utf-8",
         )
-        logger.warning(
-            "EMAIL NOT SENT over SMTP — written to %s. Subject: %s", base.with_suffix(".json"), subject
-        )
-        # Surface the code in logs so a local demo can still complete the flow.
-        logger.warning("DEV EMAIL BODY for %s:\n%s", to_email, text)
+        if error:
+            logger.warning(
+                "Email delivery failed (%s) — saved to %s instead. Subject: %s",
+                error, base.with_suffix(".json"), subject,
+            )
+        else:
+            # Sending is off by design (OTPs are shown on screen). The body is
+            # not logged: it would put live verification codes in server logs.
+            logger.info("Email not sent (delivery disabled) — saved to %s", base.with_suffix(".json"))
         return True
 
     # ---- Templated messages -------------------------------------------------
@@ -310,7 +314,9 @@ class EmailService:
        View the lesson</a>
   </td></tr>
 </table>"""
-        html = _shell(
+        # Not named `html`: that made the module `html` a local here, so every
+        # html.escape() above raised UnboundLocalError and no alert was ever sent.
+        body = _shell(
             f"{e_student} could use your help",
             f"Hi {html.escape(first)}, Shikshak AI paused {e_student}'s lesson and needs a human teacher. "
             f"{html.escape(escape_reason(reason))}",
@@ -326,7 +332,26 @@ class EmailService:
             f"Consecutive attempts: {failure_count}\nReason: {reason}\n\n"
             f"View the lesson: {report_url}"
         )
-        return self.send(to_email, f"{student_name} needs your help — Shikshak AI", html, text)
+        return self.send(to_email, f"{student_name} needs your help — Shikshak AI", body, text)
+
+    def send_mentor_resolved(
+        self, to_email: str, mentor_name: str, student_name: str, lesson_title: str, concept: str
+    ) -> bool:
+        """One short follow-up: the struggle the mentor was alerted about is solved."""
+        first = (mentor_name or "there").split()[0]
+        e_student, e_concept = html.escape(student_name), html.escape(concept)
+        body = _shell(
+            "Resolved — no action needed",
+            f"Hi {html.escape(first)}, {e_student} has now mastered “{e_concept}” in "
+            f"“{html.escape(lesson_title)}”, the concept you were alerted about.",
+            "",
+            "No action is needed. This is the only follow-up for this concept.",
+        )
+        text = (
+            f"Hi {first},\n\n{student_name} has now mastered \"{concept}\" in \"{lesson_title}\", "
+            "the concept you were alerted about. No action is needed."
+        )
+        return self.send(to_email, f"Resolved: {student_name} mastered {concept} — Shikshak AI", body, text)
 
 
 def escape_reason(reason: str) -> str:

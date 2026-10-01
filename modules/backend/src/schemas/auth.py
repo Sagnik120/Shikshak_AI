@@ -5,6 +5,15 @@ from typing import Literal, Optional
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
+class StaffSignupRequest(BaseModel):
+    full_name: str = Field(min_length=2, max_length=120)
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+    role: Literal["admin", "teacher"] = "admin"
+    access_code: str = Field(min_length=1, max_length=200)
+    preferred_language: str = Field(default="en", max_length=10)
+
+
 class SignupRequest(BaseModel):
     full_name: str = Field(min_length=2, max_length=120)
     email: EmailStr
@@ -75,6 +84,8 @@ class UserOut(BaseModel):
     grade: Optional[str] = None
     board: Optional[str] = None
     avatar_color: str
+    avatar_url: Optional[str] = None
+    avatar_choice: Optional[str] = None
     mentor_name: Optional[str] = None
     mentor_email: Optional[str] = None
     created_at: datetime
@@ -105,6 +116,7 @@ class UpdateProfileRequest(BaseModel):
     preferred_style: Optional[str] = Field(default=None, max_length=40)
     default_time_budget_min: Optional[int] = Field(default=None, ge=5, le=120)
     avatar_color: Optional[str] = Field(default=None, pattern=r"^#[0-9A-Fa-f]{6}$")
+    avatar_choice: Optional[str] = Field(default=None, pattern=r"^[a-z0-9-]{1,40}$")
     mentor_name: Optional[str] = Field(default=None, max_length=120)
     mentor_email: Optional[EmailStr] = Field(default=None)
 

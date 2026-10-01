@@ -5,7 +5,10 @@
  * is unreachable the UI must say so rather than show invented data.
  */
 
-const API_BASE = `${window.location.origin}/api/v1`;
+import { BACKEND_ORIGIN } from "./config.js";
+
+const ORIGIN = (BACKEND_ORIGIN || window.location.origin).replace(/\/+$/, "");
+const API_BASE = `${ORIGIN}/api/v1`;
 
 const ACCESS_KEY = "shikshak.access";
 const REFRESH_KEY = "shikshak.refresh";
@@ -311,8 +314,24 @@ export const api = {
     return request(`/lessons/${encodeURIComponent(lessonId)}/notes`);
   },
 
+  // --- paused lessons, relearning, practice ---
+  continueLesson: (lessonId) =>
+    request(`/lessons/${encodeURIComponent(lessonId)}/continue`, { method: "POST" }),
+  skipConcept: (lessonId) =>
+    request(`/lessons/${encodeURIComponent(lessonId)}/skip`, { method: "POST" }),
+  relearnConcept: (lessonId, nodeId) =>
+    request(`/lessons/${encodeURIComponent(lessonId)}/nodes/${encodeURIComponent(nodeId)}/relearn`, {
+      method: "POST",
+    }),
+  practice: (lessonId) => request(`/lessons/${encodeURIComponent(lessonId)}/practice`),
+  answerPractice: (lessonId, interactionId, answer) =>
+    request(`/lessons/${encodeURIComponent(lessonId)}/practice/${encodeURIComponent(interactionId)}`, {
+      method: "POST",
+      body: { answer },
+    }),
+
   async mediaObjectUrl(url) {
-    const response = await fetch(url.startsWith("http") ? url : `${window.location.origin}${url}`, {
+    const response = await fetch(url.startsWith("http") ? url : `${ORIGIN}${url}`, {
       headers: { Authorization: `Bearer ${tokens.access}` },
     });
     if (!response.ok) throw new ApiError("Could not load the video.", response.status, null);
@@ -323,7 +342,8 @@ export const api = {
 /** Open the live classroom socket for a lesson, using a short-lived ticket. */
 export async function openLessonSocket(lessonId) {
   const { ticket, ws_path } = await api.getWsTicket(lessonId);
-  const scheme = window.location.protocol === "https:" ? "wss" : "ws";
-  const url = `${scheme}://${window.location.host}${ws_path}?ticket=${encodeURIComponent(ticket)}`;
+  const backend = new URL(ORIGIN);
+  const scheme = backend.protocol === "https:" ? "wss" : "ws";
+  const url = `${scheme}://${backend.host}${ws_path}?ticket=${encodeURIComponent(ticket)}`;
   return new WebSocket(url);
 }

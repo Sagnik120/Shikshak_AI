@@ -1,3 +1,5 @@
+"""Rules: wrong -> MODIFY; wrong again on the concept -> REGENERATE (this
+segment); more than 3 wrong answers in the lesson -> HUMAN."""
 from modules.ai_agent_orchestration.src.agents.adaptation_controller import AdaptationController
 from modules.ai_agent_orchestration.src.schemas.evaluation import EvaluationResult
 
@@ -33,7 +35,6 @@ def test_adaptation_controller_allows_strong_partial_credit():
 def test_adaptation_controller_modifies_on_weak_partial_credit():
     decision = AdaptationController().decide(_ev(partial=0.2), [])
     assert decision.action == "MODIFY"
-    assert "partial credit" in decision.reason
 
 
 def test_adaptation_controller_modify_misconception():
@@ -42,40 +43,37 @@ def test_adaptation_controller_modify_misconception():
     assert "foo" in decision.reason
 
 
-def test_adaptation_controller_first_failure():
+def test_first_wrong_answer_re_explains():
     assert AdaptationController().decide(_ev(), []).action == "MODIFY"
 
 
-def test_adaptation_controller_second_failure_still_modifies():
-    """One more re-explanation before giving up on the current plan."""
-    decision = AdaptationController().decide(_ev(), [_ev()])
-    assert decision.action == "MODIFY"
+def test_second_wrong_answer_on_the_concept_rebuilds_the_segment():
+    assert AdaptationController().decide(_ev(), [_ev()]).action == "REGENERATE"
 
 
-def test_adaptation_controller_regenerate_third_failure():
-    decision = AdaptationController().decide(_ev(), [_ev(), _ev()])
-    assert decision.action == "REGENERATE"
+def test_third_wrong_answer_is_not_yet_more_than_three():
+    assert AdaptationController().decide(_ev(), [_ev(), _ev()]).action == "REGENERATE"
 
 
-def test_adaptation_controller_human_escalation_fourth_failure():
-    decision = AdaptationController().decide(_ev(), [_ev(), _ev(), _ev()])
-    assert decision.action == "HUMAN"
+def test_fourth_wrong_answer_in_the_lesson_goes_to_a_human():
+    assert AdaptationController().decide(_ev(), [_ev(), _ev(), _ev()]).action == "HUMAN"
 
 
-def test_partial_credit_does_not_prevent_escalation_after_regenerate():
-    """Once we've re-planned, repeated near-misses still reach a human."""
+def test_wrong_answers_on_different_concepts_add_up_to_human():
+    history = [_ev(node_id="n2"), _ev(node_id="n3"), _ev(node_id="n4")]
+    assert AdaptationController().decide(_ev(node_id="n1"), history).action == "HUMAN"
+
+
+def test_good_enough_partial_answers_never_count_as_wrong():
     history = [_ev(partial=0.5), _ev(partial=0.5), _ev(partial=0.5)]
-    decision = AdaptationController().decide(_ev(partial=0.5), history)
-    assert decision.action == "HUMAN"
+    assert AdaptationController().decide(_ev(partial=0.5), history).action == "ALLOW"
 
 
-def test_failure_count_resets_after_a_correct_answer():
-    history = [_ev(), _ev(), _ev(correct=True)]
-    decision = AdaptationController().decide(_ev(), history)
-    assert decision.action == "MODIFY"
+def test_streak_resets_after_a_correct_answer():
+    history = [_ev(), _ev(correct=True)]
+    assert AdaptationController().decide(_ev(), history).action == "MODIFY"
 
 
-def test_failures_on_other_nodes_are_ignored():
+def test_failures_on_other_nodes_do_not_start_a_streak():
     history = [_ev(node_id="n2"), _ev(node_id="n3")]
-    decision = AdaptationController().decide(_ev(node_id="n1"), history)
-    assert decision.action == "MODIFY"
+    assert AdaptationController().decide(_ev(node_id="n1"), history).action == "MODIFY"

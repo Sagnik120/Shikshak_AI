@@ -264,6 +264,4 @@ def chunk_sections(
             )
             chunk_counter += 1
 
-    from modules.rag.src.perf import record_memory_checkpoint
-    record_memory_checkpoint("After chunking")
     return chunks

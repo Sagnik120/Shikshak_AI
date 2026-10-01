@@ -203,3 +203,218 @@ Before completing your response, verify:
 - **Gemini key was leaking into logs**: the key was passed as `?key=...`, and httpx logs the full request
   URL at INFO, so every call wrote the secret into the server log (retained and readable on Render).
   Moved to the `x-goog-api-key` header; verified the URL no longer contains it.
+
+### [task_agentic_ai_modernization.md] Phases 0,1,3,5,6 — IMPLEMENTED
+- **Phase 0 audit corrected three plan assumptions** (`current_task/phase0_findings.md`):
+  `mlops/src/` was *empty* (no PerfTrace to extend — it had to be built; only `rag/src/perf.py` existed);
+  `learner_profiles` was *already fully implemented* incl. `refresh_learner_profile()`, so Phase 5's write
+  side existed and only the read path was missing; and `lesson_events` already had the exact
+  `{event_type, lesson_id(=session_id), node_id, payload, occurred_at}` shape, so **no `agent_events` table
+  was needed**.
+- **Phase 1 (trace)**: `modules/mlops/src/agent_trace.py` — process-wide tracer with a pluggable sink, so
+  `rag`/`ai_agent_orchestration` emit without importing the backend. `_SENSITIVE_KEYS` strips prompts,
+  scripts, raw answers and credentials *before* an event leaves the process; long values truncate. Backend
+  installs the sink at startup → `lesson_events` with an `agent.` prefix; read via `GET /lessons/{id}/trace`
+  (owner-scoped). Sink failure can never interrupt a lesson.
+- **Phase 3 (agentic RAG)**: `RAGService.retrieve_context_agentic()` — retrieve → reuse the *existing*
+  `has_sufficient_context` (0.52 threshold, no new threshold invented) → refine once → stop.
+  **Refinement is deterministic** (content terms + topic, framing words like "Introduction" dropped), so the
+  loop adds **no LLM call and no quota cost** — the plan had assumed an LLM refinement step. Always falls
+  back to the single-pass result; topic-only mode never refined. `RetrievalResult.attempts/refined_query`
+  are additive-optional.
+- **Phase 5 (memory)**: `SessionManager.memory_for()` builds a narrow payload (strong/weak concepts,
+  misconceptions seen >1×) from the existing table; orchestrator passes it to the Planner **in PLAN only**;
+  `planner_system.md` gained the missing usage rules. Dead wiring closed: the planner had accepted
+  `learner_profile` all along but nothing ever passed one.
+- **Deferred per the plan's own §8 matrix**: Phase 2 (LangGraph, "Could Have" — heavyweight dep on a
+  <512 MB deploy, highest-risk touch to working orchestration) and Phase 4 (MCP, listed "Future Scope" —
+  adds an IPC boundary for no correctness gain). Phases 3/5 are plain bounded Python, which §8 permits.
+- 285 tests pass (was 252). `Contract.md` unchanged; FSM state names and ADAPT semantics unchanged.
+
+### [Agentic RAG A/B] Measured — single-pass vs bounded loop
+Both paths kept live. `python -m modules.rag.tests.benchmark.compare_retrieval_modes` runs the existing
+benchmark harness in both modes (`--suite`, `--json`). `AGENTIC_RAG_ENABLED=false` restores exact
+single-pass behaviour in production (`max_refinements=0`).
+
+Results over 24 queries, real BGE-M3 + Chroma, no LLM in the loop:
+
+| Suite | Refined | Grounded rate | Risk accuracy | p50 latency |
+|---|---|---|---|---|
+| Physics NCERT (8) | 0/8 | 1.000 = | 1.000 = | −11% (noise) |
+| Lesson-Node Concepts (8) | 0/8 | 1.000 = | 1.000 = (MRR 1.000 =) | −6% (noise) |
+| Multilingual (4) | 2/4 | 0.500 = | 1.000 = | +55% |
+| Cross-Domain Rejection (4) | 3/4 | 0.250 = | 0.750 = | +94% |
+
+**Verdict: safe, but benefit unproven on this corpus.** 5 refinements fired, **0 rescues**. No quality or
+safety regression anywhere — critically, refinement never turned an off-domain query into false
+grounding. Cost is zero when the first pass already grounds (0 refinements on both physics suites) and
+only materialises where retrieval had already failed.
+
+The premise (verbose Planner node titles like "Introduction to…" weaken grounding) is **not supported**:
+a new `lesson_nodes` suite using the real production query shape, with per-section ground truth,
+retrieves 8/8 at MRR 1.000 single-pass. Refinement cannot help where nothing is broken. The two suites
+where it did fire were unrescuable by design (off-domain, and Hindi transliteration — which needs
+translation, not term extraction).
+
+**Also found:** the three pre-existing suites ship `expected_chunk_ids=[]`, so their Precision/MRR/nDCG/
+Recall were vacuous (0.0/1.0 by definition, not measurements). The comparison tool now prints `n/a` for
+them instead of misleading numbers; only `lesson_nodes` has real ground truth.
+
+Still needs a real uploaded document (messier than this clean synthetic chapter) to decide whether to
+keep the loop on by default.
+
+### [Agentic RAG A/B — final] Real uploaded PDF tested; verdict updated
+Ran the one test that was still open: a PDF **actually uploaded through the app**
+(`data/storage/daad.../8d99....pdf`, "Newton's Laws", 4 chunks) with genuine extraction noise —
+content split mid-sentence across pages, section titles mis-detected as `"where:"`. New `real_pdf`
+suite, 8 Planner-style node concepts, ground truth labelled from the chunks' actual text.
+`BenchmarkDocument.source_path` now lets a suite benchmark a real file instead of inline prose.
+
+Result: **single-pass grounds 8/8, MRR 0.854, nDCG 0.871, Recall 1.000 — the loop fired 0 times.**
+
+Cumulative across 5 suites / 32 queries: **5 refinements, 0 rescues.** The loop is proven *harmless*
+(zero cost on the happy path — 0 refinements across all 24 in-domain queries; no quality or safety
+regression anywhere) and remains *unproven useful*. The real-PDF test I had flagged as the one case
+that could still show a rescue came back negative, so the case for the loop is now weaker, not stronger.
+
+**Standing recommendation: keep enabled** (`AGENTIC_RAG_ENABLED=true`, the default) — its cost is
+confined to retrievals that have *already failed*, where the alternative is teaching the node
+ungrounded, and ~600 ms to try once more is cheap insurance. Disable it if demo latency on the
+no-context path ever matters. The one shape still untested is a document whose vocabulary genuinely
+differs from the Planner's phrasing (e.g. a Hindi/Bengali textbook with English node titles) — the
+synthetic case where a rescue *did* occur.
+
+### [Production audit] Breakers found and fixed
+Measured, not guessed. Four real issues; three fixed in code, one is an infra decision.
+
+1. **OOM on first document upload (was: hard container kill).** Retrieval models load *lazily on first
+   upload*, not at startup, so a small instance boots fine and dies when a learner uploads. Measured RSS:
+   idle 53 MB → after ingest **2,426 MB** (BGE-M3) → after retrieval **3,786 MB** (+ cross-encoder). That
+   is ~7× a 512 MB free tier. This is why the live logs only ever showed *topic* lessons — without a
+   `document_id` retrieval short-circuits and the models never load.
+   *Fixed:* `EMBEDDING_BACKEND` / `EMBEDDING_MODEL` / `EMBEDDING_DEVICE` / `RERANKER_MODEL` /
+   `RERANKER_ENABLED` are now env-driven (were hardcoded constructor defaults), so a small host can pick
+   a MiniLM-sized model and skip the cross-encoder (falls back to the existing lexical-overlap path).
+   Startup prints the memory requirement in production.
+
+2. **Silent fabricated grounding.** Both embedding adapters fall back to deterministic *hash* vectors when
+   the model can't load (blocked download, missing dep). Similarity over those is meaningless, but the
+   scores still look like scores, so retrieval reported `has_sufficient_context=True`, `risk_level="low"`
+   and the classroom would cite a learner's document for content it never matched.
+   *Fixed:* adapters expose `is_degraded`; `RAGService._guard_degraded_embeddings()` forces
+   `has_sufficient_context=False` / `high_hallucination_risk` / no chunks, logging once. Upload now marks
+   such a document `failed` with an actionable message instead of leaving it "ready" but unusable.
+
+3. **Upload froze the whole server.** `upload_document` is `async def` but called blocking
+   `ingest_document` (model load + embedding) directly, blocking the event loop — on a single worker that
+   halts every other request, all classroom WebSockets and the host health check, long enough on a first
+   upload for the platform to restart the container mid-lesson. Demonstrated: 0 heartbeats served during a
+   1.5 s upload before, 15 after. *Fixed:* runs via `run_in_executor`. Swept the rest of the codebase —
+   this was the only `async def` endpoint with the bug; `ws.py` already used executors and every other
+   route is sync `def` (FastAPI threadpools those).
+
+4. **All state is ephemeral — NOT fixable in code (infra decision).** DB, uploads, rendered media and the
+   Chroma index all live under `data/` on the container filesystem, and `_resolve_sqlite_path()` **rejects
+   Postgres** (`Only sqlite:/// URLs are supported`). On Render free tier every deploy/restart wipes
+   accounts, lessons and uploads. Needs either a mounted persistent disk (paid instance) or Postgres
+   support added. Startup now warns loudly in production.
+
+291 tests pass (was 285). Nothing committed.
+
+### [Phase 2 — LangGraph] IMPLEMENTED (previously deferred)
+Built after re-checking my own reasoning for deferring it. **One of my two stated reasons was wrong:**
+langgraph is ~5.8 MB, not a "heavyweight dependency" — the 2.4 GB memory problem was BGE-M3, a
+different thing entirely. The real cost is ~20 transitive packages (langchain-core, langsmith, httpx2)
+and a silent `websockets` downgrade 17.1 → 16.1.1 (verified: full suite green and a live WS handshake
+against the classroom route still works).
+
+`src/state_machine/langgraph_adapter.py`: graph topology mirrors `VALID_TRANSITIONS`; node bodies
+delegate to the existing `TeacherOrchestrator` so all agent logic is reused verbatim; edges are
+deterministic functions of the returned `TeacherState` (no prompt-driven routing, per §4.1.G);
+`SessionState`/SQLite stay authoritative with the graph holding routing data only (§4.1.D). Exposes the
+same `step()` signature, so the WS loop and service layer are untouched. The classroom drives the loop
+externally (it renders video and waits for the learner between steps), so the graph is stepped one node
+per call rather than run to completion.
+
+Selected by `ORCHESTRATION_RUNTIME=langgraph`; **default stays `fsm`**, and it falls back to the
+dispatcher if the optional dep is missing, so a deploy can't be bricked.
+
+**Parity test caught a real bug in my own adapter:** `__getattr__` forwarded reads but not writes, so
+`orchestrator.ml_core = client` landed on the wrapper while execution used the inner object — silently
+ignored but looking successful. Added `__setattr__` forwarding.
+
+302 tests pass under **both** runtimes (`ORCHESTRATION_RUNTIME=fsm` and `=langgraph`).
+
+Honest value note: the plan (§4.1) cites checkpointing, state streaming and HITL interrupt as
+LangGraph's selling points — this project already hand-rolls all three and they work (SQLite resume, WS
+streaming, HUMAN branch). So functionally this buys close to nothing; its value is legibility and the
+demo narrative. It is safe because the original dispatcher remains the default and parity is enforced.
+
+### [Full-pipeline hardening + Vercel/HF deploy] — 2026-09-29
+New `scripts/e2e_full_pipeline.py` boots the real server and drives it like the browser (signup→on-screen OTP→upload→plan→WS classroom→report, topic-only lesson, HUMAN escalation, peak-memory check). 23/23 offline and 23/23 live Gemini. Bugs it found, all fixed:
+- **Document lessons were never grounded on the small-host profile** (`RERANKER_ENABLED=false`): the lexical fallback scored a raw substring word count (+0.2/hit, "laws"≠"law", stopwords counted), so relevant chunks fell under the 0.5001 threshold → 0 chunks. `reranker.lexical_relevance()` now scores content-word coverage (+dense) on the sigmoid scale the thresholds expect.
+- **Escalation reset on every REGENERATE with live Gemini** (fresh node ids): a learner needed 10 wrong answers before HUMAN. Orchestrator keeps `node_lineage`; failures carry across re-plans (controller/tests untouched). Offline mock reused ids, which is why it never showed.
+- **Lesson crash**: MiniLM cosine of near-identical texts = 1.0000001 > `confidence<=1` → ValidationError killed the WS lesson. Clamped.
+- **Offline/429 fallback served one canned lesson** (inertia script, thermodynamics quiz, 95% report) for any topic. New `adapters/offline_teacher.py` builds plan/script/question/grade/report from the request. Gemini now retries 429/5xx briefly (+ optional `GEMINI_FALLBACK_MODEL`).
+- Key terms shown to learners were "one", "you", "an object" (stopwords applied after bigrams). Report strong/weak areas now prefer measured mastery over LLM narration.
+- 1.E checkpoint appeared while the video was at 0:01 → question now waits for `ended` (+ "Skip to question").
+Deploy: Vercel can't host the backend (250 MB bundle, no WS, 60 s limit, read-only fs) → frontend on Vercel (`modules/frontend/vercel.json`, `SHIKSHAK_BACKEND_URL`), backend on HF Spaces Docker. Dockerfile: CPU-only torch, uid 1000, baked models + `HF_HUB_OFFLINE` (upload 15 s→4.5 s), `RENDER_WORKERS=2`, gradio dropped. See `docs/DEPLOYMENT.md`. Peak ~2.5 GB.
+Not done: Docker image not built locally (no Docker installed); Phase 2.D blue badge still not located; free HF disk is ephemeral (infra, documented).
+
+### [Classroom reliability — user bug report] — 2026-09-29
+Root causes → fixes (ws.py rewritten; classroom.js; lesson_service; session_manager):
+- Reconnect regenerated script+video: `_RESUMABLE` mapped every mid-node state to EXPLAIN. Now `_resume()` replays saved script/citation/video/unanswered question (same interaction_id); unfinished renders are awaited via `session_manager` job registry or re-rendered from the saved script (`lesson_nodes.visual_json`, additive column). EVALUATE/ADAPT resume re-runs only the rule-based step.
+- Two pipelines per lesson after a reconnect (dup/replayed videos): one driver per lesson; a new socket supersedes the old (close 4001), which saves its in-flight step and stops.
+- Skipped ahead mid-video: no-checkpoint nodes now wait for client `segment_watched`. Progress stuck: `close_node()` marks watched → `completed` (DONE_STATUSES).
+- Voice behind overlay/skip: overlay and skip pause the video. Same-URL re-explained video served from browser cache: video/captions URLs versioned; captions serve newest file.
+- Client auto-reconnects (backoff, no overlay over a playing video); replays deduped by node/url/interaction_id; answers kept if offline. Dev auto-reload now opt-in (RELOAD=true) — it restarted the server on every code save.
+- Escalation after re-plan: link at the first answer after REGENERATE (live run showed a no-checkpoint first node restarted the count).
+E2E now asserts: no new concept over an unwatched video, no duplicate video, progress N/N, 4 drop points resume with identical script/question, LLM calls == explanations, single driver. 29/29 offline + live; 578 tests.
+
+### [Teaching flow rebuilt to spec: mid-video checkpoints] — 2026-09-29
+PRD: "questions the student mid-lesson", "pauses to ask"; REGENERATE = "re-plan a lesson *segment*". User rule: wrong → MODIFY, wrong again → REGENERATE, > 3 wrong in a lesson → HUMAN (video stops).
+- **Flow**: each video gets 1–3 checkpoints at sentence ends (`TeacherOrchestrator.checkpoint_positions`, ~1/170 words); questions generated in parallel with the render from the script *up to* each checkpoint (notes stripped); `at_sec` from word-level captions. Client pauses at `at_sec` → `checkpoint_reached` → question → ALLOW sends `resume_video`; play/seek past an unanswered checkpoint is blocked. Stored in `lesson_nodes.checkpoints_json` (+`interactions.checkpoint_index`).
+- **REGENERATE** now rebuilds the current segment (`REGENERATE_BRIEF` → EXPLAIN), never the plan (plan used to grow and jump nodes). Lineage code removed. Controller: `REGENERATE_AFTER=2`, `LESSON_WRONG_LIMIT=3`; history rebuilt from DB on restore.
+- **Disconnect root cause**: uvicorn pauses reading a socket after each message until the app receives; the app only read while awaiting answers, so a heartbeat mid-render left the browser's pong unread → `1011 keepalive ping timeout`. Fixed with a reader task. Also graceful close 1000 after DONE/HUMAN (was 1006).
+- **Stale answers**: a double-submit was queued and consumed as the NEXT question's answer. Answers now carry `interaction_id`; client blocks resubmits while grading.
+- **MCQ keys**: prompt told the model to write an explanation as `expected_concept`, exact-match grader failed every MCQ (correct answers → MODIFY/HUMAN). Prompt fixed + enforced (retry once, else downgrade to free text). Test fixture had the same bug.
+- **Commit race**: FastAPI ≥0.121 runs yield-dep teardown after the response → `db.commit()` raced the next request (random 403 right after verify). `Depends(get_db, scope="function")` everywhere.
+- Score = best per checkpoint, averaged per concept. First-answer latency: grader model warmed at startup. Event-loop watchdog logs stalls > 2 s.
+- New `scripts/e2e_browser_classroom.py` (Playwright/Chromium): asserts pause-at-checkpoint, no play/seek past it, resume on right, stop on HUMAN, no WS drops. Passes offline + live.
+
+### [Review, Practice, Pause/Continue/Skip, Learn again, background renders] — 2026-09-30
+- **Escalation = pause** (`services/escalation_service.py`, table `escalations`: open → continued → resolved|closed; open → skipped → resolved on relearn). Fixed: reopening an escalated lesson silently re-taught it (resume mapped HUMAN_ESCALATION → EXPLAIN); WS now sends `lesson_paused` + close 1000. `POST /continue` (same concept, fresh count via `lessons.history_reset_at`), `POST /skip` (node skipped + `review_note="needs review"`), `POST /nodes/{id}/relearn` (`lessons.resume_point`; returns to the saved next concept via `_resume()` — replayed, never regenerated — or re-finishes a completed lesson). Actions call `ws.stop_active()` first so they never race a live classroom (other tab gets 4001).
+- **Resolution**: mastered after continue → resolved, `review_note="after help"`, one "Resolved — no action needed" mentor email (only if alerted). Relearn mastered → "after review", skipped/closed escalations → resolved.
+- **Practice** (`services/practice_service.py`, table `practice_attempts`): graded questions, wrong first, key never sent; MCQ checked locally, free text 1 grading call; never touches interactions/nodes/score/profile. **Review** page `review.html` (Watch again + Practice + Learn again). Dashboard `needs_attention`; lessons list Review/Open; report shows escalation history + review notes.
+- **Background render**: learner leaves mid-render → `_finish_render_later` saves the video; `_attach_once` (per-node lock + script check) prevents double attach.
+- **Bugs found while testing**: mentor alert email always crashed (`html = _shell(...)` shadowed the `html` module → UnboundLocalError; no mentor was ever emailed). Classroom showed the free-text box under every MCQ (`.field{display:flex}` beat `hidden`; fixed with `.field[hidden]` — a global `[hidden]` rule would have hidden the password-strength meters, which rely on the same override). `_fill_checkpoint_times` mutated JSON in place → never persisted. Lesson detail exposed the answer key of unanswered questions.
+- Tests: +8 unit; pipeline 35/35 offline + live (6 new scenarios); browser test covers pause panel, reopen-stays-paused, review video, practice, skip-on; passes offline + live. 589 unit tests.
+
+### [Status/progress consistency, keep-counting, rewatch in classroom] — 2026-09-30
+User decisions: Skip never resets the wrong-answer count (Continue/Learn-again give a fresh count only WHILE that concept is re-taught — `history_reset_at` cleared when the node closes, full history reloaded). A lesson reaching the end with skipped concepts is NOT completed: `REVIEW_PENDING` + `review_needed` event ("Almost done — N to review", "Review next" = relearn), report only when every concept is done.
+- Progress counts only mastered/watched (`COUNTED_STATUSES`); skipped = "To review" (was counted done → "2/3" before finishing).
+- `MASTERY_THRESHOLD` tied to `REINFORCE_CREDIT` (0.5): at 0.6 a learner allowed past every checkpoint at 50–59% was later told "to review".
+- Fixed: Skip during a relearn escalation jumped past the relearned concept; `curriculum_loaded` wiped known statuses (arrives after a snapshot on relearn return).
+- Classroom: click a finished/to-review concept in the rail → rewatch dialog (live lesson paused, untouched; new videos never autoplay behind it); header "Review & practise" link. Dashboard "Learn again" is one click. Shared `lessonStatus()` badge ("N to review") on lessons/dashboard/review.
+- Gemini: 60 s cooldown after a failed (post-retry) call — quota exhaustion made every step wait ~9 s of retries.
+- Tests: e2e 37/37 offline + live (new: skip keeps counting → 1 wrong = HUMAN; to-review → not completed → review next → completed 2/2); browser test adds rewatch + "To review" + practice link; 593 unit tests.
+
+### [New Next.js frontend `FRONTEND/` + admin portal + avatars] — 2026-10-01
+User: a new, distinctive, light-themed site in a new folder (old `modules/frontend` kept); EN + हिन्दी only, every string translated, no card may disappear on switching; classroom restructured; advanced profile (photo/avatar) and admin portal; nothing compromised.
+- **Stack**: Next.js 16.3 (App Router; `params` are Promises — client pages use `useParams`), React 19.2, Tailwind v4 tokens, motion, lenis (landing only), R3F 3D plane (lazy, SVG fallback without WebGL / with reduced motion), React Query, sonner. Design system "Kaagaz": ruled notebook page → paper plane; "॥" = the pause; Instrument Serif/Tiro Devanagari + Figtree/Noto Sans Devanagari + Kalam.
+- **i18n**: `en.ts` defines keys, `hi.ts` is typed `Record<keyof typeof en, string>` → a missing Hindi string fails the build. Digits localised (`n()`).
+- **Classroom**: `features/classroom/controller.ts` = framework-free port of `classroom.js` (interaction_id answers, checkpoint play/seek gating, reconnect backoff without restarting video or clearing typed answers, 4001/1008 handling, paused lesson never auto-starts, rewatch pauses/resumes live). Layout: question card over the paused video (bottom sheet on phones), tabbed study panel (Notes/Transcript/Questions/Source) beside it, concept rail below; paused panel uses slide-to-skip.
+- **Backend**: `users.avatar_path/avatar_choice`; `POST/DELETE /account/avatar` (4 MB, magic-byte sniff), public `GET /account/avatar/file/{32hex}.{png|jpg|webp}`; `api/admin_routes.py` (overview, live, escalations, insights, quality, pipeline, learners, learner) for admin/teacher roles + `ADMIN_EMAILS`; admin@shikshak.ai seeded; CORS defaults include :3000. Grader warm-up once per process (`WARM_GRADER=false` in tests) + lock around embedding load/encode (concurrent MPS init crashed the test run).
+- **Bugs found by the browser test**: the page loader overlay swallowed clicks for ~0.8 s after every full load (now `pointer-events-none`); the motion-drag slider ignored synthetic drags behind it (rewritten with pointer capture).
+- **Tests**: `scripts/e2e_next_frontend.py` builds the site into `.next-e2e`, runs it against a fresh backend and drives landing → EN/हिं → signup with on-screen OTP → plan → checkpoint pause/seek-block/resume → >3 wrong → paused (reload stays paused) → review video + practice → slide-to-skip → rewatch → avatar + photo → all 7 admin tabs; asserts no WS drops, no page/console errors, no server tracebacks. `--shots=DIR` saves screenshots. Passing; 601 unit tests; pipeline 37/37.
+
+### [Separate staff sign-up / sign-in] — 2026-10-02
+User found admin login confusing (browser autofilled an old password → lockout) and asked for a separate admin sign-up. `POST /auth/signup-staff` (role admin|teacher, `access_code` compared with `hmac.compare_digest` against `ADMIN_SIGNUP_CODE`; default `SHIKSHAK-ADMIN` outside production, closed in production when unset). Student `/auth/signup` still can't choose a role. Frontend `/staff/signup`, `/staff/login` (refuses student accounts, revokes that session without navigating), staff verify → `/admin`; admins signing in on `/login` also land on `/admin`. +5 backend tests; browser test covers student refused, bad code refused, teacher sign-up → portal.
+- Follow-up (2026-10-02): staff get their own portal shell — sidebar = portal sections (`lib/staff.tsx` STAFF_TABS, `/admin?tab=`) + Profile; learner pages redirect staff to `/admin`; profile hides learning/mentor/journey for staff. Teachers ("Teacher desk") see overview, live, mentor inbox, insights, learners; AI quality + system health are admin-only (backend `require_system_admin`). Entry points: landing nav "Staff sign in", footer link, links on student login/sign-up.
+
+### [Forms that work with autofill, journey/badges, real calendar, meaningful charts] — 2026-10-02
+- **Root cause of "can't create account / wrong password"**: Chrome shows autofilled values before the user interacts but doesn't expose them to JS, so React state stayed empty and submit buttons (disabled on validity) never enabled; `admin@abc.com` was never created. Forms now keep the button enabled, read `FormData` at submit time and show per-field errors (`components/ui/field.tsx`). Mentor fields tagged "optional".
+- **Blue box in the search bar**: the global `:focus-visible` outline was unlayered, so it beat every `outline-none` utility; moved into `@layer base`.
+- **Journey** (`services/journey_service.py`, `GET /journey`): real per-day activity (answers, videos via node completion/first answer, practice, lessons), streak current/longest + date each length was reached, XP/levels, understanding (first try / rescued / stuck), mastery, weekday/hour habits, badges (12 groups, tiered, `earned_at`), LeetCode-style monthly badges (20 active days). No `segment_watched` events are stored, so watched videos come from node completion.
+- **Admin overview** rebuilt around the problem statement: KPIs with explanations, "Class pulse" (right/wrong bars, rescued line, handed-to-a-person markers, 7/14/30 days), concept funnel (first time → rescued → stuck → needed a person), lessons started vs finished. Each portal section has a one-line description.
+- **Frontend**: `components/charts/charts.tsx` (TimeChart with axes/gridlines/tooltips, Legend, Donut); `streak-calendar.tsx` on the dashboard; Progress page rebuilt (level/XP, effort, rolling accuracy, understanding donut, concept map, habits, concept strength, next badges); profile cover + badge shelf; "How you learn" removed.

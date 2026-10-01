@@ -22,7 +22,17 @@ from modules.backend.src.db.models import (
 
 logger = logging.getLogger(__name__)
 
-MASTERY_THRESHOLD = 0.6
+from modules.ai_agent_orchestration.src.agents.adaptation_controller import REINFORCE_CREDIT
+
+# The same bar the teaching loop uses to let a learner carry on. With a higher
+# bar here, a learner could pass every checkpoint yet find the concept
+# "to review" at the end of the lesson.
+MASTERY_THRESHOLD = REINFORCE_CREDIT
+# Statuses the lesson has moved past (it never teaches them again on its own).
+DONE_STATUSES = ("mastered", "skipped", "completed")
+# Statuses that count as DONE for the learner: progress bars, "completed".
+# A skipped concept is not done — it is "to review".
+COUNTED_STATUSES = ("mastered", "completed")
 
 
 def _aware(dt: Optional[datetime]) -> Optional[datetime]:
@@ -107,7 +117,53 @@ def get_node(db: Session, lesson: Lesson, node_id: str) -> Optional[LessonNodeRo
     ).first()
 
 
-def mark_node_teaching(db: Session, lesson: Lesson, node_id: str, script_text: str) -> None:
+def begin_node_explanation(db: Session, lesson: Lesson, node_id: str) -> None:
+    """Mark that a NEW explanation is being generated for this node.
+
+    Clears the previous script and video, so a reconnect during generation
+    can't mistake the last attempt's material for the current one.
+    """
+    node = get_node(db, lesson, node_id)
+    if node:
+        node.script_text = None
+        node.video_url = None
+        node.visual_json = None
+        node.checkpoints_json = None
+    lesson.fsm_state = "EXPLAIN"
+    db.flush()
+
+
+def close_node(db: Session, lesson: Lesson, node_id: str) -> Optional[LessonNodeRow]:
+    """The lesson is moving past this node: count it as finished in progress.
+
+    Without this a concept with no checkpoint stayed "teaching" forever and
+    the progress bar never moved past it.
+    """
+    node = get_node(db, lesson, node_id)
+    if node is None or node.status in DONE_STATUSES:
+        return node
+    if node.attempts == 0:
+        node.status = "completed"  # watched; no question was asked
+    elif node.mastery_score >= MASTERY_THRESHOLD and node.status != "struggling":
+        node.status = "mastered"
+    else:
+        node.status = "skipped"  # moved on without mastering it
+    node.completed_at = node.completed_at or utcnow()
+    db.flush()
+    return node
+
+
+def pending_interaction(db: Session, lesson: Lesson, node_id: str) -> Optional[Interaction]:
+    """The latest question on this node that has not been graded yet."""
+    latest = latest_interaction(db, lesson, node_id)
+    if latest is not None and latest.correct is None:
+        return latest
+    return None
+
+
+def mark_node_teaching(
+    db: Session, lesson: Lesson, node_id: str, script_text: str, visual_spec: Optional[dict] = None
+) -> None:
     node = get_node(db, lesson, node_id)
     if not node:
         return
@@ -117,6 +173,7 @@ def mark_node_teaching(db: Session, lesson: Lesson, node_id: str, script_text: s
         node.times_reexplained += 1
     node.status = "teaching"
     node.script_text = script_text
+    node.visual_json = visual_spec or None
     if lesson.status in ("created", "planned"):
         lesson.status = "in_progress"
         lesson.started_at = lesson.started_at or utcnow()
@@ -151,7 +208,11 @@ def attach_media(
             if not dest.exists():
                 shutil.copy2(source, dest)
             node.video_path = str(dest)
-            stored_url = f"{settings.api_v1_str}/lessons/{lesson.id}/nodes/{node_id}/video"
+            # Versioned: a re-explained node gets a new video at the same route,
+            # and an unversioned URL let the browser replay its cached old one.
+            stored_url = (
+                f"{settings.api_v1_str}/lessons/{lesson.id}/nodes/{node_id}/video?v={source.stem[-12:]}"
+            )
         else:
             logger.warning("Rendered video missing at %s", video_path)
     except OSError as exc:
@@ -168,6 +229,7 @@ def attach_media(
                     shutil.copy2(csource, cdest)
                 node.captions_url = (
                     f"{settings.api_v1_str}/lessons/{lesson.id}/nodes/{node_id}/captions"
+                    f"?v={csource.stem[-12:]}"
                 )
         except OSError:
             pass
@@ -244,7 +306,40 @@ def record_citation(db: Session, lesson: Lesson, node_id: str, citation: dict) -
         db.flush()
 
 
-def record_question(db: Session, lesson: Lesson, question: Any) -> Interaction:
+def record_checkpoints(db: Session, lesson: Lesson, node_id: str, items: list) -> dict:
+    """Store the current video's checkpoints, stamped so questions asked about
+    an older video of the same node are never counted against this one."""
+    data = {"issued_at": utcnow().isoformat(), "items": items}
+    node = get_node(db, lesson, node_id)
+    if node:
+        node.checkpoints_json = data
+        db.flush()
+    return data
+
+
+def checkpoints_issued_at(data: Optional[dict]) -> Optional[datetime]:
+    try:
+        return datetime.fromisoformat((data or {})["issued_at"])
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def answered_checkpoints(db: Session, lesson: Lesson, node_id: str, since: Optional[datetime]) -> set:
+    """Checkpoints of the node's current video already graded (asked after `since`)."""
+    query = select(Interaction).where(
+        Interaction.lesson_id == lesson.id,
+        Interaction.node_id == node_id,
+        Interaction.checkpoint_index.is_not(None),
+        Interaction.correct.is_not(None),
+    )
+    if since is not None:
+        query = query.where(Interaction.asked_at >= since)
+    return {row.checkpoint_index for row in db.scalars(query).all()}
+
+
+def record_question(
+    db: Session, lesson: Lesson, question: Any, checkpoint_index: Optional[int] = None
+) -> Interaction:
     q = _as_dict(question)
     node_id = q.get("node_id", "")
     node = get_node(db, lesson, node_id)
@@ -259,6 +354,7 @@ def record_question(db: Session, lesson: Lesson, question: Any) -> Interaction:
         question_type=q.get("type", "short_answer"),
         options=q.get("options") or [],
         expected_concept=q.get("expected_concept", "") or "",
+        checkpoint_index=checkpoint_index,
     )
     db.add(interaction)
     lesson.fsm_state = "QUESTION"
@@ -292,9 +388,9 @@ def record_evaluation(
     if node:
         score = 1.0 if interaction.correct else float(interaction.partial_credit)
         node.mastery_score = max(node.mastery_score, score)
-        node.status = "mastered" if score >= MASTERY_THRESHOLD else "struggling"
-        if node.status == "mastered":
-            node.completed_at = utcnow()
+        # A node has several mid-video checkpoints, so it is only finished
+        # (mastered or not) when the lesson moves past it — see close_node.
+        node.status = "teaching" if score >= MASTERY_THRESHOLD else "struggling"
     lesson.fsm_state = "EVALUATE"
     db.flush()
 
@@ -305,6 +401,32 @@ def record_adaptation(db: Session, lesson: Lesson, interaction: Interaction, dec
     interaction.adaptation_reason = d.get("reason")
     lesson.fsm_state = "ADAPT"
     db.flush()
+
+
+def agent_trace(db: Session, lesson: Lesson, limit: int = 500) -> list[dict]:
+    """The lesson's agent-decision trace, oldest first.
+
+    Only `agent.*` events are returned: lifecycle rows (lesson_created,
+    disconnected, mentor_notified) share the table but are not agent decisions.
+    """
+    rows = db.scalars(
+        select(LessonEvent)
+        .where(
+            LessonEvent.lesson_id == lesson.id,
+            LessonEvent.event_type.like("agent.%"),
+        )
+        .order_by(LessonEvent.occurred_at.asc(), LessonEvent.id.asc())
+        .limit(limit)
+    ).all()
+    return [
+        {
+            "event_type": row.event_type,
+            "node_id": row.node_id,
+            "occurred_at": row.occurred_at.isoformat(),
+            "payload": row.payload or {},
+        }
+        for row in rows
+    ]
 
 
 def latest_interaction(db: Session, lesson: Lesson, node_id: str) -> Optional[Interaction]:
@@ -375,10 +497,13 @@ def complete_lesson(db: Session, lesson: Lesson, report: Any) -> ReportRow:
         row = ReportRow(lesson_id=lesson.id, user_id=lesson.user_id)
         db.add(row)
 
+    # Same rule as the score: what the learner measurably did beats the
+    # model's narration, which can name areas the lesson never tested.
     strong, weak = _strong_weak_from_nodes(lesson)
+    measured_any = any(n.attempts > 0 for n in lesson.nodes)
     row.score_pct = round(score, 1)
-    row.strong_areas = r.get("strong_areas") or strong
-    row.weak_areas = r.get("weak_areas") or weak
+    row.strong_areas = strong if measured_any else (r.get("strong_areas") or [])
+    row.weak_areas = weak if measured_any else (r.get("weak_areas") or [])
     row.recommended_next = r.get("recommended_next") or []
     row.narrative_feedback = r.get("narrative_feedback") or ""
 
@@ -405,11 +530,18 @@ def compute_lesson_score(db: Session, lesson: Lesson) -> Optional[float]:
     if not interactions:
         return None
 
-    best: dict[str, float] = {}
+    # Best attempt per checkpoint, averaged per concept, then across concepts —
+    # so one right answer out of a video's three checkpoints isn't 100%.
+    best: dict[tuple, float] = {}
     for item in interactions:
         score = 1.0 if item.correct else float(item.partial_credit or 0.0)
-        best[item.node_id] = max(best.get(item.node_id, 0.0), score)
-    return round(100.0 * sum(best.values()) / len(best), 1)
+        key = (item.node_id, item.checkpoint_index)
+        best[key] = max(best.get(key, 0.0), score)
+    per_node: dict[str, list] = {}
+    for (node_id, _), score in best.items():
+        per_node.setdefault(node_id, []).append(score)
+    node_scores = [sum(v) / len(v) for v in per_node.values()]
+    return round(100.0 * sum(node_scores) / len(node_scores), 1)
 
 
 def _strong_weak_from_nodes(lesson: Lesson) -> tuple[list[str], list[str]]:
@@ -553,6 +685,18 @@ def dashboard_summary(db: Session, user: User) -> dict:
 
     resume = in_progress[0] if in_progress else None
 
+    # Lessons paused for a mentor, and concepts skipped to come back to.
+    needs_attention = []
+    for lesson in lessons:
+        summary = lesson_summary(db, lesson)
+        if summary["escalation"] and summary["escalation"]["status"] == "open":
+            needs_attention.append({"kind": "paused", "lesson_id": lesson.id, "lesson_title": lesson.title,
+                                    "concept": summary["escalation"]["concept"],
+                                    "since": summary["escalation"]["opened_at"]})
+        for item in summary["needs_review"]:
+            needs_attention.append({"kind": "review", "lesson_id": lesson.id, "lesson_title": lesson.title,
+                                    "node_id": item["node_id"], "concept": item["concept"]})
+
     return {
         "learner": {
             "id": user.id,
@@ -568,6 +712,7 @@ def dashboard_summary(db: Session, user: User) -> dict:
             "lessons_started": profile.lessons_started,
             "lessons_completed": profile.lessons_completed,
             "lessons_in_progress": len(in_progress),
+            "lessons_paused": sum(1 for lesson in lessons if lesson.status == "escalated"),
             "average_score_pct": avg_score,
             "accuracy_pct": accuracy,
             "total_questions": profile.total_questions,
@@ -585,6 +730,7 @@ def dashboard_summary(db: Session, user: User) -> dict:
             key=lambda x: -x["count"],
         )[:6],
         "resume_lesson": lesson_summary(db, resume) if resume else None,
+        "needs_attention": needs_attention[:10],
         "recent_lessons": [lesson_summary(db, lesson) for lesson in lessons[:6]],
         "score_trend": [
             {
@@ -620,9 +766,12 @@ def _activity_calendar(lessons: list[Lesson]) -> list[dict]:
 def lesson_summary(db: Session, lesson: Optional[Lesson]) -> Optional[dict]:
     if lesson is None:
         return None
+    from modules.backend.src.services import escalation_service
+
     total = len(lesson.nodes)
-    done = sum(1 for n in lesson.nodes if n.status in ("mastered", "skipped"))
+    done = sum(1 for n in lesson.nodes if n.status in COUNTED_STATUSES)
     report = db.scalars(select(ReportRow).where(ReportRow.lesson_id == lesson.id)).first()
+    active = escalation_service.active_escalation(db, lesson)
 
     return {
         "id": lesson.id,
@@ -640,10 +789,23 @@ def lesson_summary(db: Session, lesson: Optional[Lesson]) -> Optional[dict]:
         "created_at": lesson.created_at.isoformat(),
         "updated_at": lesson.updated_at.isoformat(),
         "completed_at": lesson.completed_at.isoformat() if lesson.completed_at else None,
+        # Paused for a mentor, and concepts the learner skipped to revisit.
+        "escalation": escalation_service.as_dict(active),
+        "needs_review": [
+            {"node_id": n.node_id, "concept": n.concept}
+            for n in sorted(lesson.nodes, key=lambda x: x.position)
+            if n.status == "skipped"
+        ],
+        "relearning": (lesson.resume_point or {}).get("node_id"),
+        # Reached the end, but concepts are still to review: not completed.
+        "review_pending": lesson.fsm_state == "REVIEW_PENDING",
+        "to_review": sum(1 for n in lesson.nodes if n.status == "skipped"),
     }
 
 
 def lesson_detail(db: Session, lesson: Lesson) -> dict:
+    from modules.backend.src.services import escalation_service
+
     summary = lesson_summary(db, lesson)
     report = db.scalars(select(ReportRow).where(ReportRow.lesson_id == lesson.id)).first()
     interactions = db.scalars(
@@ -660,7 +822,9 @@ def lesson_detail(db: Session, lesson: Lesson) -> dict:
                 "question_text": item.question_text,
                 "question_type": item.question_type,
                 "options": item.options,
-                "expected_concept": item.expected_concept,
+                # The answer key only once the question is graded, never
+                # while it is still on the learner's screen.
+                "expected_concept": item.expected_concept if item.correct is not None else None,
                 "raw_answer": item.raw_answer,
                 "correct": item.correct,
                 "partial_credit": item.partial_credit,
@@ -693,6 +857,12 @@ def lesson_detail(db: Session, lesson: Lesson) -> dict:
             "captions_url": n.captions_url,
             "duration_sec": n.duration_sec,
             "citation": n.citation_json,
+            "review_note": n.review_note,
+            "checkpoints": [
+                {"index": it.get("index"), "at_sec": it.get("at_sec")}
+                for it in ((n.checkpoints_json or {}).get("items") or [])
+                if it.get("at_sec") is not None
+            ],
             "interactions": by_node.get(n.node_id, []),
         }
         for n in sorted(lesson.nodes, key=lambda x: x.position)
@@ -709,6 +879,9 @@ def lesson_detail(db: Session, lesson: Lesson) -> dict:
         if report
         else None
     )
+    summary["escalations"] = [
+        escalation_service.as_dict(e) for e in escalation_service.escalations_for(db, lesson)
+    ]
     summary["constraints"] = {
         "level": lesson.level,
         "language": lesson.language,

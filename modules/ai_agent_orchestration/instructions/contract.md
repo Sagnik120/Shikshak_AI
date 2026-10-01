@@ -36,6 +36,27 @@ These types are private to `ai_agent_orchestration` and are used for FSM state m
   - `topic: Optional[str]`, `document_id: Optional[str]`
   - `current_feedback_override: Optional[str]` (Remedial prompt injected on `MODIFY`)
   - `recent_segment: Optional[TeachingSegment]`, `recent_question: Optional[InteractionEvent]`
+  - `learner_profile: Optional[dict]` — cross-lesson pedagogical memory
+    (`strong_concepts`, `weak_concepts`, `recurring_misconceptions`, `lessons_completed`),
+    populated by the backend's `SessionManager.memory_for()` from the existing
+    `learner_profiles` table. **Read once, in `PLAN`, and passed to `PlannerAgent`**; it is
+    never consulted or written mid-lesson, and `None` for a learner with no history, so a
+    first lesson plans exactly as it did before memory existed.
+  - `recent_provenance: List[dict]`, `recent_risk_level: str`,
+    `recent_retrieval_attempts: int`, `recent_refined_query: Optional[str]` — retrieval
+    evidence for the current node, including whether the bounded agentic loop refined the
+    query; surfaced in the classroom's grounding panel.
+- **`LangGraphOrchestrator`** ([`src/state_machine/langgraph_adapter.py`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/modules/ai_agent_orchestration/src/state_machine/langgraph_adapter.py)):
+  Optional runtime that executes the same pedagogical FSM as a LangGraph graph. Exposes the
+  identical `step(current_state, session, inputs) -> (next_state, payload)` contract, so the
+  service layer and the WebSocket loop are unchanged. Graph topology mirrors `VALID_TRANSITIONS`;
+  every node body delegates to `TeacherOrchestrator` (agents reused verbatim, never
+  reimplemented); edges are deterministic functions of the returned `TeacherState` — **no
+  prompt-driven routing**. `SessionState` remains authoritative, the graph carries routing data
+  only. Selected by `ORCHESTRATION_RUNTIME=langgraph` (default `fsm`), and falls back to the
+  built-in dispatcher if the optional `langgraph` dependency is missing. Parity with the
+  dispatcher — including all four ADAPT branches — is enforced by
+  `tests/integration/test_langgraph_parity.py`.
 - **`VALID_TRANSITIONS`** ([`src/state_machine/transitions.py`](file:///Users/sagnikchandra/Documents/Hackathon/Bharat_Academix/Shikshak_AI/modules/ai_agent_orchestration/src/state_machine/transitions.py)):  
   Dictionary mapping each `TeacherState` to allowed target states in the directed graph.
 

@@ -14,6 +14,33 @@ from modules.rag.src.parsing.structure import is_chapter_or_section_heading
 logger = logging.getLogger(__name__)
 
 
+def _line_key(line: str) -> str:
+    """A line with its digits masked, so "Page 2" and "Page 3" compare equal."""
+    return re.sub(r"\d+", "#", line.strip().lower())
+
+
+def _edge_lines(text: str) -> List[str]:
+    """Where running headers and footers live: a page's first and last lines."""
+    lines = [line for line in text.split("\n") if line.strip()]
+    return lines[:2] + lines[-2:]
+
+
+def _repeated_lines(page_texts: List[str]) -> set:
+    """Short edge-of-page lines on most pages: running headers and footers.
+
+    Only a page's first/last lines are considered, so a sentence that really
+    does repeat in the body of several pages is never stripped.
+    """
+    if len(page_texts) < 3:
+        return set()
+    counts: dict[str, int] = {}
+    for text in page_texts:
+        for key in {_line_key(line) for line in _edge_lines(text) if 0 < len(line.strip()) <= 100}:
+            counts[key] = counts.get(key, 0) + 1
+    need = max(3, int(len(page_texts) * 0.6 + 0.999))
+    return {key for key, n in counts.items() if n >= need}
+
+
 def parse_pdf(file_bytes: bytes) -> Tuple[List[RawSection], List[str]]:
     """Parse a PDF document into raw sections per page/heading and extract chapter titles.
 
@@ -44,11 +71,25 @@ def parse_pdf(file_bytes: bytes) -> Tuple[List[RawSection], List[str]]:
             pass
 
         current_heading: str | None = None
-        
+        page_texts = [page.extract_text() or "" for page in reader.pages]
+        # Running headers/footers ("Chapter 9 — Class 9 Science", "Page 3")
+        # repeat on most pages: they are noise in every chunk, and a running
+        # header as each page's first line hid the real headings below it.
+        repeated = _repeated_lines(page_texts)
+
         for idx, page in enumerate(reader.pages):
             page_num = idx + 1
-            page_text = page.extract_text() or ""
-            
+            page_text = page_texts[idx]
+            if repeated:
+                # Strip them only where they appear: at the page's edges.
+                lines = page_text.split("\n")
+                non_empty = [i for i, line in enumerate(lines) if line.strip()]
+                edge_idx = set(non_empty[:2] + non_empty[-2:])
+                page_text = "\n".join(
+                    line for i, line in enumerate(lines)
+                    if not (i in edge_idx and _line_key(line) in repeated)
+                )
+
             # Edge Case §5.1: Scanned / Image-only PDF with near-zero extractable text
             page_warning = None
             if len(page_text.strip()) < 30:
@@ -70,36 +111,50 @@ def parse_pdf(file_bytes: bytes) -> Tuple[List[RawSection], List[str]]:
                     )
                 continue
 
-            # Heuristic for chapter / heading detection on page text
-            page_lines = [line.strip() for line in page_text.split("\n") if line.strip()]
-            if page_lines:
-                first_line = page_lines[0]
-                is_heading, heading_title = is_chapter_or_section_heading(first_line)
-                if not is_heading and (
-                    re.match(r'^(Chapter|Section|\d+(\.\d+)*)\s+', first_line, re.IGNORECASE)
-                    or (first_line.isupper() and len(first_line) < 60)
-                    or (len(first_line.split()) <= 6 and len(first_line) < 50 and not first_line.endswith('.'))
-                ):
-                    is_heading = True
-                    heading_title = first_line
-
-                if is_heading and heading_title:
-                    current_heading = heading_title
-                    if current_heading not in chapters:
-                        chapters.append(current_heading)
-
             sec_meta = {"page": page_num}
             if page_warning:
                 sec_meta["warning"] = page_warning
 
-            sections.append(
-                RawSection(
-                    section_title=current_heading,
-                    page_or_slide=page_num,
-                    raw_text=page_text.strip(),
-                    metadata=sec_meta
+            # Split the page at every heading line (not only its first line),
+            # so each section is chunked and cited under its own title.
+            page_lines = [line.strip() for line in page_text.split("\n") if line.strip()]
+            blocks: List[Tuple[str | None, List[str]]] = [(current_heading, [])]
+            for line in page_lines:
+                is_heading, heading_title = is_chapter_or_section_heading(line)
+                if is_heading and heading_title:
+                    current_heading = heading_title
+                    if current_heading not in chapters:
+                        chapters.append(current_heading)
+                    blocks.append((current_heading, [line]))
+                else:
+                    blocks[-1][1].append(line)
+
+            # No recognised heading on the page: keep the old loose first-line
+            # heuristic for documents without numbered headings.
+            if len(blocks) == 1 and page_lines:
+                first_line = page_lines[0]
+                if (
+                    re.match(r'^(Chapter|Section|\d+(\.\d+)*)\s+', first_line, re.IGNORECASE)
+                    or (first_line.isupper() and len(first_line) < 60)
+                    or (len(first_line.split()) <= 6 and len(first_line) < 50 and not first_line.endswith('.'))
+                ):
+                    current_heading = first_line
+                    if current_heading not in chapters:
+                        chapters.append(current_heading)
+                    blocks = [(current_heading, page_lines)]
+
+            for title, lines in blocks:
+                text = "\n".join(lines).strip()
+                if not text:
+                    continue
+                sections.append(
+                    RawSection(
+                        section_title=title,
+                        page_or_slide=page_num,
+                        raw_text=text,
+                        metadata=dict(sec_meta),
+                    )
                 )
-            )
 
     except Exception as e:
         logger.error(f"pypdf failed to parse PDF: {e}")

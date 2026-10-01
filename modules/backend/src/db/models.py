@@ -59,6 +59,9 @@ class User(Base, TimestampMixin):
     grade: Mapped[Optional[str]] = mapped_column(String(40))
     board: Mapped[Optional[str]] = mapped_column(String(40))
     avatar_color: Mapped[str] = mapped_column(String(7), default="#2A3FA0", nullable=False)
+    # An uploaded photo (file under UPLOAD_ROOT/avatars) or a picked illustrated avatar.
+    avatar_path: Mapped[Optional[str]] = mapped_column(String(300))
+    avatar_choice: Mapped[Optional[str]] = mapped_column(String(40))
 
     # Security posture
     failed_login_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
@@ -205,13 +208,19 @@ class Lesson(Base, TimestampMixin):
     plan_json: Mapped[Optional[dict]] = mapped_column(JSON)
 
     status: Mapped[str] = mapped_column(String(20), default="created", nullable=False)
-    # created | planned | in_progress | completed | escalated | abandoned
+    # created | planned | in_progress | completed | escalated (paused for a mentor) | abandoned
     fsm_state: Mapped[str] = mapped_column(String(30), default="CREATED", nullable=False)
     current_node_index: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     started_at: Mapped[Optional[datetime]] = mapped_column(UTCDateTime)
     completed_at: Mapped[Optional[datetime]] = mapped_column(UTCDateTime)
     total_watch_sec: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    # Wrong answers before this moment no longer count toward escalation
+    # (set when the learner continues after a pause, or relearns a concept).
+    history_reset_at: Mapped[Optional[datetime]] = mapped_column(UTCDateTime)
+    # "Learn this again" on a skipped concept: where to go back to afterwards.
+    # {"node_id", "return_index", "return_status", "return_fsm"}
+    resume_point: Mapped[Optional[dict]] = mapped_column(JSON)
 
     user: Mapped["User"] = relationship(back_populates="lessons")
     document: Mapped[Optional["Document"]] = relationship(lazy="joined")
@@ -250,7 +259,7 @@ class LessonNodeRow(Base, TimestampMixin):
     checkpoint_question: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
-    # pending | teaching | questioning | mastered | struggling | skipped
+    # pending | teaching | questioning | mastered | struggling | skipped | completed (watched, no checkpoint)
     attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     mastery_score: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     times_reexplained: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
@@ -264,6 +273,16 @@ class LessonNodeRow(Base, TimestampMixin):
     # {"key_points": [...], "example": "..."} as returned by the Explainer, so
     # the notes survive a reload and can be downloaded after the lesson.
     notes_json: Mapped[Optional[dict]] = mapped_column(JSON)
+    # The segment's visual spec, so a reconnect can re-render the SAME script
+    # without asking the LLM for a new one.
+    visual_json: Mapped[Optional[dict]] = mapped_column(JSON)
+    # Mid-video questions for the current video: {"issued_at": iso,
+    # "items": [{"index", "word", "at_sec", "question": {InteractionEvent}}]}
+    checkpoints_json: Mapped[Optional[dict]] = mapped_column(JSON)
+    # How the concept was finished beyond its status: "after help" (mastered
+    # after a mentor pause), "needs review" (skipped), "after review" (mastered
+    # on a later relearn).
+    review_note: Mapped[Optional[str]] = mapped_column(String(40))
 
     first_seen_at: Mapped[Optional[datetime]] = mapped_column(UTCDateTime)
     completed_at: Mapped[Optional[datetime]] = mapped_column(UTCDateTime)
@@ -288,6 +307,8 @@ class Interaction(Base):
     question_type: Mapped[str] = mapped_column(String(40), nullable=False)
     options: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
     expected_concept: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    # Which mid-video checkpoint of the node's current video this question is.
+    checkpoint_index: Mapped[Optional[int]] = mapped_column(Integer)
 
     raw_answer: Mapped[Optional[str]] = mapped_column(Text)
     response_time_sec: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
@@ -323,6 +344,48 @@ class ReportRow(Base):
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
 
     lesson: Mapped["Lesson"] = relationship(back_populates="report")
+
+
+class Escalation(Base):
+    """A lesson paused for a human teacher, and what became of it.
+
+    open -> continued (learner resumed) -> resolved | closed (moved on unmastered)
+    open -> skipped (learner skipped the concept); skipped/closed -> resolved on relearn
+    """
+
+    __tablename__ = "escalations"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    lesson_id: Mapped[str] = mapped_column(
+        ForeignKey("lessons.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    node_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    concept: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="open", nullable=False)
+    reason: Mapped[Optional[str]] = mapped_column(Text)
+    resolution: Mapped[Optional[str]] = mapped_column(Text)
+    mentor_notified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    opened_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    continued_at: Mapped[Optional[datetime]] = mapped_column(UTCDateTime)
+    closed_at: Mapped[Optional[datetime]] = mapped_column(UTCDateTime)
+
+
+class PracticeAttempt(Base):
+    """A revision answer. Never touches the lesson's score, progress or history."""
+
+    __tablename__ = "practice_attempts"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    lesson_id: Mapped[str] = mapped_column(
+        ForeignKey("lessons.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    interaction_id: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    answer: Mapped[str] = mapped_column(Text, nullable=False)
+    correct: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    feedback_text: Mapped[Optional[str]] = mapped_column(Text)
+    answered_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
 
 
 class LessonEvent(Base):

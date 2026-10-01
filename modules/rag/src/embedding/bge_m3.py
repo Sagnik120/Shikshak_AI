@@ -10,13 +10,18 @@ logger = logging.getLogger(__name__)
 
 
 class BGEM3EmbeddingAdapter(BaseEmbeddingAdapter):
-    """Embedding adapter using sentence-transformers for dense + sparse multi-lingual representations."""
+    """Embedding adapter using BAAI/bge-m3 for dense + sparse multi-lingual representations."""
 
-    def __init__(self, model_name: str = "all-MiniLM-L6-v2", use_fp16: bool = True, device: str = "cpu"):
+    def __init__(self, model_name: str = "BAAI/bge-m3", use_fp16: bool = True, device: str = "cpu"):
         self.model_name = model_name
         self.device = device
         self.use_fp16 = use_fp16
         self._model = None
+
+    @property
+    def is_degraded(self) -> bool:
+        """True once the real model has been tried and a mock had to be used."""
+        return self._model == "mock"
 
     def _get_model(self):
         if self._model is not None:
@@ -44,10 +49,6 @@ class BGEM3EmbeddingAdapter(BaseEmbeddingAdapter):
         if not texts:
             return [], []
 
-        from modules.rag.src.perf import record_memory_checkpoint, take_tracemalloc_snapshot
-        record_memory_checkpoint("Before embedding generation")
-        take_tracemalloc_snapshot("Before BGE-M3")
-
         model = self._get_model()
         if model == "mock":
             # Deterministic mock vectors for testing
@@ -69,16 +70,12 @@ class BGEM3EmbeddingAdapter(BaseEmbeddingAdapter):
                     {str(k): float(v) for k, v in sp.items()}
                     for sp in outputs['lexical_weights']
                 ]
-                record_memory_checkpoint("After embedding generation (dense + sparse)")
-                take_tracemalloc_snapshot("After BGE-M3")
                 return dense_vectors, sparse_weights
             else:
                 # sentence-transformers dense-only output with basic token term frequencies for sparse
                 dense_arr = model.encode(texts, normalize_embeddings=True)
                 dense_vectors = [v.tolist() for v in dense_arr]
                 sparse_weights = [{w.lower(): 1.0 for w in t.split()} for t in texts]
-                record_memory_checkpoint("After embedding generation (dense + sparse)")
-                take_tracemalloc_snapshot("After BGE-M3")
                 return dense_vectors, sparse_weights
         except Exception as e:
             logger.error(f"Error encoding passages with BGE-M3: {e}")

@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Any, Tuple
+from typing import Dict, Any, Tuple
 from modules.ai_agent_orchestration.src.state_machine.states import TeacherState
 from modules.ai_agent_orchestration.src.state_machine.session_state import SessionState
 from modules.ai_agent_orchestration.src.state_machine.transitions import is_valid_transition
@@ -9,6 +9,23 @@ from modules.ai_agent_orchestration.src.agents.explainer import ExplainerAgent
 from modules.ai_agent_orchestration.src.agents.questioner import QuestionerAgent
 from modules.ai_agent_orchestration.src.agents.adaptation_controller import AdaptationController
 from modules.ai_agent_orchestration.src.agents.assessment import AssessmentAgent
+from modules.mlops.src.agent_trace import (
+    ADAPTATION_DECIDED,
+    ANSWER_EVALUATED,
+    MEMORY_READ,
+    PLAN_GENERATED,
+    QUESTION_GENERATED,
+    SEGMENT_GENERATED,
+    tracer,
+)
+
+REGENERATE_BRIEF = (
+    "REBUILD THIS SEGMENT FROM SCRATCH. The learner is still lost after a "
+    "re-explanation. Do not reuse the previous structure, analogy or examples: "
+    "start over with simpler language, a different step-by-step structure, new "
+    "everyday examples and a different visual."
+)
+
 
 class TeacherOrchestrator:
     def __init__(
@@ -30,6 +47,60 @@ class TeacherOrchestrator:
         self.rag_client = rag_client
         self.ml_core = ml_core_client
         self.avatar_client = avatar_client
+
+    # Checkpoints: roughly one question per ~70 s of narration, at most three.
+    WORDS_PER_CHECKPOINT = 170
+    MAX_CHECKPOINTS = 3
+
+    @classmethod
+    def checkpoint_positions(cls, script: str) -> list:
+        """Word offsets (at sentence ends) where the video pauses for a question.
+
+        Spread through the segment, never at the very start or end, so every
+        question is about material the learner has just watched.
+        """
+        import re
+
+        sentences = [s for s in re.split(r"(?<=[.!?])\s+", script.strip()) if s]
+        ends, total = [], 0
+        for sentence in sentences:
+            total += len(sentence.split())
+            ends.append(total)
+        if total < 40 or len(ends) < 2:
+            return [total] if total else []
+        count = max(1, min(cls.MAX_CHECKPOINTS, round(total / cls.WORDS_PER_CHECKPOINT)))
+        positions = []
+        for i in range(1, count + 1):
+            target = total * i / (count + 1)
+            best = min(ends[:-1], key=lambda e: abs(e - target))
+            if best not in positions:
+                positions.append(best)
+        return sorted(positions)
+
+    def generate_checkpoints(self, session_id: str, node: Any, segment: Any, positions: list) -> list:
+        """One question per checkpoint, each about only the script up to it."""
+        from concurrent.futures import ThreadPoolExecutor
+
+        words = (getattr(segment, "script_text", "") or "").split()
+
+        def ask(position: int):
+            # Only what has been said so far: the full video's key points
+            # would let a question ask about material not reached yet.
+            covered = segment.model_copy(update={"script_text": " ".join(words[:position]), "notes": None})
+            event = self.questioner.generate_question(node, covered)
+            tracer.emit(
+                QUESTION_GENERATED,
+                session_id,
+                node_id=node.node_id,
+                question_type=event.type,
+                option_count=len(event.options or []),
+                expected_concept=event.expected_concept,
+                checkpoint_word=position,
+            )
+            return event.model_copy(update={"node_id": node.node_id})
+
+        with ThreadPoolExecutor(max_workers=max(1, len(positions))) as pool:
+            return list(pool.map(ask, positions))
 
     def _transition(self, session: SessionState, from_state: TeacherState, to_state: TeacherState, reason: str, payload: Any = None) -> Tuple[TeacherState, Any]:
         if not is_valid_transition(from_state, to_state):
@@ -87,14 +158,37 @@ class TeacherOrchestrator:
                     # Falling back to an outline-free plan beats failing the lesson.
                     document_outline = None
 
+            # Cross-lesson memory biases planning only; it is read here, at plan
+            # time, and never consulted or mutated mid-lesson.
+            learner_profile = getattr(session, "learner_profile", None)
+            if learner_profile:
+                tracer.emit(
+                    MEMORY_READ,
+                    session.session_id,
+                    weak_concepts=learner_profile.get("weak_concepts", []),
+                    recurring_misconceptions=learner_profile.get("recurring_misconceptions", []),
+                    lessons_completed=learner_profile.get("lessons_completed"),
+                )
+
             plan = self.planner.plan_lesson(
                 constraints=session.constraints,
                 source_type=source_type,
                 topic=session.topic,
                 document_outline=document_outline,
+                learner_profile=learner_profile,
             )
             session.lesson_plan = plan
             session.current_node_index = 0
+            tracer.emit(
+                PLAN_GENERATED,
+                session.session_id,
+                source=source_type,
+                grounded_in_document=bool(document_outline),
+                node_count=len(plan.nodes),
+                concepts=[n.concept for n in plan.nodes],
+                used_learner_memory=bool(learner_profile),
+                est_minutes_total=sum(n.est_minutes for n in plan.nodes),
+            )
             return self._transition(session, current_state, TeacherState.EXPLAIN, "Lesson plan generated", plan)
 
         elif current_state == TeacherState.EXPLAIN:
@@ -110,10 +204,18 @@ class TeacherOrchestrator:
                 # can show where the explanation came from; plain retrieval is
                 # still honoured for clients that only implement that.
                 if hasattr(self.rag_client, "retrieve_detailed"):
-                    detail = self.rag_client.retrieve_detailed(session.document_id, node.concept)
+                    detail = self.rag_client.retrieve_detailed(
+                        session.document_id,
+                        node.concept,
+                        topic=session.topic,
+                        session_id=session.session_id,
+                        node_id=node.node_id,
+                    )
                     chunks = [c["text"] for c in detail.get("chunks", [])]
                     session.recent_provenance = detail.get("chunks", [])
                     session.recent_risk_level = detail.get("risk_level", "low")
+                    session.recent_retrieval_attempts = int(detail.get("attempts") or 1)
+                    session.recent_refined_query = detail.get("refined_query")
                 else:
                     chunks = self.rag_client.retrieve_context(session.document_id, node.concept)
                     session.recent_risk_level = "low"
@@ -123,6 +225,7 @@ class TeacherOrchestrator:
                 session.recent_risk_level = "no_document_context"
 
 
+            previous_feedback_used = bool(session.current_feedback_override)
             segment = self.explainer.generate_segment(
                 node=node,
                 constraints=session.constraints,
@@ -132,7 +235,17 @@ class TeacherOrchestrator:
             # Clear override after use and save recent_segment
             session.current_feedback_override = None
             session.recent_segment = segment
-            
+
+            tracer.emit(
+                SEGMENT_GENERATED,
+                session.session_id,
+                node_id=node.node_id,
+                concept=node.concept,
+                visual_type=getattr(segment.visual_spec, "type", None),
+                script_words=len(segment.script_text.split()),
+                grounded_chunks=len(chunks or []),
+                re_explained=bool(previous_feedback_used),
+            )
             return self._transition(session, current_state, TeacherState.DEMONSTRATE, "Explanation segment generated", segment)
 
         elif current_state == TeacherState.DEMONSTRATE:
@@ -150,6 +263,14 @@ class TeacherOrchestrator:
             recent_segment = inputs.get("segment") or getattr(session, "recent_segment", None)
             event = self.questioner.generate_question(node, recent_segment)
             session.recent_question = event
+            tracer.emit(
+                QUESTION_GENERATED,
+                session.session_id,
+                node_id=node.node_id,
+                question_type=event.type,
+                option_count=len(event.options or []),
+                expected_concept=event.expected_concept,
+            )
             return self._transition(session, current_state, TeacherState.EVALUATE, "Question generated", event)
 
         elif current_state == TeacherState.EVALUATE:
@@ -168,6 +289,16 @@ class TeacherOrchestrator:
 
             eval_result = self.ml_core.evaluate_answer(student_response, expected_concept=expected)
             session.evaluation_history.append(eval_result)
+            tracer.emit(
+                ANSWER_EVALUATED,
+                session.session_id,
+                node_id=eval_result.node_id,
+                correct=eval_result.correct,
+                partial_credit=eval_result.partial_credit,
+                confidence=eval_result.confidence,
+                misconception_tag=eval_result.misconception_tag,
+                response_type=getattr(student_response, "response_type", None),
+            )
             return self._transition(session, current_state, TeacherState.ADAPT, "Answer evaluated", eval_result)
 
         elif current_state == TeacherState.ADAPT:
@@ -183,6 +314,16 @@ class TeacherOrchestrator:
                 raise ValueError("No evaluation result available for adaptation. Run EVALUATE first or provide 'eval_result' in inputs.")
                 
             decision = self.controller.decide(eval_result, session.evaluation_history)
+            tracer.emit(
+                ADAPTATION_DECIDED,
+                session.session_id,
+                node_id=decision.target_node_id,
+                action=decision.action,
+                reason=decision.reason,
+                attempts_on_node=sum(
+                    1 for e in session.evaluation_history if e.node_id == decision.target_node_id
+                ),
+            )
             
             if decision.action == "ALLOW":
                 return self._transition(session, current_state, TeacherState.CONTINUE, decision.reason, decision)
@@ -190,7 +331,9 @@ class TeacherOrchestrator:
                 session.current_feedback_override = decision.reason
                 return self._transition(session, current_state, TeacherState.EXPLAIN, decision.reason, decision)
             elif decision.action == "REGENERATE":
-                return self._transition(session, current_state, TeacherState.PLAN, decision.reason, decision)
+                # Rebuild THIS segment from scratch — not the whole lesson plan.
+                session.current_feedback_override = REGENERATE_BRIEF
+                return self._transition(session, current_state, TeacherState.EXPLAIN, decision.reason, decision)
             elif decision.action == "HUMAN":
                 return self._transition(session, current_state, TeacherState.HUMAN_ESCALATION, decision.reason, decision)
 

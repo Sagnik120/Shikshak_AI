@@ -60,6 +60,12 @@ export function wireOtpInputs(container, onComplete) {
     focus() {
       boxes[0].focus();
     },
+    /** Type a whole code in, as if the learner had pasted it. */
+    fill(code) {
+      const digits = String(code).replace(/\D/g, "");
+      boxes.forEach((b, i) => (b.value = digits[i] || ""));
+      maybeComplete();
+    },
   };
 }
 
@@ -70,7 +76,7 @@ export function wireOtpInputs(container, onComplete) {
  * so the account flow stays usable without an inbox: the code that would
  * normally be emailed is shown here instead.
  */
-export function showDevOtp(el, code) {
+export function showDevOtp(el, code, onFill) {
   el.innerHTML = `
     <strong>Demo mode — no email is actually sent.</strong>
     <span style="display:block;margin-top:4px">
@@ -81,6 +87,15 @@ export function showDevOtp(el, code) {
                  letter-spacing:0.3em;font-family:'SF Mono',Menlo,Consolas,monospace">
       ${code}
     </span>`;
+  if (onFill) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "btn btn-secondary btn-sm";
+    button.style.marginTop = "10px";
+    button.textContent = "Fill it in for me";
+    button.addEventListener("click", () => onFill(code));
+    el.append(button);
+  }
   el.hidden = false;
 }
 

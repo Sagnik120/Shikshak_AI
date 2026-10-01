@@ -1,4 +1,5 @@
 """Authentication: signup, email OTP verification, login, refresh, password reset."""
+import os
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -26,6 +27,7 @@ from modules.backend.src.deps import (
     signup_limiter,
 )
 from modules.backend.src.schemas.auth import (
+    StaffSignupRequest,
     ForgotPasswordRequest,
     LoginRequest,
     MessageResponse,
@@ -102,6 +104,11 @@ def _user_out(user: User) -> UserOut:
         grade=user.grade,
         board=user.board,
         avatar_color=user.avatar_color,
+        avatar_url=(
+            f"{settings.api_v1_str}/account/avatar/file/{os.path.basename(user.avatar_path)}"
+            if user.avatar_path else None
+        ),
+        avatar_choice=user.avatar_choice,
         mentor_name=user.mentor_name,
         mentor_email=user.mentor_email,
         created_at=user.created_at,
@@ -253,7 +260,7 @@ def signup(
     payload: SignupRequest,
     request: Request,
     background: BackgroundTasks,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     signup_limiter.check(db, client_ip(request))
 
@@ -307,12 +314,60 @@ def signup(
     )
 
 
+@router.post("/signup-staff", response_model=MessageResponse, status_code=status.HTTP_201_CREATED)
+def signup_staff(
+    payload: StaffSignupRequest,
+    request: Request,
+    background: BackgroundTasks,
+    db: Session = Depends(get_db, scope="function"),
+):
+    """Admin / teacher sign-up, gated by the staff access code."""
+    import hmac
+
+    signup_limiter.check(db, client_ip(request))
+    expected = settings.admin_signup_code
+    if not expected:
+        raise HTTPException(status_code=403, detail="Staff sign-up is closed on this server.")
+    if not hmac.compare_digest(payload.access_code.strip().encode(), expected.encode()):
+        raise HTTPException(status_code=403, detail="That staff access code is not valid.")
+    if err := validate_password_strength(payload.password):
+        raise HTTPException(status_code=422, detail=err)
+
+    email = _normalise_email(payload.email)
+    existing = db.scalars(select(User).where(User.email == email)).first()
+    if existing and existing.is_verified:
+        raise HTTPException(status_code=409, detail="An account with this email already exists. Try signing in instead.")
+    if existing:
+        existing.full_name = payload.full_name
+        existing.password_hash = hash_password(payload.password)
+        existing.role = payload.role
+        existing.preferred_language = payload.preferred_language
+        user = existing
+    else:
+        user = User(
+            email=email, full_name=payload.full_name, password_hash=hash_password(payload.password),
+            role=payload.role, preferred_language=payload.preferred_language,
+        )
+        db.add(user)
+        db.flush()
+        db.add(LearnerProfileRow(user_id=user.id))
+
+    code = _issue_otp(db, user, PURPOSE_VERIFY)
+    db.flush()
+    background.add_task(email_service.send_verification_otp, user.email, user.full_name, code)
+    return MessageResponse(
+        message=f"We sent a {settings.otp_length}-digit code to {user.email}. "
+        f"It expires in {settings.otp_ttl_min} minutes.",
+        dev_otp=_dev_otp(code),
+    )
+
+
 @router.post("/verify-email", response_model=TokenResponse)
 def verify_email(
     payload: VerifyOTPRequest,
     request: Request,
     background: BackgroundTasks,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     otp_verify_limiter.check(db, client_ip(request))
 
@@ -339,7 +394,7 @@ def resend_otp(
     payload: ResendOTPRequest,
     request: Request,
     background: BackgroundTasks,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     otp_send_limiter.check(db, client_ip(request))
 
@@ -378,7 +433,7 @@ def resend_otp(
 # --------------------------------------------------------------------------
 
 @router.post("/login", response_model=TokenResponse)
-def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)):
+def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db, scope="function")):
     login_limiter.check(db, client_ip(request))
 
     email = _normalise_email(payload.email)
@@ -420,7 +475,7 @@ def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)
 
 
 @router.post("/refresh", response_model=TokenResponse)
-def refresh(payload: RefreshRequest, request: Request, db: Session = Depends(get_db)):
+def refresh(payload: RefreshRequest, request: Request, db: Session = Depends(get_db, scope="function")):
     """Rotate the refresh token: the presented one is revoked and replaced."""
     token_hash = digest_token(payload.refresh_token)
     record = db.scalars(select(RefreshToken).where(RefreshToken.token_hash == token_hash)).first()
@@ -452,7 +507,7 @@ def refresh(payload: RefreshRequest, request: Request, db: Session = Depends(get
 
 
 @router.post("/logout", response_model=MessageResponse)
-def logout(payload: RefreshRequest, db: Session = Depends(get_db)):
+def logout(payload: RefreshRequest, db: Session = Depends(get_db, scope="function")):
     record = db.scalars(
         select(RefreshToken).where(RefreshToken.token_hash == digest_token(payload.refresh_token))
     ).first()
@@ -470,7 +525,7 @@ def forgot_password(
     payload: ForgotPasswordRequest,
     request: Request,
     background: BackgroundTasks,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     reset_limiter.check(db, client_ip(request))
 
@@ -496,7 +551,7 @@ def reset_password(
     payload: ResetPasswordRequest,
     request: Request,
     background: BackgroundTasks,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     otp_verify_limiter.check(db, client_ip(request))
 

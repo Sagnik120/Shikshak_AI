@@ -57,7 +57,7 @@ class BenchmarkEngine:
             if doc.document_id in self._ingested_doc_ids:
                 continue
 
-            content_bytes = doc.content.encode("utf-8")
+            content_bytes = doc.read_bytes()
             parsed = service.ingest_document(
                 file_bytes=content_bytes,
                 filename=doc.filename,
@@ -82,7 +82,8 @@ class BenchmarkEngine:
         top_k: int = 5,
         relevance_threshold: float = 0.5001,
         confidence_threshold: float = 0.52,
-        progress_callback=None
+        progress_callback=None,
+        mode: str = "single_pass",
     ) -> BenchmarkReport:
         """Run a complete benchmark suite and return the report.
 
@@ -92,6 +93,9 @@ class BenchmarkEngine:
             relevance_threshold: Minimum relevance score.
             confidence_threshold: Threshold for 'low' risk classification.
             progress_callback: Optional callable(current, total, query_text) for progress updates.
+            mode: "single_pass" (the original retrieve_context) or "agentic"
+                (retrieve_context_agentic, which refines a weakly-grounded first
+                pass once). Both paths stay available so they can be compared.
 
         Returns:
             BenchmarkReport with per-query results and aggregated metrics.
@@ -110,6 +114,7 @@ class BenchmarkEngine:
             "top_k": top_k,
             "relevance_threshold": relevance_threshold,
             "confidence_threshold": confidence_threshold,
+            "mode": mode,
         }
 
         report = BenchmarkReport(
@@ -129,13 +134,23 @@ class BenchmarkEngine:
             trace = begin_trace()
             start_time = time.perf_counter()
 
-            result = self._service.retrieve_context(
-                document_id=doc_id,
-                query_text=query.query_text,
-                top_k=top_k,
-                relevance_threshold=relevance_threshold,
-                confidence_threshold=confidence_threshold
-            )
+            if mode == "agentic":
+                result = self._service.retrieve_context_agentic(
+                    document_id=doc_id,
+                    query_text=query.query_text,
+                    top_k=top_k,
+                    relevance_threshold=relevance_threshold,
+                    confidence_threshold=confidence_threshold,
+                    topic=suite.name,
+                )
+            else:
+                result = self._service.retrieve_context(
+                    document_id=doc_id,
+                    query_text=query.query_text,
+                    top_k=top_k,
+                    relevance_threshold=relevance_threshold,
+                    confidence_threshold=confidence_threshold
+                )
 
             elapsed_ms = (time.perf_counter() - start_time) * 1000
             perf = end_trace()
@@ -155,6 +170,8 @@ class BenchmarkEngine:
                 has_sufficient_context=result.has_sufficient_context,
                 expected_risk_level=query.expected_risk_level,
                 perf_stages=perf_stages,
+                attempts=getattr(result, "attempts", 1),
+                refined_query=getattr(result, "refined_query", None),
             )
 
             report.query_results.append(qr)

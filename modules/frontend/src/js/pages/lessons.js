@@ -3,7 +3,7 @@ import { api } from "../api.js";
 import {
   $, el, clear, escapeHtml, icon, toast, requireAuth, mountHeader,
   formatRelative, formatDuration, confirmDialog, emptyState,
-  STATUS_META, LEVEL_LABELS, LANGUAGE_LABELS, scoreClass,
+  STATUS_META, lessonStatus, LEVEL_LABELS, LANGUAGE_LABELS, scoreClass,
 } from "../ui.js";
 
 const user = await requireAuth();
@@ -98,7 +98,7 @@ if (user) {
   }
 
   function row(lesson) {
-    const status = STATUS_META[lesson.status] || STATUS_META.created;
+    const status = lessonStatus(lesson);
     const href =
       lesson.status === "completed"
         ? `/report.html?lesson=${encodeURIComponent(lesson.id)}`
@@ -136,8 +136,21 @@ if (user) {
               })">${lesson.score_pct}%</span>`
             : ""
         }
+        ${
+          ["completed", "in_progress", "escalated"].includes(lesson.status)
+            ? `<a class="btn btn-ghost btn-sm" href="/review.html?lesson=${encodeURIComponent(lesson.id)}">Review</a>`
+            : ""
+        }
         <a class="btn btn-secondary btn-sm" href="${href}">${
-          lesson.status === "completed" ? "Report" : lesson.status === "in_progress" ? "Resume" : "Start"
+          lesson.status === "completed"
+            ? "Report"
+            : lesson.review_pending
+            ? "Review"
+            : lesson.status === "in_progress"
+            ? "Resume"
+            : lesson.status === "escalated"
+            ? "Open"
+            : "Start"
         }</a>
         <button class="btn btn-ghost btn-icon" data-delete title="Delete lesson"
                 aria-label="Delete ${escapeHtml(lesson.title)}">${icon("trash", 16)}</button>

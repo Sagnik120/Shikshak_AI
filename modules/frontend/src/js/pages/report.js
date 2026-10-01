@@ -5,6 +5,19 @@ import {
   formatDate, formatDuration, formatSeconds, emptyState, scoreClass, LEVEL_LABELS,
 } from "../ui.js";
 
+const NODE_STATUS = {
+  mastered: "mastered", completed: "watched", skipped: "moved on", struggling: "in progress",
+  teaching: "in progress", questioning: "in progress", pending: "not reached",
+};
+const REVIEW_NOTE = { "after help": "Mastered after help", "after review": "Mastered after review", "needs review": "Needs review" };
+const ESCALATION_STATUS = {
+  open: { text: "Waiting for mentor", cls: "badge badge-rose" },
+  continued: { text: "Re-teaching", cls: "badge badge-amber" },
+  resolved: { text: "Resolved", cls: "badge badge-green" },
+  skipped: { text: "Skipped — needs review", cls: "badge badge-amber" },
+  closed: { text: "Moved on — needs review", cls: "badge badge-amber" },
+};
+
 const user = await requireAuth();
 const lessonId = new URLSearchParams(window.location.search).get("lesson");
 
@@ -28,6 +41,7 @@ if (user && !lessonId) {
     root.append(header(lesson), summary(lesson));
 
     if (lesson.report) root.append(narrative(lesson.report));
+    if ((lesson.escalations || []).length) root.append(escalationHistory(lesson.escalations));
     root.append(timeline(lesson));
   }
 
@@ -47,6 +61,7 @@ if (user && !lessonId) {
         </p>
       </div>
       <div class="row row-wrap" style="gap:var(--sp-2)">
+        <a class="btn btn-secondary" href="/review.html?lesson=${encodeURIComponent(lesson.id)}">Review &amp; practise</a>
         <button class="btn btn-secondary" type="button" data-action="download-notes">Download notes</button>
         ${
           lesson.status !== "completed"
@@ -77,6 +92,11 @@ if (user && !lessonId) {
   function summary(lesson) {
     const score = lesson.report?.score_pct ?? lesson.progress_pct;
     const mastered = lesson.nodes.filter((n) => n.status === "mastered").length;
+    // Concepts taught without a checkpoint were never assessed, so they can't
+    // count against "mastered".
+    const checked =
+      lesson.nodes.filter((n) => n.checkpoint_question || n.interactions.length).length ||
+      lesson.node_count;
     const questions = lesson.nodes.reduce((sum, n) => sum + n.interactions.length, 0);
     const correct = lesson.nodes.reduce(
       (sum, n) => sum + n.interactions.filter((i) => i.correct).length,
@@ -94,7 +114,7 @@ if (user && !lessonId) {
         <div class="stat-grid" style="grid-template-columns:repeat(2,1fr)">
           <div class="stat" style="border:0;padding:0;background:none">
             <div class="stat-label">Concepts mastered</div>
-            <div class="stat-value" style="font-size:var(--text-2xl)">${mastered}<span class="subtle" style="font-size:var(--text-md)"> / ${lesson.node_count}</span></div>
+            <div class="stat-value" style="font-size:var(--text-2xl)">${mastered}<span class="subtle" style="font-size:var(--text-md)"> / ${checked} checked</span></div>
           </div>
           <div class="stat" style="border:0;padding:0;background:none">
             <div class="stat-label">Questions correct</div>
@@ -159,6 +179,25 @@ if (user && !lessonId) {
     </div>`;
   }
 
+  /** Every time the lesson paused for a mentor, and how it ended. */
+  function escalationHistory(escalations) {
+    const card = el("section", { class: "card card-pad", style: "margin-bottom:var(--sp-5)" });
+    card.innerHTML = `<h2 class="card-title" style="margin-bottom:var(--sp-3)">Help from your mentor</h2>`;
+    escalations.forEach((esc) => {
+      const meta = ESCALATION_STATUS[esc.status] || { text: esc.status, cls: "badge" };
+      const row = el("div", { style: "margin-top:var(--sp-2)" });
+      row.innerHTML = `
+        <span class="${meta.cls}">${escapeHtml(meta.text)}</span>
+        <strong style="margin-left:6px">${escapeHtml(esc.concept)}</strong>
+        <span class="subtle"> · paused ${escapeHtml(formatDate(esc.opened_at))}${
+          esc.closed_at ? ` · ${escapeHtml(formatDate(esc.closed_at))}` : ""
+        }</span>
+        ${esc.resolution ? `<div class="subtle" style="font-size:var(--text-sm)">${escapeHtml(esc.resolution)}</div>` : ""}`;
+      card.append(row);
+    });
+    return card;
+  }
+
   function timeline(lesson) {
     const card = el("section", { class: "card" });
     card.innerHTML = `<div class="card-header"><h2 class="card-title">Concept by concept</h2>
@@ -168,8 +207,8 @@ if (user && !lessonId) {
 
     lesson.nodes.forEach((node, index) => {
       const item = el("div", { class: "timeline-item" });
-      const markerClass =
-        node.status === "mastered" ? "mastered" : node.status === "struggling" ? "struggling" : "";
+      const done = node.status === "mastered" || node.status === "completed";
+      const markerClass = done ? "mastered" : node.status === "struggling" ? "struggling" : "";
 
       const content = el("div", { class: "grow" });
       content.innerHTML = `
@@ -178,7 +217,14 @@ if (user && !lessonId) {
             <div style="font-weight:650">${escapeHtml(node.concept)}</div>
             <div class="lesson-row-meta">
               <span class="badge">${escapeHtml(node.depth)}</span>
-              <span>${escapeHtml(node.status.replace("_", " "))}</span>
+              <span>${escapeHtml(NODE_STATUS[node.status] || node.status.replace("_", " "))}</span>
+              ${
+                node.review_note
+                  ? `<span class="badge ${node.review_note === "needs review" ? "badge-amber" : "badge-green"}">${escapeHtml(
+                      REVIEW_NOTE[node.review_note] || node.review_note
+                    )}</span>`
+                  : ""
+              }
               ${node.attempts ? `<span>${node.attempts} attempt${node.attempts === 1 ? "" : "s"}</span>` : ""}
               ${node.times_reexplained ? `<span>re-taught ${node.times_reexplained}×</span>` : ""}
               ${node.duration_sec ? `<span>${escapeHtml(formatSeconds(node.duration_sec))} of video</span>` : ""}
@@ -229,7 +275,7 @@ if (user && !lessonId) {
       });
 
       item.innerHTML = `<span class="timeline-marker ${markerClass}">${
-        node.status === "mastered" ? icon("check", 14) : index + 1
+        done ? icon("check", 14) : index + 1
       }</span>`;
       item.append(content);
       body.append(item);

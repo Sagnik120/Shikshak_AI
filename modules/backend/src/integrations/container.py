@@ -2,6 +2,7 @@
 import logging
 from typing import Any, Optional
 
+from modules.backend.src.config import settings
 from modules.ai_agent_orchestration.src.adapters.gemini_adapter import get_llm_adapter
 from modules.ai_agent_orchestration.src.agents.adaptation_controller import AdaptationController
 from modules.ai_agent_orchestration.src.agents.assessment import AssessmentAgent
@@ -9,6 +10,9 @@ from modules.ai_agent_orchestration.src.agents.explainer import ExplainerAgent
 from modules.ai_agent_orchestration.src.agents.planner import PlannerAgent
 from modules.ai_agent_orchestration.src.agents.questioner import QuestionerAgent
 from modules.ai_agent_orchestration.src.service import AIOperationService
+from modules.ai_agent_orchestration.src.state_machine.langgraph_adapter import (
+    build_orchestration_runtime,
+)
 from modules.ai_agent_orchestration.src.state_machine.orchestrator import TeacherOrchestrator
 from modules.avatar_voice.src.service import AvatarVoiceService
 from modules.ml_core.src.service import MLCoreService
@@ -37,13 +41,33 @@ class RAGClient:
         result = self.rag.retrieve_context(document_id=document_id, query_text=concept)
         return [chunk.text for chunk in result.chunks]
 
-    def retrieve_detailed(self, document_id: str, concept: str) -> dict:
+    def retrieve_detailed(
+        self,
+        document_id: str,
+        concept: str,
+        topic: Optional[str] = None,
+        session_id: Optional[str] = None,
+        node_id: Optional[str] = None,
+    ) -> dict:
         """Retrieval with its provenance kept.
 
         retrieve_context() throws away chunk_id, page and section, so the
-        classroom could only ever show a bare excerpt with no source.
+        classroom could only ever show a bare excerpt with no source. Uses the
+        bounded agentic loop: a weakly-grounded first pass is refined once
+        before falling back to that first pass.
         """
-        result = self.rag.retrieve_context(document_id=document_id, query_text=concept)
+        # AGENTIC_RAG_ENABLED=false restores exact single-pass behaviour
+        # (max_refinements=0 short-circuits the loop before any retry).
+        result = self.rag.retrieve_context_agentic(
+            document_id=document_id,
+            query_text=concept,
+            topic=topic,
+            session_id=session_id,
+            node_id=node_id,
+            max_refinements=(
+                settings.agentic_rag_max_refinements if settings.agentic_rag_enabled else 0
+            ),
+        )
         chunks = [
             {
                 "chunk_id": c.chunk_id,
@@ -55,14 +79,17 @@ class RAGClient:
             for c in result.chunks
         ]
         logger.info(
-            "RAG retrieval document=%s concept=%r chunks=%s risk=%s top_scores=%s ids=%s",
-            document_id, concept, len(chunks), result.risk_level,
+            "RAG retrieval document=%s concept=%r chunks=%s risk=%s attempts=%s refined=%r top_scores=%s ids=%s",
+            document_id, concept, len(chunks), result.risk_level, result.attempts,
+            result.refined_query,
             [c["score"] for c in chunks[:3]], [c["chunk_id"] for c in chunks[:5]],
         )
         return {
             "chunks": chunks,
             "risk_level": result.risk_level,
             "has_sufficient_context": result.has_sufficient_context,
+            "attempts": result.attempts,
+            "refined_query": result.refined_query,
         }
 
     def get_document_outline(self, document_id: str) -> Optional[dict]:
@@ -150,6 +177,11 @@ def get_services() -> dict[str, Any]:
         ml_core_client=ml_core_service,
         avatar_client=avatar_voice_service,
     )
+
+    # ORCHESTRATION_RUNTIME=langgraph executes the same graph through LangGraph.
+    # Defaults to the built-in dispatcher, and falls back to it if the optional
+    # dependency is missing, so the teaching loop can never fail to start.
+    orchestrator = build_orchestration_runtime(orchestrator, settings.orchestration_runtime)
 
     return {
         "ai_service": AIOperationService(orchestrator=orchestrator),

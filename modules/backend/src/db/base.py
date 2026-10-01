@@ -151,6 +151,12 @@ def _seed_default_users() -> None:
                     "password": settings.default_demo_password,
                     "role": "teacher",
                 },
+                {
+                    "email": "admin@shikshak.ai",
+                    "full_name": "Demo Admin",
+                    "password": settings.default_demo_password,
+                    "role": "admin",
+                },
             ]
             seeded = 0
             for acc in seed_accounts:

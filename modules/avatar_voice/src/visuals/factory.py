@@ -40,7 +40,4 @@ class VisualRendererFactory:
             v_type = getattr(visual_spec, "type", "diagram").lower().strip()
 
         renderer = self.renderers.get(v_type, self.renderers["diagram"])
-        result = renderer.render(visual_spec)
-        from modules.rag.src.perf import record_memory_checkpoint
-        record_memory_checkpoint(f"After visual renderer stage complete ({v_type})")
-        return result
+        return renderer.render(visual_spec)

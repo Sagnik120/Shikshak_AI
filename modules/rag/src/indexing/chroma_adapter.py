@@ -120,8 +120,6 @@ class ChromaVectorStoreAdapter(VectorStoreAdapter):
             except Exception as e:
                 logger.error(f"Failed to upsert chunks into ChromaDB: {e}")
 
-        from modules.rag.src.perf import record_memory_checkpoint
-        record_memory_checkpoint("After Chroma insertion")
         return [c.embedding_ref for c in chunks]
 
     def query_dense(
