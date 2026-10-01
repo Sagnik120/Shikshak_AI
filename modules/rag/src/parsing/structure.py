@@ -161,7 +161,15 @@ def extract_key_terms_tfidf(text: str, top_n: int = 15) -> List[str]:
         if len(paragraphs) < 2:
             paragraphs = [text]
 
-        stopwords = get_all_multilingual_stopwords()
+        from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
+
+        # Handed to the vectorizer (not only filtered afterwards) so a bigram
+        # can't smuggle a stopword in: "an object" and "one"/"you" used to be
+        # shown to learners as the document's key terms.
+        stopwords = get_all_multilingual_stopwords() | set(ENGLISH_STOP_WORDS)
+        # Indic stopwords don't survive this token pattern intact (matras split
+        # them), so they stay in the post-filter below rather than the vectorizer.
+        latin_stopwords = {w for w in stopwords if w.isascii()}
 
         # Unicode token pattern matching Latin, Devanagari, and Bengali tokens
         vectorizer = TfidfVectorizer(
@@ -169,7 +177,8 @@ def extract_key_terms_tfidf(text: str, top_n: int = 15) -> List[str]:
             ngram_range=(1, 2),
             max_df=0.90,
             min_df=1,
-            max_features=150
+            max_features=150,
+            stop_words=sorted(latin_stopwords),
         )
         tfidf_matrix = vectorizer.fit_transform(paragraphs)
         feature_names = vectorizer.get_feature_names_out()
@@ -190,7 +199,11 @@ def extract_key_terms_tfidf(text: str, top_n: int = 15) -> List[str]:
 
 def _fallback_key_terms(text: str, top_n: int = 15) -> List[str]:
     """Frequency-based fallback supporting Latin, Devanagari, and Bengali scripts."""
-    stop_words = get_all_multilingual_stopwords()
+    try:
+        from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
+    except ImportError:
+        ENGLISH_STOP_WORDS = frozenset()
+    stop_words = get_all_multilingual_stopwords() | set(ENGLISH_STOP_WORDS)
     # Match Latin, Devanagari, and Bengali tokens
     words = re.findall(r'[\u0900-\u097F\u0980-\u09FF]{2,}|[a-zA-Z]{3,}', text.lower())
     counts: dict[str, int] = {}
