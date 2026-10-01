@@ -110,21 +110,22 @@ def test_full_teaching_loop():
     eval_result3 = EvaluationResult(node_id="node_2", correct=False, confidence=0.8, partial_credit=0.0, feedback_text="")
     session.evaluation_history.append(eval_result3)
 
-    # 15. ADAPT (2nd consecutive failure -> one more re-explanation)
+    # 15. ADAPT (2nd consecutive failure -> rebuild THIS segment, not the plan)
     state, decision3 = orchestrator.step(state, session, {"eval_result": eval_result3})
     assert state == TeacherState.EXPLAIN
-    assert decision3.action == "MODIFY"
+    assert decision3.action == "REGENERATE"
+    assert session.current_feedback_override.startswith("REBUILD THIS SEGMENT")
 
-    # 3rd consecutive failure -> re-plan the remaining lesson
+    # 3rd wrong in the lesson (not yet more than 3) -> rebuild again
     state = TeacherState.ADAPT
     eval_result4 = EvaluationResult(node_id="node_2", correct=False, confidence=0.8, partial_credit=0.0, feedback_text="")
     session.evaluation_history.append(eval_result4)
 
     state, decision4 = orchestrator.step(state, session, {"eval_result": eval_result4})
-    assert state == TeacherState.PLAN
+    assert state == TeacherState.EXPLAIN
     assert decision4.action == "REGENERATE"
 
-    # 4th failure after the re-plan -> hand over to a human
+    # 4th wrong answer in the lesson (more than 3) -> hand over to a human
     state = TeacherState.ADAPT
     eval_result5 = EvaluationResult(node_id="node_2", correct=False, confidence=0.8, partial_credit=0.0, feedback_text="")
     session.evaluation_history.append(eval_result5)
