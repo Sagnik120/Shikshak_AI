@@ -2,7 +2,7 @@
 import { api } from "../api.js";
 import {
   $, el, clear, escapeHtml, icon, toast, requireAuth, mountHeader,
-  formatRelative, formatDuration, plural, STATUS_META, LEVEL_LABELS, emptyState,
+  formatRelative, formatDuration, plural, STATUS_META, lessonStatus, LEVEL_LABELS, emptyState,
 } from "../ui.js";
 
 const user = await requireAuth();
@@ -37,6 +37,7 @@ if (user) {
     root.append(
       buildHeading(firstName, stats),
       buildStats(stats),
+      ...((data.needs_attention || []).length ? [buildAttention(data.needs_attention)] : []),
       ...(data.resume_lesson ? [buildResume(data.resume_lesson)] : []),
       buildMainGrid(data)
     );
@@ -99,6 +100,44 @@ if (user) {
     return grid;
   }
 
+  /** Lessons paused for a mentor and concepts skipped to come back to. */
+  function buildAttention(items) {
+    const card = el("section", { class: "card card-pad", style: "margin-bottom:var(--sp-5)" });
+    card.innerHTML = `<h3 style="margin:0 0 var(--sp-3)">Needs your attention</h3>`;
+    const list = el("div", { class: "stack", style: "--gap:var(--sp-2)" });
+    items.forEach((item) => {
+      const row = el("div", { class: "row-between row-wrap", style: "gap:var(--sp-2)" });
+      const paused = item.kind === "paused";
+      const lessonQ = encodeURIComponent(item.lesson_id);
+      row.innerHTML = `
+        <div class="grow">
+          <span class="badge ${paused ? "badge-rose" : "badge-amber"}">${paused ? "Waiting for mentor" : "Needs review"}</span>
+          <span style="margin-left:6px;font-weight:600">${escapeHtml(item.concept)}</span>
+          <span class="subtle"> · ${escapeHtml(item.lesson_title)}</span>
+        </div>
+        ${
+          paused
+            ? `<a class="btn btn-secondary btn-sm" href="/classroom.html?lesson=${lessonQ}">Open lesson</a>`
+            : `<button class="btn btn-secondary btn-sm" type="button">Learn again</button>`
+        }`;
+      // One click: re-teach that concept straight away.
+      row.querySelector("button")?.addEventListener("click", async (event) => {
+        const button = event.currentTarget;
+        button.disabled = true;
+        try {
+          await api.relearnConcept(item.lesson_id, item.node_id);
+          window.location.href = `/classroom.html?lesson=${lessonQ}`;
+        } catch (error) {
+          toast(error.message, "error", 6000);
+          button.disabled = false;
+        }
+      });
+      list.append(row);
+    });
+    card.append(list);
+    return card;
+  }
+
   function buildResume(lesson) {
     const node = el("div", { class: "resume-card", style: "margin-bottom:var(--sp-5)" });
     node.innerHTML = `
@@ -148,7 +187,7 @@ if (user) {
 
     const list = el("div");
     for (const lesson of lessons) {
-      const status = STATUS_META[lesson.status] || STATUS_META.created;
+      const status = lessonStatus(lesson);
       const href =
         lesson.status === "completed"
           ? `/report.html?lesson=${encodeURIComponent(lesson.id)}`
