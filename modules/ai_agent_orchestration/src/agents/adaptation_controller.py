@@ -6,20 +6,27 @@ from modules.ai_agent_orchestration.src.schemas.evaluation import (
 )
 
 # An answer at or above this credit shows enough understanding to move on, with
-# the gap addressed in the next segment rather than by re-teaching the node.
+# the gap addressed in the rest of the segment rather than by re-teaching it.
 REINFORCE_CREDIT = 0.5
 
-# Attempts on a single node before each escalation rung.
-REGENERATE_AFTER = 3
-HUMAN_AFTER = 4
+# Wrong answers on the same concept, in a row, before its segment is rebuilt
+# from scratch instead of re-explained.
+REGENERATE_AFTER = 2
+
+# More wrong answers than this in one lesson hands the learner to a human.
+LESSON_WRONG_LIMIT = 3
+
+
+def is_wrong(ev: EvaluationResult) -> bool:
+    return not ev.correct and ev.partial_credit < REINFORCE_CREDIT
 
 
 class AdaptationController:
     """Rule-based controller mapping an evaluation to the next pedagogical action.
 
-    The ladder is: re-explain differently (MODIFY) -> re-plan the remaining
-    lesson (REGENERATE) -> hand over to a human (HUMAN). Escalation is driven by
-    attempts on the same node, so a learner who is close is never escalated.
+    Per concept: wrong once -> re-explain it differently (MODIFY); wrong again
+    -> rebuild that segment from scratch (REGENERATE). Across the lesson: more
+    than LESSON_WRONG_LIMIT wrong answers -> hand over to a human (HUMAN).
     """
 
     def decide(
@@ -40,41 +47,45 @@ class AdaptationController:
                 ),
             )
 
-        # Count consecutive unsuccessful attempts on this node, including the
-        # current one, resetting whenever the node was previously answered.
-        failures = 1
-        for past in reversed(session_history):
-            if past.node_id != node_id or past is current_eval:
-                continue
-            if past.correct:
-                break
-            failures += 1
-
-        # Close enough to continue: keep momentum and reinforce as we go, rather
-        # than re-teaching a node the student has largely understood.
-        if current_eval.partial_credit >= REINFORCE_CREDIT and failures < REGENERATE_AFTER:
+        if not is_wrong(current_eval):
+            # Close enough to continue: keep momentum and reinforce as we go.
             return AdaptationDecision(
                 action="ALLOW",
                 target_node_id=node_id,
                 reason=(
                     "Student showed solid partial understanding "
                     f"({int(current_eval.partial_credit * 100)}%). Continuing and "
-                    "reinforcing the missing detail in the next segment."
+                    "reinforcing the missing detail."
                 ),
             )
 
-        if failures >= HUMAN_AFTER:
+        past = [ev for ev in session_history if ev is not current_eval]
+        lesson_wrong = 1 + sum(1 for ev in past if is_wrong(ev))
+        if lesson_wrong > LESSON_WRONG_LIMIT:
             return AdaptationDecision(
                 action="HUMAN",
                 target_node_id=node_id,
-                reason="Repeated failures unresolved after regeneration. Escalating to human.",
+                reason=(
+                    f"{lesson_wrong} wrong answers in this lesson. "
+                    "Escalating to a human teacher."
+                ),
             )
 
-        if failures >= REGENERATE_AFTER:
+        # Consecutive wrong answers on this concept, including this one; a
+        # correct (or good-enough) answer on it resets the streak.
+        streak = 1
+        for ev in reversed(past):
+            if ev.node_id != node_id:
+                continue
+            if not is_wrong(ev):
+                break
+            streak += 1
+
+        if streak >= REGENERATE_AFTER:
             return AdaptationDecision(
                 action="REGENERATE",
                 target_node_id=node_id,
-                reason="Student failed multiple times. Regenerating the lesson segment.",
+                reason="Still unclear after a re-explanation. Rebuilding this segment from scratch.",
             )
 
         if current_eval.misconception_tag:
@@ -87,15 +98,8 @@ class AdaptationController:
                 ),
             )
 
-        if current_eval.partial_credit > 0:
-            return AdaptationDecision(
-                action="MODIFY",
-                target_node_id=node_id,
-                reason="Student received partial credit. Modifying explanation with new analogy.",
-            )
-
         return AdaptationDecision(
             action="MODIFY",
             target_node_id=node_id,
-            reason="Student answered incorrectly. Modifying explanation.",
+            reason="Student answered incorrectly. Re-explaining with a new approach.",
         )
