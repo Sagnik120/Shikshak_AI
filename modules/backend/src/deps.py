@@ -21,7 +21,7 @@ bearer_scheme = HTTPBearer(auto_error=False)
 def get_current_user(
     request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> User:
     """Resolve the authenticated, verified, active user from a Bearer access token or query parameter."""
     raw_token = (
@@ -61,7 +61,7 @@ def get_current_user(
 def get_optional_user(
     request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> Optional[User]:
     try:
         return get_current_user(request, credentials, db)
