@@ -5,6 +5,7 @@ Provides non-blocking job queuing and synchronous rendering methods matching Con
 
 import concurrent.futures
 import logging
+import os
 import threading
 import uuid
 from typing import Dict, Optional, Union
@@ -33,7 +34,7 @@ class AvatarVoiceService:
         tts_adapter: Optional[TTSAdapter] = None,
         avatar_adapter: Optional[AvatarAdapter] = None,
         output_dir: Optional[str] = None,
-        max_workers: int = 4,
+        max_workers: Optional[int] = None,
         compositor: Optional[FFmpegCompositor] = None,
         visuals: Optional[VisualRendererFactory] = None,
     ):
@@ -44,6 +45,14 @@ class AvatarVoiceService:
 
         self._jobs: Dict[str, RenderJobStatus] = {}
         self._lock = threading.Lock()
+        # Each render is an ffmpeg process using every core and ~1 GB at peak,
+        # so on a small host more parallel renders only make every learner's
+        # video slower and risk OOM. RENDER_WORKERS caps it per machine.
+        if max_workers is None:
+            try:
+                max_workers = max(1, int(os.getenv("RENDER_WORKERS", "4")))
+            except ValueError:
+                max_workers = 4
         self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers)
 
     def render_segment_sync(self, segment: Union[TeachingSegment, Dict]) -> RenderedVideoSegment:
