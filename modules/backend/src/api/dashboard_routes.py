@@ -11,17 +11,17 @@ router = APIRouter(tags=["dashboard"])
 
 
 @router.get("/dashboard")
-def dashboard(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def dashboard(user: User = Depends(get_current_user), db: Session = Depends(get_db, scope="function")):
     return lesson_service.dashboard_summary(db, user)
 
 
 @router.get("/analytics")
-def analytics(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def analytics(user: User = Depends(get_current_user), db: Session = Depends(get_db, scope="function")):
     return lesson_service.analytics(db, user)
 
 
 @router.get("/profile/learning")
-def learner_profile(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def learner_profile(user: User = Depends(get_current_user), db: Session = Depends(get_db, scope="function")):
     """The rolling mastery profile that drives adaptive planning."""
     profile = lesson_service.refresh_learner_profile(db, user.id)
     return {
@@ -38,3 +38,11 @@ def learner_profile(user: User = Depends(get_current_user), db: Session = Depend
         "longest_streak": profile.longest_streak,
         "total_learning_minutes": round(profile.total_learning_sec / 60.0, 1),
     }
+
+
+@router.get("/journey")
+def learner_journey(user: User = Depends(get_current_user), db: Session = Depends(get_db, scope="function")):
+    """Day-by-day activity, streaks, level, mastery and badges for the learner."""
+    from modules.backend.src.services import journey_service
+
+    return journey_service.journey(db, user)
