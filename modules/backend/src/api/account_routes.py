@@ -1,11 +1,17 @@
 """Account management: profile, preferences, password, sessions, deletion."""
 import logging
+import re
+import uuid
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from modules.backend.src.config import settings
 from modules.backend.src.db.base import get_db
 from modules.backend.src.db.models import Lesson, RefreshToken, User, utcnow
 from modules.backend.src.deps import get_current_user
@@ -29,26 +35,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/account", tags=["account"])
 
 
-def _user_out(user: User) -> UserOut:
-    return UserOut(
-        id=user.id,
-        email=user.email,
-        full_name=user.full_name,
-        initials=user.initials,
-        role=user.role,
-        is_verified=user.is_verified,
-        preferred_language=user.preferred_language,
-        preferred_level=user.preferred_level,
-        preferred_style=user.preferred_style,
-        default_time_budget_min=user.default_time_budget_min,
-        grade=user.grade,
-        board=user.board,
-        avatar_color=user.avatar_color,
-        mentor_name=user.mentor_name,
-        mentor_email=user.mentor_email,
-        created_at=user.created_at,
-        last_login_at=user.last_login_at,
-    )
+# One serializer for the user, shared with the auth routes.
+from modules.backend.src.api.auth_routes import _user_out  # noqa: E402
 
 
 @router.get("/profile", response_model=UserOut)
@@ -60,7 +48,7 @@ def get_profile(user: User = Depends(get_current_user)):
 def update_profile(
     payload: UpdateProfileRequest,
     user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     data = payload.model_dump(exclude_unset=True, exclude_none=True)
     if not data:
@@ -72,10 +60,88 @@ def update_profile(
             raise HTTPException(status_code=422, detail="Full name is too short.")
         data["full_name"] = cleaned
 
+    if "avatar_choice" in data:
+        # Picking an illustrated avatar replaces an uploaded photo.
+        _remove_avatar_file(user)
     for field, value in data.items():
         setattr(user, field, value)
     db.flush()
     return _user_out(user)
+
+
+# --------------------------------------------------------------------------
+# Profile photo
+# --------------------------------------------------------------------------
+
+AVATAR_MAX_BYTES = 4 * 1024 * 1024
+_AVATAR_NAME = re.compile(r"^[0-9a-f]{32}\.(png|jpg|webp)$")
+
+
+def _avatar_dir() -> Path:
+    path = settings.upload_root / "avatars"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _image_ext(data: bytes) -> Optional[str]:
+    """The real type from the file's bytes — never trust the name or header."""
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return "png"
+    if data[:3] == b"\xff\xd8\xff":
+        return "jpg"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "webp"
+    return None
+
+
+def _remove_avatar_file(user: User) -> None:
+    if user.avatar_path:
+        try:
+            Path(user.avatar_path).unlink(missing_ok=True)
+        except OSError:
+            pass
+        user.avatar_path = None
+
+
+@router.post("/avatar", response_model=UserOut)
+async def upload_avatar(
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db, scope="function"),
+):
+    data = await file.read(AVATAR_MAX_BYTES + 1)
+    if len(data) > AVATAR_MAX_BYTES:
+        raise HTTPException(status_code=413, detail="That image is over 4 MB — please choose a smaller one.")
+    ext = _image_ext(data)
+    if ext is None:
+        raise HTTPException(status_code=415, detail="Please upload a PNG, JPEG or WebP image.")
+    dest = _avatar_dir() / f"{uuid.uuid4().hex}.{ext}"
+    dest.write_bytes(data)
+    _remove_avatar_file(user)
+    user.avatar_path = str(dest)
+    user.avatar_choice = None
+    db.flush()
+    return _user_out(user)
+
+
+@router.delete("/avatar", response_model=UserOut)
+def remove_avatar(user: User = Depends(get_current_user), db: Session = Depends(get_db, scope="function")):
+    _remove_avatar_file(user)
+    db.flush()
+    return _user_out(user)
+
+
+@router.get("/avatar/file/{name}", include_in_schema=False)
+def avatar_file(name: str):
+    """Public: <img> tags can't send auth headers. The name is a random
+    128-bit id, so photos can't be enumerated."""
+    if not _AVATAR_NAME.match(name):
+        raise HTTPException(status_code=404, detail="Not found.")
+    path = _avatar_dir() / name
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Not found.")
+    media = {"png": "image/png", "jpg": "image/jpeg", "webp": "image/webp"}[name.rsplit(".", 1)[1]]
+    return FileResponse(path, media_type=media, headers={"Cache-Control": "public, max-age=31536000, immutable"})
 
 
 @router.post("/change-password", response_model=MessageResponse)
@@ -84,7 +150,7 @@ def change_password(
     request: Request,
     background: BackgroundTasks,
     user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     if not verify_password(payload.current_password, user.password_hash):
         raise HTTPException(status_code=400, detail="Your current password is incorrect.")
@@ -121,7 +187,7 @@ def change_password(
 def list_sessions(
     request: Request,
     user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     """Active sign-ins for this account, newest first."""
     now = datetime.now(timezone.utc)
@@ -159,7 +225,7 @@ def list_sessions(
 def revoke_session(
     session_row_id: str,
     user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     row = db.get(RefreshToken, session_row_id)
     if not row or row.user_id != user.id:
@@ -173,7 +239,7 @@ def revoke_session(
 @router.post("/sessions/revoke-all", response_model=MessageResponse)
 def revoke_all_sessions(
     user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     tokens = db.scalars(
         select(RefreshToken).where(
@@ -190,7 +256,7 @@ def revoke_all_sessions(
 def delete_account(
     payload: DeleteAccountRequest,
     user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     """Permanently delete the account and every lesson, document, and report it owns."""
     if not verify_password(payload.password, user.password_hash):
