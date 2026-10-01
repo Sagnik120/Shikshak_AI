@@ -3,11 +3,10 @@
 # ==============================================================================
 
 # --- Backend / API ---
-fastapi>=0.115.0
+fastapi>=0.121.0  # Depends(scope="function"): commit BEFORE the response is sent
 uvicorn[standard]>=0.30.0
 python-multipart>=0.0.9
 pydantic>=2.5.0
-gradio>=4.0.0
 
 # --- Database & auth ---
 sqlalchemy>=2.0.30
