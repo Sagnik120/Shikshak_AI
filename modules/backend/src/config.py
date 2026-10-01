@@ -67,6 +67,17 @@ class Settings:
     environment: str = os.getenv("ENVIRONMENT", "development")
     public_base_url: str = os.getenv("PUBLIC_BASE_URL", "http://localhost:8000").rstrip("/")
 
+    # --- Staff (admin / teacher) sign-up ---
+    @property
+    def admin_signup_code(self) -> str:
+        """Access code required by the staff sign-up form. Outside production a
+        demo code applies when none is configured; in production staff sign-up
+        stays closed until ADMIN_SIGNUP_CODE is set."""
+        code = os.getenv("ADMIN_SIGNUP_CODE", "").strip()
+        if code:
+            return code
+        return "" if self.environment == "production" else "SHIKSHAK-ADMIN"
+
     # --- Database ---
     database_url: str = os.getenv("DATABASE_URL", "sqlite:///data/shikshak.db")
     sql_echo: bool = _bool("SQL_ECHO", False)
@@ -148,6 +159,8 @@ class Settings:
         return [
             "http://localhost:8000",
             "http://127.0.0.1:8000",
+            "http://localhost:3000",  # the Next.js app (FRONTEND/) in development
+            "http://127.0.0.1:3000",
             "http://localhost:5173",
             "http://127.0.0.1:5173",
         ]
