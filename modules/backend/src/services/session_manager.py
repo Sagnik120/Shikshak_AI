@@ -36,6 +36,87 @@ class SessionManager:
 
     def __init__(self):
         self._lock = threading.RLock()
+        # (lesson_id, node_id) -> (render job id, script it renders). A learner
+        # who reconnects mid-render waits on the SAME job instead of paying for
+        # a second LLM call and render of a different script.
+        self._render_jobs: dict[tuple[str, str], tuple[str, str]] = {}
+
+    # -- reconnect support ---------------------------------------------------
+
+    def remember_render(self, lesson_id: str, node_id: str, job_id: str, script: str) -> None:
+        with self._lock:
+            self._render_jobs[(lesson_id, node_id)] = (job_id, script)
+
+    def render_job_for(self, lesson_id: str, node_id: str, script: str) -> Optional[str]:
+        with self._lock:
+            entry = self._render_jobs.get((lesson_id, node_id))
+        return entry[0] if entry and entry[1] == script else None
+
+    def restore_segment(self, lesson: Lesson, row) -> Any:
+        """Put the persisted explanation back as the session's recent segment,
+        so the question and grading use the script the learner actually saw."""
+        from modules.ai_agent_orchestration.src.schemas.teaching import TeachingSegment
+
+        visual = row.visual_json or {"type": row.visual_type or "diagram", "content": row.concept}
+        segment = TeachingSegment(
+            node_id=row.node_id,
+            script_text=row.script_text or "",
+            language=lesson.language or "en",
+            visual_spec=visual,
+            avatar_cue="neutral",
+            notes=row.notes_json or None,
+        )
+        self.get_or_restore(lesson).recent_segment = segment
+        return segment
+
+    def checkpoint_questions(self, lesson: Lesson, node: Any, segment: Any) -> list:
+        """Mid-video questions for this segment: [(word_offset, InteractionEvent)]."""
+        orchestrator = self._ai.orchestrator
+        positions = orchestrator.checkpoint_positions(getattr(segment, "script_text", "") or "")
+        if not positions:
+            return []
+        questions = orchestrator.generate_checkpoints(lesson.id, node, segment, positions)
+        return list(zip(positions, questions))
+
+    @staticmethod
+    def _history_from_db(lesson: Lesson) -> list:
+        """Graded answers so far, so lesson-wide escalation survives a restart."""
+        from modules.ai_agent_orchestration.src.schemas.evaluation import EvaluationResult
+
+        # Wrong answers before a "continue" or "learn again" no longer count.
+        reset = lesson.history_reset_at
+        graded = sorted(
+            (i for i in lesson.interactions
+             if i.correct is not None and (reset is None or i.asked_at >= reset)),
+            key=lambda i: i.asked_at,
+        )
+        return [
+            EvaluationResult(
+                node_id=i.node_id,
+                correct=bool(i.correct),
+                partial_credit=float(i.partial_credit or 0.0),
+                misconception_tag=i.misconception_tag,
+                confidence=min(1.0, max(0.0, float(i.confidence or 0.0))),
+                feedback_text=i.feedback_text or "",
+            )
+            for i in graded
+        ]
+
+    def reload_history(self, lesson: Lesson) -> None:
+        """Re-read the answer history (e.g. once a fresh-count window ends)."""
+        self.get_or_restore(lesson).evaluation_history = self._history_from_db(lesson)
+
+    def restore_question(self, lesson: Lesson, interaction) -> None:
+        """Re-arm grading for a question asked before the connection dropped."""
+        from modules.ai_agent_orchestration.src.schemas.interaction import InteractionEvent
+
+        self.get_or_restore(lesson).recent_question = InteractionEvent(
+            node_id=interaction.node_id,
+            question_text=interaction.question_text,
+            type=interaction.question_type,
+            options=list(interaction.options or []),
+            expected_concept=interaction.expected_concept or "",
+        )
 
     @property
     def _ai(self):
@@ -175,6 +256,7 @@ class SessionManager:
             except KeyError:
                 session = self._fresh_session(lesson, self.outline_for(lesson, db), db=db)
                 self._rehydrate_plan(session, lesson)
+                session.evaluation_history = self._history_from_db(lesson)
                 logger.info("Restored orchestrator session for lesson %s", lesson.id)
                 return session
 
@@ -188,6 +270,8 @@ class SessionManager:
     def reset(self, lesson_id: str) -> None:
         with self._lock:
             self._ai.sessions.pop(lesson_id, None)
+            for key in [k for k in self._render_jobs if k[0] == lesson_id]:
+                del self._render_jobs[key]
 
     # -- FSM driving ---------------------------------------------------------
 
@@ -235,6 +319,8 @@ class SessionManager:
             return TeacherState.DONE
         if not lesson.plan_json:
             return TeacherState.PLAN
+        if lesson.nodes and lesson.current_node_index >= len(lesson.nodes):
+            return TeacherState.DONE  # e.g. the last concept was skipped
         return _RESUMABLE.get(lesson.fsm_state, TeacherState.EXPLAIN)
 
     def current_node(self, lesson: Lesson) -> Optional[Any]:
