@@ -94,9 +94,18 @@ export const STATUS_META = {
   planned: { label: "Ready", cls: "badge badge-accent" },
   in_progress: { label: "In progress", cls: "badge badge-amber" },
   completed: { label: "Completed", cls: "badge badge-green" },
-  escalated: { label: "Needs a teacher", cls: "badge badge-rose" },
+  escalated: { label: "Waiting for mentor", cls: "badge badge-rose" },
   abandoned: { label: "Abandoned", cls: "badge" },
 };
+
+/** One status badge for a lesson, everywhere: a lesson that reached the end
+ *  with concepts to review is NOT completed. */
+export function lessonStatus(lesson) {
+  if (lesson.review_pending) {
+    return { label: `${lesson.to_review} to review`, cls: "badge badge-amber" };
+  }
+  return STATUS_META[lesson.status] || STATUS_META.created;
+}
 
 export function scoreClass(score) {
   if (score >= 75) return "high";
