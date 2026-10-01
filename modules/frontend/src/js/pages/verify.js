@@ -20,7 +20,7 @@ if (!redirectIfSignedIn()) {
 
     const devOtp = sessionStorage.getItem("shikshak.devOtp");
     if (devOtp && devNotice) {
-      showDevOtp(devNotice, devOtp);
+      showDevOtp(devNotice, devOtp, (code) => otp.fill(code));
     }
 
     const otp = wireOtpInputs($("#otp-inputs"), () => submit());
@@ -64,7 +64,7 @@ if (!redirectIfSignedIn()) {
         const response = await api.resendOtp(email, "verify_email");
         toast("A new code is on its way.", "success");
         if (response.dev_otp && devNotice) {
-          showDevOtp(devNotice, response.dev_otp);
+          showDevOtp(devNotice, response.dev_otp, (code) => otp.fill(code));
         }
         otp.clear();
         startCooldown(resendBtn, resendTimer, 60);

@@ -28,7 +28,7 @@ if (!redirectIfSignedIn()) {
 
     const devOtp = sessionStorage.getItem("shikshak.devOtp");
     if (devOtp && devNotice) {
-      showDevOtp(devNotice, devOtp);
+      showDevOtp(devNotice, devOtp, (code) => otp.fill(code));
       devNotice.hidden = false;
     }
 
@@ -86,7 +86,7 @@ if (!redirectIfSignedIn()) {
         const response = await api.resendOtp(email, "reset_password");
         toast("A new reset code is on its way.", "success");
         if (response.dev_otp && devNotice) {
-          showDevOtp(devNotice, response.dev_otp);
+          showDevOtp(devNotice, response.dev_otp, (code) => otp.fill(code));
           devNotice.hidden = false;
         }
         otp.clear();
